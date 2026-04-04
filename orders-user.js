@@ -1,3 +1,11 @@
+import { collection, getDocs } 
+from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 let orders = JSON.parse(localStorage.getItem("orders")) || [];
 
 const container = document.getElementById("orders-container");
@@ -59,3 +67,33 @@ function displayOrders() {
 }
 
 displayOrders();
+async function loadOrders() {
+  const ordersContainer = document.getElementById("orders-container");
+
+  ordersContainer.innerHTML = "Loading...";
+
+  try {
+    const querySnapshot = await getDocs(collection(db, "orders"));
+
+    ordersContainer.innerHTML = "";
+
+    querySnapshot.forEach(doc => {
+      const order = doc.data();
+
+      const div = document.createElement("div");
+      div.innerHTML = `
+        <h3>${order.customer.name}</h3>
+        <p>Phone: ${order.customer.phone}</p>
+        <p>Total: GHS ${order.total}</p>
+        <p>Status: ${order.status}</p>
+      `;
+
+      ordersContainer.appendChild(div);
+    });
+
+  } catch (err) {
+    console.error("Error loading orders:", err);
+  }
+}
+
+loadOrders();
