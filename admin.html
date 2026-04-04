@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel - BILLS MALL</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+  const password = prompt("Enter admin password:");
+
+  if (password !== "1234") {
+    alert("Access denied!");
+    window.location.href = "index.html";
+  }
+</script>
+
+  <header class="navbar">
+    <h1 class="logo">Admin Panel</h1>
+    <a href="index.html"><button>Back to Shop</button></a>
+  </header>
+    
+    <!-- Orders will show here -->
+  </div>
+  <div class="stats">
+  <div class="stat-card">
+    <h3 id="total-orders">0</h3>
+    <p>Total Orders</p>
+  </div>
+
+  <div class="stat-card">
+    <h3 id="total-revenue">0</h3>
+    <p>Total Revenue</p>
+  </div>
+
+  <div class="stat-card">
+    <h3 id="pending-orders">0</h3>
+    <p>Pending Orders</p>
+  </div>
+
+  <div class="admin-container" id="admin-container">
+  
+</div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

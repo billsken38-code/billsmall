@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Product Admin - BILLS MALL</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="navbar">
+    <h1 class="logo">Product Admin</h1>
+    <a href="index.html"><button>Back to Shop</button></a>
+  </header>
+<script>
+   const password = prompt("Enter admin password:");
+
+  if (password !== "1234") {
+    alert("Access denied!");
+    window.location.href = "index.html";
+  }
+</script>
+  <div class="admin-container">
+
+    <h2>Add Product</h2>
+
+    <input type="text" id="name" placeholder="Product Name">
+    <input type="number" id="price" placeholder="Price">
+
+    <select id="category">
+      <option value="electronics">Electronics</option>
+      <option value="fashion">Fashion</option>
+      <option value="home">Home</option>
+      <option value="beauty">Beauty</option>
+      <option value="sports">Sports</option>
+    </select>
+
+    <input type="text" id="images" placeholder="Image paths (comma separated)">
+    <label>Description:</label>
+<textarea id="product-description" placeholder="Enter product description"></textarea>
+<label>Variations (comma separated):</label>
+<input type="text" id="variations" placeholder="e.g. Size 38, Size 39, Size 40">
+    <button onclick="addProduct()">Add Product</button>
+
+    <h2>All Products</h2>
+    <div id="product-list"></div>
+ 
+  <script src="product-admin.js"></script>
+</body>
+</html>

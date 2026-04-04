@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BILLS MALL</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <h1 class="logo">BILLS MALL</h1>
+    <input type="text" placeholder="Search products..." id="search-input">
+   <div class="search-bar">
+  <button onclick="searchProducts()">Search</button>
+</div>
+ <a href="orders-user.html" class="orders-btn">My Orders</a>
+    <a href="cart.html">
+      <button class="cart-btn">Cart 🛒</button>
+    </a>
+  </header>
+  
+<a href="admin.html" class="admin-link">Admin</a>
+</a>
+
+  <!-- HERO SECTION -->
+  <section class="hero">
+    <h2>Welcome to BILLS MALL</h2>
+    <p>Best deals available now!</p>
+  </section>
+
+  <!-- MAIN LAYOUT -->
+  <div class="container">
+
+<!-- CATEGORY BAR -->
+<div class="category-bar">
+  <div class="category-card" onclick="filterCategory('all')">All</div>
+  <div class="category-card" onclick="filterCategory('electronics')">Electronics</div>
+  <div class="category-card" onclick="filterCategory('fashion')">Fashion</div>
+  <div class="category-card" onclick="filterCategory('home')">Home</div>
+  <div class="category-card" onclick="filterCategory('beauty')">Beauty</div>
+  <div class="category-card" onclick="filterCategory('sports')">Sports</div> 
+  <div class="category-card" onclick="filterCategory('Accessories')">Accessories</div>
+</div>
+
+    <!-- PRODUCTS -->
+    <section class="products" id="products-container">
+      <!-- Products will now be injected here by script.js -->
+    </section>
+
+  </div>
+
+  <div id="lightbox" class="lightbox">
+  <span class="close" onclick="closeLightbox()">&times;</span>
+  <img class="lightbox-img" src="">
+  <button class="prev" onclick="prevImage()">&#10094;</button>
+  <button class="next" onclick="nextImage()">&#10095;</button>
+</div>
+
+
+  <script src="script.js"></script>
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  import { getFirestore, collection, addDoc, getDocs } 
+  from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
+    authDomain: "bills-mall.firebaseapp.com",
+    projectId: "bills-mall",
+    storageBucket: "bills-mall.firebasestorage.app",
+    messagingSenderId: "741823099772",
+    appId: "1:741823099772:web:f152557c54cfc14e8caaf9",
+    measurementId: "G-KXGSYRH35E"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+</body>
+</html>
