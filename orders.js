@@ -2,10 +2,17 @@ import { collection, getDocs }
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-
+// 🔥 YOUR CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
+  authDomain: "bills-mall.firebaseapp.com",
+  projectId: "bills-mall",
+  storageBucket: "bills-mall.firebasestorage.app",
+  messagingSenderId: "741823099772",
+  appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
+};
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-let orders = JSON.parse(localStorage.getItem("orders")) || [];
 const container = document.getElementById("orders-container");
 
 if (orders.length === 0) {
@@ -41,22 +48,38 @@ async function loadOrders() {
   ordersContainer.innerHTML = "Loading...";
 
   try {
-    const querySnapshot = await getDocs(collection(db, "orders"));
+    const snapshot = await getDocs(collection(db, "orders"));
 
     ordersContainer.innerHTML = "";
 
-    querySnapshot.forEach(doc => {
+    snapshot.forEach(doc => {
       const order = doc.data();
 
       const div = document.createElement("div");
+      div.claalist.add("order-card");
+ let itemsHTML = "";
+      order.items.forEach(item => {
+        itemsHTML += `
+          <div>
+            <img src="${item.image}" width="60">
+            <p>${item.name} (${item.variation}) x ${item.quantity}</p>
+          </div>
+        `;
+      });
+
       div.innerHTML = `
         <h3>${order.customer.name}</h3>
-        <p>Phone: ${order.customer.phone}</p>
-        <p>Total: GHS ${order.total}</p>
-        <p>Status: ${order.status}</p>
-      `;
+        <p>${order.customer.phone}</p>
+        <p>${order.customer.address}</p>
+        <p><b>Location:</b> ${order.customer.location}</p>
 
-      ordersContainer.appendChild(div);
+        ${itemsHTML}
+
+        <p><b>Total:</b> GHS ${order.total}</p>
+        <p><b>Status:</b> ${order.status}</p>
+        <hr>
+      `;
+   container.appendChild(div);
     });
 
   } catch (err) {
