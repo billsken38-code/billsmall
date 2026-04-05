@@ -208,10 +208,14 @@ async function placeOrder(paymentType) {
 
   let orders = JSON.parse(localStorage.getItem("orders")) || [];
  const userId = localStorage.getItem("userId") || phone;
-  const newOrder = {
+ const updatedCart = cart.map(item => ({
+  ...item,
+  image: "https://billsken38-code.github.io/bills-mall/" + item.image
+}));
+ const newOrder = {
     userId: userId, 
     customer: { name, phone, address, location }, // ✅ include location
-    items: cart,
+    items: updatedCart,
     total: finalTotal,
     deliveryFee: deliveryFee,
     paymentMethod: paymentType,
