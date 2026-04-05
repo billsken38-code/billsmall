@@ -111,6 +111,8 @@ function updateStatus(index, status) {
 displayOrders();
 updateStats();
 async function loadOrders() {
+  let totalOrders = 0;
+let totalRevenue = 0;
   const container = document.getElementById("orders-container");
 
   container.innerHTML = "Loading orders...";
@@ -122,6 +124,12 @@ async function loadOrders() {
 
     snapshot.forEach(doc => {
       const order = doc.data();
+
+  // ✅ COUNT ORDERS
+  totalOrders++;
+
+  // ✅ ADD REVENUE
+  totalRevenue += Number(order.total) || 0;
 
       const div = document.createElement("div");
       div.classList.add("order-card");
@@ -152,10 +160,11 @@ async function loadOrders() {
 
       container.appendChild(div);
     });
+document.getElementById("total-orders").textContent = totalOrders;
+document.getElementById("total-revenue").textContent = "GHS " + totalRevenue;
 
   } catch (err) {
     console.error("Error loading orders:", err);
   }
 }
-
 loadOrders();
