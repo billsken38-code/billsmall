@@ -207,8 +207,9 @@ async function placeOrder(paymentType) {
   let finalTotal = total + deliveryFee;
 
   let orders = JSON.parse(localStorage.getItem("orders")) || [];
-
+ const userId = localStorage.getItem("userId") || phone;
   const newOrder = {
+    userId: userId, 
     customer: { name, phone, address, location }, // ✅ include location
     items: cart,
     total: finalTotal,

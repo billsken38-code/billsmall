@@ -21,7 +21,7 @@ if (orders.length === 0) {
   orders.forEach((order, index) => {
     let div = document.createElement("div");
     div.classList.add("order-card");
-
+localStorage.setItem("userId", phone);
     let itemsHTML = order.items.map(item => `
       <p>${item.name} x ${item.quantity} = GHS ${item.price * item.quantity}</p>
     `).join("");
@@ -43,35 +43,45 @@ if (orders.length === 0) {
   });
 }
 async function loadOrders() {
-  const ordersContainer = document.getElementById("orders-container");
+  const container =
+    document.getElementById("orders-container") ||
+    document.getElementById("admin-container");
 
-  ordersContainer.innerHTML = "Loading...";
+  if (!container) return;
+
+  const isUserPage = document.getElementById("orders-container"); // user page
+  const currentUser = localStorage.getItem("userId");
+
+  container.innerHTML = "Loading orders...";
 
   try {
     const snapshot = await getDocs(collection(db, "orders"));
 
-    ordersContainer.innerHTML = "";
+    container.innerHTML = "";
 
     snapshot.forEach(doc => {
       const order = doc.data();
 
-      const div = document.createElement("div");
-      div.claalist.add("order-card");
- let itemsHTML = "";
+      // 🔒 FILTER FOR USER PAGE
+      if (isUserPage && order.userId !== currentUser) return;
+
+      let itemsHTML = "";
+
       order.items.forEach(item => {
         itemsHTML += `
-          <div>
+          <div style="display:flex; gap:10px;">
             <img src="${item.image}" width="60">
-            <p>${item.name} (${item.variation}) x ${item.quantity}</p>
+            <p>${item.name} x ${item.quantity}</p>
           </div>
         `;
       });
+
+      const div = document.createElement("div");
 
       div.innerHTML = `
         <h3>${order.customer.name}</h3>
         <p>${order.customer.phone}</p>
         <p>${order.customer.address}</p>
-        <p><b>Location:</b> ${order.customer.location}</p>
 
         ${itemsHTML}
 
@@ -79,12 +89,11 @@ async function loadOrders() {
         <p><b>Status:</b> ${order.status}</p>
         <hr>
       `;
-   container.appendChild(div);
+
+      container.appendChild(div);
     });
 
   } catch (err) {
-    console.error("Error loading orders:", err);
+    console.error("Error:", err);
   }
 }
-
-loadOrders();

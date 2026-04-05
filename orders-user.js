@@ -1,7 +1,9 @@
-import { collection, getDocs } 
-from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+// 🔥 IMPORT FIREBASE
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs } 
+from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+// 🔥 CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
@@ -10,71 +12,18 @@ const firebaseConfig = {
   messagingSenderId: "741823099772",
   appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
 };
+
+// 🔥 INIT FIREBASE
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app)
+const db = getFirestore(app);
 
-const container = document.getElementById("orders-container");
-
-function displayOrders() {
-  container.innerHTML = "";
-
-  if (orders.length === 0) {
-    container.innerHTML = "<p>No orders yet.</p>";
-    return;
-  }
-
-  orders.reverse().forEach((order, orderIndex) => {
-    let div = document.createElement("div");
-    div.classList.add("order-card");
-
-    // 🖼️ ITEMS WITH IMAGES
-    let itemsHTML = order.items.map(item => `
-      <div class="order-item">
-        <img src="${item.images ? item.images[0] : item.image}" class="order-img">
-
-        <div>
-          <p><strong>${item.name}</strong></p>
-          <p>${item.variation ? "Option: " + item.variation : ""}</p>
-          <p>Qty: ${item.quantity}</p>
-        </div>
-      </div>
-    `).join("");
-
-    // 🚚 TRACKING STATUS
-    let statusSteps = ["Order placed", "Shipped", "Delivered"];
-
-    let trackingHTML = statusSteps.map(step => `
-      <span class="track-step ${order.status === step ? "active" : ""}">
-        ${step}
-      </span>
-    `).join(" ➝ ");
-
-    div.innerHTML = `
-      <h3>${order.customer.name}</h3>
-
-      <div class="order-items">
-        ${itemsHTML}
-      </div>
-
-      <p><strong>Delivery Fee:</strong> GHS ${order.deliveryFee}</p>
-      <p><strong>Total:</strong> GHS ${order.total}</p>
-
-      <div class="tracking">
-        ${trackingHTML}
-      </div>
-
-      <p class="status">${order.status}</p>
-      <small>${order.date}</small>
-    `;
-
-    container.appendChild(div);
-  });
-}
-
-displayOrders();
-// 🔥 LOAD ORDERS
+// 🔥 LOAD ORDERS FROM FIREBASE
 async function loadOrders() {
-  const container = document.getElementById("orders-container");
+  const container =
+    document.getElementById("orders-container") ||
+    document.getElementById("admin-container");
+
+  if (!container) return;
 
   container.innerHTML = "Loading orders...";
 
@@ -86,19 +35,25 @@ async function loadOrders() {
     snapshot.forEach(doc => {
       const order = doc.data();
 
-      const div = document.createElement("div");
-      div.classList.add("order-card");
-
-      // 🔥 SHOW ITEMS + IMAGES
       let itemsHTML = "";
+
       order.items.forEach(item => {
         itemsHTML += `
-          <div>
+          <div style="display:flex; gap:10px; align-items:center;">
             <img src="${item.image}" width="60">
-            <p>${item.name} (${item.variation}) x ${item.quantity}</p>
+            <div>
+              <p>${item.name}</p>
+              <p>${item.variation || "No variation"}</p>
+              <p>Qty: ${item.quantity}</p>
+            </div>
           </div>
         `;
       });
+
+      const div = document.createElement("div");
+      div.style.border = "1px solid #ccc";
+      div.style.margin = "10px";
+      div.style.padding = "10px";
 
       div.innerHTML = `
         <h3>${order.customer.name}</h3>
@@ -109,7 +64,7 @@ async function loadOrders() {
         ${itemsHTML}
 
         <p><b>Total:</b> GHS ${order.total}</p>
-        <p><b>Status:</b> ${order.status}</p>
+        <p><b>Status:</b> ${order.status || "Pending"}</p>
         <hr>
       `;
 
@@ -121,4 +76,5 @@ async function loadOrders() {
   }
 }
 
+// 🚀 RUN
 loadOrders();
