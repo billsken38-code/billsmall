@@ -112,7 +112,8 @@ displayOrders();
 updateStats();
 async function loadOrders() {
   let totalOrders = 0;
-let totalRevenue = 0;
+  let totalRevenue = 0;
+  let pendingOrders = 0;
   const container = document.getElementById("orders-container");
 
   container.innerHTML = "Loading orders...";
@@ -130,7 +131,11 @@ let totalRevenue = 0;
 
   // ✅ ADD REVENUE
   totalRevenue += Number(order.total) || 0;
-
+   
+  // ✅ COUNT PENDING
+  if ((order.status || "").toLowerCase() === "pending") {
+    pendingOrders++;
+  }
       const div = document.createElement("div");
       div.classList.add("order-card");
 
@@ -160,11 +165,11 @@ let totalRevenue = 0;
 
       container.appendChild(div);
     });
-document.getElementById("total-orders").textContent = totalOrders;
-document.getElementById("total-revenue").textContent = "GHS " + totalRevenue;
-
+   
   } catch (err) {
     console.error("Error loading orders:", err);
+    console.log("Orders:", totalOrders);
+    console.log("Revenue:", totalRevenue);
   }
 }
 loadOrders();
