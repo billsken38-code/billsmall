@@ -1,23 +1,26 @@
-// Load products from localStorage or default
-let products = JSON.parse(localStorage.getItem("products")) || [
-  
-{
-  name: "Sneakers",
-  price: 120,
-  image: "images/shoe.jpg",
-  description: "Comfortable and stylish sneakers for everyday wear.",
-  variations: ["Size 38", "Size 39", "Size 40"]
-}
-  
-];
-function saveProducts() {
-  localStorage.setItem("products", JSON.stringify(products));
+// 🔥 FIREBASE IMPORTS
+import { getFirestore, collection, getDocs } 
+from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+const db = getFirestore();
+
+// 🔥 GLOBAL PRODUCTS ARRAY
+let products = [];
+
+// 🔥 LOAD PRODUCTS FROM FIREBASE
+async function loadProducts() {
+  const snapshot = await getDocs(collection(db, "products"));
+
+  products = [];
+
+  snapshot.forEach(doc => {
+    products.push(doc.data());
+  });
+
+  displayProducts(products);
 }
 
-// Cart system
-let cart = JSON.parse(localStorage.getItem("cart")) || [];
-
-// display products
+// 🔥 DISPLAY PRODUCTS
 function displayProducts(list) {
   const productContainer = document.getElementById("products-container");
   productContainer.innerHTML = "";
@@ -28,28 +31,21 @@ function displayProducts(list) {
 
     div.innerHTML = `
       <div onclick="goToDetails(${index})" style="cursor:pointer;">
-      <img src="${product.images[0]}" class="main-img" alt="${product.name}"
-      <h4>${product.name}</h4>
-      <p>GHS ${product.price}</p>
-     <p>${product.description}</p>
-  
-     <button onclick="addToCart(${index})">Add to Cart</button>`;
+        <img src="${product.images ? product.images[0] : product.image}" class="main-img" alt="${product.name}">
+        <h4>${product.name}</h4>
+        <p>GHS ${product.price}</p>
+        <p>${product.description || ""}</p>
+      </div>
+
+      <button onclick="addToCart(${index})">Add to Cart</button>
+    `;
 
     productContainer.appendChild(div);
   });
 }
-  
-// Initial display
-displayProducts(products);
-document.addEventListener("keydown", function(e) {
-  if (e.ctrlKey && e.key === "a") {
-    document.getElementById("admin-link").style.display = "block";
-    alert("Admin link unlocked!");
-  }
-});
-// Add to cart
+
+// 🔥 CART SYSTEM
 function addToCart(index) {
-  let products = JSON.parse(localStorage.getItem("products")) || [];
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
   let product = products[index];
@@ -58,25 +54,23 @@ function addToCart(index) {
 
   if (existing) {
     existing.quantity = (existing.quantity || 1) + 1;
-  }
-   else {
-  cart.push({
-  name: product.name,
-  price: product.price,
-  images: product.images ? product.images : [product.image],
-  description: product.description ? product.description : "",
-  variation: selectedVariation || null,
-  quantity: 1
-});
+  } else {
+    cart.push({
+      name: product.name,
+      price: product.price,
+      images: product.images ? product.images : [product.image],
+      description: product.description || "",
+      quantity: 1
+    });
   }
 
   localStorage.setItem("cart", JSON.stringify(cart));
 
   alert("Added to cart!");
-updateCartCount();
+  updateCartCount();
 }
 
-// Update cart count
+// 🔥 UPDATE CART COUNT
 function updateCartCount() {
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
   const cartBtn = document.querySelector(".cart-btn");
@@ -92,17 +86,19 @@ function updateCartCount() {
 
 updateCartCount();
 
-// Search products
+// 🔥 SEARCH PRODUCTS
 function searchProducts() {
   const input = document.getElementById("search-input").value.toLowerCase();
+
   const filtered = products.filter(product =>
     product.name.toLowerCase().includes(input) ||
-    product.category.toLowerCase().includes(input)
+    (product.category && product.category.toLowerCase().includes(input))
   );
+
   displayProducts(filtered);
 }
 
-// Filter by category
+// 🔥 FILTER CATEGORY
 function filterCategory(category) {
   if (category === "all") {
     displayProducts(products);
@@ -112,22 +108,20 @@ function filterCategory(category) {
   }
 }
 
-// change product element
-function changeImage(element) {
-  const mainImage = element.closest('.product').querySelector('.main-img');
-  mainImage.src = element.src;
-}
-
-//lightbox 
+// 🔥 LIGHTBOX
 let currentProductIndex = 0;
 let currentImageIndex = 0;
 
 function openLightbox(productIndex) {
   currentProductIndex = productIndex;
   currentImageIndex = 0;
+
   const lb = document.getElementById("lightbox");
   lb.style.display = "flex";
-  document.querySelector(".lightbox-img").src = products[productIndex].images[0];
+
+  const product = products[productIndex];
+  document.querySelector(".lightbox-img").src =
+    product.images ? product.images[0] : product.image;
 }
 
 function closeLightbox() {
@@ -136,14 +130,35 @@ function closeLightbox() {
 
 function nextImage() {
   const product = products[currentProductIndex];
+
+  if (!product.images) return;
+
   currentImageIndex = (currentImageIndex + 1) % product.images.length;
-  document.querySelector(".lightbox-img").src = product.images[currentImageIndex];}
+  document.querySelector(".lightbox-img").src = product.images[currentImageIndex];
+}
+
 function prevImage() {
   const product = products[currentProductIndex];
+
+  if (!product.images) return;
+
   currentImageIndex = (currentImageIndex - 1 + product.images.length) % product.images.length;
   document.querySelector(".lightbox-img").src = product.images[currentImageIndex];
-  }
-  function goToDetails(index) {
+}
+
+// 🔥 GO TO DETAILS PAGE
+function goToDetails(index) {
   localStorage.setItem("selectedProduct", index);
   window.location.href = "product.html";
 }
+
+// 🔥 ADMIN SHORTCUT
+document.addEventListener("keydown", function(e) {
+  if (e.ctrlKey && e.key === "a") {
+    document.getElementById("admin-link").style.display = "block";
+    alert("Admin link unlocked!");
+  }
+});
+
+// 🚀 LOAD PRODUCTS ON PAGE LOAD
+loadProducts();

@@ -1,23 +1,46 @@
-// Load products
-let products = JSON.parse(localStorage.getItem("products")) || [];
+// 🔥 FIREBASE IMPORTS
+import { getFirestore, collection, getDocs } 
+from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+const db = getFirestore();
+
+// 🔥 GLOBAL PRODUCTS
+let products = [];
+
+// 🔥 GET SELECTED PRODUCT INDEX
 let index = localStorage.getItem("selectedProduct");
 
-// Safety check
-if (index === null || !products[index]) {
-  document.getElementById("product-details").innerHTML = "<p>Product not found</p>";
-} else {
+// 🔥 LOAD PRODUCTS FROM FIREBASE
+async function loadProductDetails() {
+  const snapshot = await getDocs(collection(db, "products"));
+
+  products = [];
+
+  snapshot.forEach(doc => {
+    products.push(doc.data());
+  });
+
+  showProduct();
+}
+
+// 🔥 DISPLAY PRODUCT
+function showProduct() {
+  const container = document.getElementById("product-details");
+
+  if (index === null || !products[index]) {
+    container.innerHTML = "<p>Product not found</p>";
+    return;
+  }
 
   let product = products[index];
 
-  // ✅ Handle images (old + new format)
+  // ✅ Handle images
   let images = product.images ? product.images : [product.image];
 
   // ✅ Create thumbnails
   const imagesHTML = images.map(img => `
     <img src="${img}" class="thumb" onclick="changeMainImage('${img}')">
   `).join("");
-
-  const container = document.getElementById("product-details");
 
   container.innerHTML = `
     <div class="details-container">
@@ -37,7 +60,7 @@ if (index === null || !products[index]) {
         <p><strong>GHS ${product.price}</strong></p>
 
         <p class="details-description">
-          ${product.description ? product.description : "No description available"}
+          ${product.description || "No description available"}
         </p>
 
         ${product.variations ? `
@@ -60,7 +83,7 @@ if (index === null || !products[index]) {
   `;
 }
 
-// ✅ Variation selection
+// 🔥 VARIATION
 let selectedVariation = null;
 
 function selectVariation(value, element) {
@@ -73,14 +96,13 @@ function selectVariation(value, element) {
   element.classList.add("active");
 }
 
-// ✅ Change main image
+// 🔥 CHANGE IMAGE
 function changeMainImage(src) {
   document.getElementById("main-image").src = src;
 }
 
-// ✅ Add to cart
+// 🔥 ADD TO CART
 function addToCart(index) {
-  let products = JSON.parse(localStorage.getItem("products")) || [];
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
   let product = products[index];
@@ -112,3 +134,6 @@ function addToCart(index) {
 
   alert("Added to cart!");
 }
+
+// 🚀 LOAD PRODUCT ON PAGE LOAD
+loadProductDetails();
