@@ -111,10 +111,7 @@ function updateStatus(index, status) {
 displayOrders();
 updateStats();
 async function loadOrders() {
-  let totalOrders = 0;
-  let totalRevenue = 0;
-  let pendingOrders = 0;
-  const container = document.getElementById("orders-container");
+    const container = document.getElementById("orders-container");
 
   container.innerHTML = "Loading orders...";
 
@@ -126,13 +123,10 @@ async function loadOrders() {
     snapshot.forEach(doc => {
       const order = doc.data();
 
-  // ✅ COUNT ORDERS
+  
   totalOrders++;
-
-  // ✅ ADD REVENUE
   totalRevenue += Number(order.total) || 0;
    
-  // ✅ COUNT PENDING
   if ((order.status || "").toLowerCase() === "pending") {
     pendingOrders++;
   }
@@ -165,7 +159,13 @@ async function loadOrders() {
 
       container.appendChild(div);
     });
-   
+   const cardOrdersEl = document.getElementById("card-total-orders");
+const cardRevenueEl = document.getElementById("card-total-revenue");
+const cardPendingEl = document.getElementById("card-pending-orders");
+
+if (cardOrdersEl) cardOrdersEl.textContent = totalOrders;
+if (cardRevenueEl) cardRevenueEl.textContent = "GHS " + totalRevenue;
+if (cardPendingEl) cardPendingEl.textContent = pendingOrders;
   } catch (err) {
     console.error("Error loading orders:", err);
     console.log("Orders:", totalOrders);
