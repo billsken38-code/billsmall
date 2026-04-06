@@ -71,3 +71,7 @@ function deleteProduct(index) {
 
 // Initial display
 displayProducts();
+// 🔥 MAKE FUNCTIONS GLOBAL
+window.addToCart = addToCart;
+window.selectVariation = selectVariation;
+window.changeMainImage = changeMainImage;

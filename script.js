@@ -162,3 +162,7 @@ document.addEventListener("keydown", function(e) {
 
 // 🚀 LOAD PRODUCTS ON PAGE LOAD
 loadProducts();
+window.addToCart = addToCart;
+window.goToDetails = goToDetails;
+window.searchProducts = searchProducts;
+window.filterCategory = filterCategory;
