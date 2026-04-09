@@ -39,7 +39,7 @@ async function displayProducts() {
     `;
 
     productList.appendChild(div);
-  });
+  })
 }
 
 async function addProduct() {
