@@ -45,7 +45,7 @@ async function loadOrders() {
       order.items.forEach(item => {
         itemsHTML += `
           <div style="display:flex; gap:10px;">
-            <img src="${item.image}" width="60">
+           <img src="${item.images ? item.images[0] : item.image || ''}" width="60">
             <p>${item.name} x ${item.quantity}</p>
           </div>
         `;
