@@ -21,7 +21,7 @@ button:hover {
 }
 
 /* =======================
-   NAVBAR (UPDATED 🔥)
+   NAVBAR
 ======================= */
 .navbar {
   position: sticky;
@@ -29,8 +29,8 @@ button:hover {
   z-index: 1000;
 
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
 
   background-color: #4B2E2B;
   color: white;
@@ -41,42 +41,48 @@ button:hover {
   margin: 0;
 }
 
-/* NAV LINKS */
-.nav-links {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-}
-
-.nav-links a {
-  color: white;
-  text-decoration: none;
-  font-weight: 500;
-}
-
 /* SEARCH */
 .search-bar {
   display: flex;
-  align-items: center;
   gap: 5px;
+  flex: 1;
+  max-width: 400px;
 }
 
 .search-bar input {
   padding: 8px;
   border-radius: 5px;
   border: none;
-  width: 200px;
+  width: 100%;
 }
 
-/* CART BUTTON */
+/* CART */
 .cart-btn {
   background: #8B5E3C;
+  white-space: nowrap;
 }
 
 /* HAMBURGER */
 .hamburger {
   display: none;
   font-size: 26px;
+  cursor: pointer;
+}
+
+/* NAV LINKS (MOBILE MENU) */
+.nav-links {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.nav-links a,
+.nav-links button {
+  color: white;
+  background: none;
+  border: none;
+  font-size: 16px;
   cursor: pointer;
 }
 
@@ -107,12 +113,10 @@ button:hover {
   border-radius: 20px;
   cursor: pointer;
   font-weight: bold;
-  transition: 0.3s;
 }
 
 .category-card:hover {
   background: #4B2E2B;
-  transform: scale(1.05);
 }
 
 /* =======================
@@ -136,255 +140,6 @@ button:hover {
   width: 100%;
   max-height: 150px;
   object-fit: contain;
-  border-radius: 10px;
-  background-color: #f5f5f5;
-}
-
-/* =======================
-   PRODUCT DETAILS
-======================= */
-.details-container {
-  display: flex;
-  gap: 40px;
-  padding: 20px;
-  flex-wrap: wrap;
-}
-
-.details-left,
-.details-right {
-  flex: 1;
-}
-
-.details-img {
-  width: 100%;
-  max-width: 400px;
-  border-radius: 10px;
-}
-
-.details-description {
-  background-color: #8B5E3C;
-  color: white;
-  padding: 15px;
-  border-radius: 10px;
-  margin: 15px 0;
-  line-height: 1.5;
-}
-
-/* =======================
-   THUMBNAILS
-======================= */
-.thumbnail-container {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-  justify-content: center;
-}
-
-.thumb {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 5px;
-  cursor: pointer;
-  border: 2px solid transparent;
-}
-
-.thumb:hover {
-  border-color: #8B5E3C;
-}
-
-/* =======================
-   VARIATIONS
-======================= */
-.variation-container {
-  display: flex;
-  gap: 10px;
-  margin: 15px 0;
-}
-
-.variation-btn {
-  padding: 10px 18px;
-  border: 2px solid #8B5E3C;
-  background-color: #f5e6dc;
-  color: #5C3A21;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: 0.3s;
-}
-
-.variation-btn:hover {
-  background-color: #8B5E3C;
-  color: white;
-}
-
-.variation-btn.active {
-  background-color: #5C3A21;
-  color: white;
-  border-color: #5C3A21;
-}
-
-/* =======================
-   CART
-======================= */
-.cart-page {
-  padding: 20px;
-}
-
-.cart-item {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 15px;
-  background: white;
-  padding: 10px;
-  border-radius: 10px;
-  align-items: center;
-}
-
-.cart-details h4 {
-  margin: 0;
-}
-
-.cart-details p {
-  margin: 5px 0;
-}
-
-.cart-variation {
-  font-size: 14px;
-  color: #8B5E3C;
-}
-
-.quantity-controls {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-
-.remove-btn {
-  background: #8B5E3C;
-  padding: 5px 10px;
-}
-
-/* =======================
-   CHECKOUT
-======================= */
-.checkout-container {
-  display: flex;
-  justify-content: space-around;
-  padding: 20px;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.customer-info,
-.order-summary {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  width: 40%;
-  min-width: 280px;
-}
-
-.customer-info input {
-  display: block;
-  width: 100%;
-  margin: 10px 0;
-  padding: 10px;
-}
-
-/* =======================
-   ORDERS
-======================= */
-.orders-container {
-  padding: 20px;
-}
-
-.order-card {
-  background: white;
-  padding: 15px;
-  margin: 20px 0;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-}
-
-.order-item {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-  align-items: center;
-}
-
-.order-img {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 8px;
-}
-
-.tracking {
-  margin: 10px 0;
-  font-size: 14px;
-}
-
-.track-step {
-  color: gray;
-}
-
-.track-step.active {
-  color: green;
-  font-weight: bold;
-}
-
-.status {
-  font-weight: bold;
-  margin-top: 5px;
-}
-
-.status.pending { color: orange; }
-.status.paid { color: green; }
-.status.shipped { color: purple; }
-.status.delivered { color: blue; }
-
-/* =======================
-   ADMIN
-======================= */
-.admin-container {
-  padding: 20px;
-}
-
-.admin-card {
-  background: white;
-  padding: 15px;
-  margin-bottom: 15px;
-  border-radius: 10px;
-}
-
-.admin-container input,
-.admin-container select {
-  display: block;
-  margin: 10px 0;
-  padding: 10px;
-  width: 300px;
-}
-
-.stats {
-  display: flex;
-  gap: 20px;
-  padding: 20px;
-  flex-wrap: wrap;
-}
-
-.stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  flex: 1;
-  text-align: center;
-}
-
-.stat-card h3 {
-  margin: 0;
-  font-size: 24px;
-  color: #4B2E2B;
 }
 
 /* =======================
@@ -393,47 +148,33 @@ button:hover {
 .lightbox {
   display: none;
   position: fixed;
-  z-index: 1000;
   inset: 0;
-  background-color: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.8);
   justify-content: center;
   align-items: center;
 }
 
 .lightbox-img {
   max-width: 80%;
-  max-height: 80%;
-  border-radius: 10px;
 }
 
-.lightbox .close {
+.close {
   position: absolute;
   top: 20px;
-  right: 40px;
+  right: 30px;
   font-size: 40px;
   color: white;
   cursor: pointer;
 }
 
-.lightbox .prev,
-.lightbox .next {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 50px;
-  color: white;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.lightbox .prev { left: 30px; }
-.lightbox .next { right: 30px; }
-
 /* =======================
-   MOBILE NAV (🔥 HAMBURGER)
+   MOBILE
 ======================= */
 @media (max-width: 768px) {
+  .navbar {
+    flex-wrap: wrap;
+  }
+
   .hamburger {
     display: block;
   }
@@ -447,7 +188,6 @@ button:hover {
 
     flex-direction: column;
     align-items: center;
-    gap: 20px;
     padding: 20px;
 
     display: none;
@@ -458,23 +198,11 @@ button:hover {
   }
 
   .search-bar {
-    width: 90%;
-  }
-
-  .search-bar input {
     width: 100%;
+    order: 3;
   }
 
-  .details-container {
-    flex-direction: column;
-  }
-
-  .checkout-container {
-    flex-direction: column;
-  }
-
-  .customer-info,
-  .order-summary {
-    width: 100%;
+  .cart-btn {
+    order: 2;
   }
 }

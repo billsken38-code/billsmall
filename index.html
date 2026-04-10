@@ -16,39 +16,35 @@
 </script>
 
 <!-- =======================
-     NAVBAR (UPDATED 🔥)
+     NAVBAR
 ======================= -->
 <header class="navbar">
   <h1 class="logo">BILLS MALL</h1>
 
+  <!-- SEARCH (always visible) -->
+  <div class="search-bar">
+    <input type="text" placeholder="Search products..." id="search-input">
+    <button onclick="searchProducts()">Search</button>
+  </div>
+
+  <!-- CART -->
+  <a href="cart.html">
+    <button class="cart-btn">Cart 🛒</button>
+  </a>
+
   <!-- ☰ HAMBURGER -->
   <div class="hamburger" onclick="toggleMenu()">☰</div>
 
-  <!-- NAV LINKS -->
+  <!-- MOBILE MENU -->
   <div class="nav-links" id="navLinks">
-
     <a href="index.html">Home</a>
     <a href="orders-user.html" class="orders-btn">My Orders</a>
-
-    <div class="search-bar">
-      <input type="text" placeholder="Search products..." id="search-input">
-      <button onclick="searchProducts()">Search</button>
-    </div>
-
-    <a href="cart.html">
-      <button class="cart-btn">Cart 🛒</button>
-    </a>
-
     <button onclick="logout()">Logout</button>
-
   </div>
 </header>
 
-<!-- ADMIN LINK (hidden unless needed) -->
-<a href="admin.html" class="admin-link">Admin</a>
-
 <!-- =======================
-     HERO SECTION
+     HERO
 ======================= -->
 <section class="hero">
   <h2>Welcome to BILLS MALL</h2>
@@ -71,9 +67,7 @@
 <!-- =======================
      PRODUCTS
 ======================= -->
-<section class="products" id="products-container">
-  <!-- Injected by JS -->
-</section>
+<section class="products" id="products-container"></section>
 
 <!-- =======================
      LIGHTBOX
