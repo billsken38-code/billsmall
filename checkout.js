@@ -198,7 +198,7 @@ async function placeOrder(paymentType) {
     images: item.images ? item.images : [item.image]
   }));
 
-  const userId = localStorage.getItem("userId") || phone;
+  const userId = localStorage.getItem("userId");
 
   const newOrder = {
     userId,

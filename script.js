@@ -1,3 +1,8 @@
+// 🔐 CREATE USER ID (only once)
+if (!localStorage.getItem("userId")) {
+  const uniqueId = "user_" + Date.now();
+  localStorage.setItem("userId", uniqueId);
+}
 // 🔥 FIREBASE IMPORTS
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getFirestore, collection, getDocs } 

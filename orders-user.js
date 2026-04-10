@@ -64,8 +64,12 @@ async function loadOrders() {
         ${itemsHTML}
 
         <p><b>Total:</b> GHS ${order.total}</p>
-        <p><b>Status:</b> ${order.status || "Pending"}</p>
-        <hr>
+        <div class="tracking">
+  <span class="track-step ${order.status === "Pending" ? "active" : ""}">Pending</span> →
+  <span class="track-step ${order.status === "Paid" ? "active" : ""}">Paid</span> →
+  <span class="track-step ${order.status === "Shipped" ? "active" : ""}">Shipped</span> →
+  <span class="track-step ${order.status === "Delivered" ? "active" : ""}">Delivered</span>
+</div>
       `;
 
       container.appendChild(div);
