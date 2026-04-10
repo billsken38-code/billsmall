@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,63 +7,94 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <script>
+
+<!-- 🔒 AUTH CHECK -->
+<script>
   if (!localStorage.getItem("userId")) {
     window.location.href = "login.html";
   }
 </script>
 
-  <!-- NAVBAR -->
-  <header class="navbar">
-    <h1 class="logo">BILLS MALL</h1>
-    <input type="text" placeholder="Search products..." id="search-input">
-   <div class="search-bar">
-  <button onclick="searchProducts()">Search</button>
-</div>
- <a href="orders-user.html" class="orders-btn">My Orders</a>
+<!-- =======================
+     NAVBAR (UPDATED 🔥)
+======================= -->
+<header class="navbar">
+  <h1 class="logo">BILLS MALL</h1>
+
+  <!-- ☰ HAMBURGER -->
+  <div class="hamburger" onclick="toggleMenu()">☰</div>
+
+  <!-- NAV LINKS -->
+  <div class="nav-links" id="navLinks">
+
+    <a href="index.html">Home</a>
+    <a href="orders-user.html" class="orders-btn">My Orders</a>
+
+    <div class="search-bar">
+      <input type="text" placeholder="Search products..." id="search-input">
+      <button onclick="searchProducts()">Search</button>
+    </div>
+
     <a href="cart.html">
       <button class="cart-btn">Cart 🛒</button>
     </a>
-  </header>
-  
+
+    <button onclick="logout()">Logout</button>
+
+  </div>
+</header>
+
+<!-- ADMIN LINK (hidden unless needed) -->
 <a href="admin.html" class="admin-link">Admin</a>
-</a>
 
-  <!-- HERO SECTION -->
-  <section class="hero">
-    <h2>Welcome to BILLS MALL</h2>
-    <p>Best deals available now!</p>
-  </section>
+<!-- =======================
+     HERO SECTION
+======================= -->
+<section class="hero">
+  <h2>Welcome to BILLS MALL</h2>
+  <p>Best deals available now!</p>
+</section>
 
-  <!-- MAIN LAYOUT -->
-  <div class="container">
-
-<!-- CATEGORY BAR -->
+<!-- =======================
+     CATEGORY BAR
+======================= -->
 <div class="category-bar">
   <div class="category-card" onclick="filterCategory('all')">All</div>
   <div class="category-card" onclick="filterCategory('electronics')">Electronics</div>
   <div class="category-card" onclick="filterCategory('fashion')">Fashion</div>
   <div class="category-card" onclick="filterCategory('home')">Home</div>
   <div class="category-card" onclick="filterCategory('beauty')">Beauty</div>
-  <div class="category-card" onclick="filterCategory('sports')">Sports</div> 
-  <div class="category-card" onclick="filterCategory('Accessories')">Accessories</div>
+  <div class="category-card" onclick="filterCategory('sports')">Sports</div>
+  <div class="category-card" onclick="filterCategory('accessories')">Accessories</div>
 </div>
 
-    <!-- PRODUCTS -->
-    <section class="products" id="products-container">
-      <!-- Products will now be injected here by script.js -->
-    </section>
+<!-- =======================
+     PRODUCTS
+======================= -->
+<section class="products" id="products-container">
+  <!-- Injected by JS -->
+</section>
 
-  </div>
-
-  <div id="lightbox" class="lightbox">
+<!-- =======================
+     LIGHTBOX
+======================= -->
+<div id="lightbox" class="lightbox">
   <span class="close" onclick="closeLightbox()">&times;</span>
   <img class="lightbox-img" src="">
   <button class="prev" onclick="prevImage()">&#10094;</button>
   <button class="next" onclick="nextImage()">&#10095;</button>
 </div>
-<button onclick="logout()">Logout</button>
+
+<!-- =======================
+     SCRIPTS
+======================= -->
+<script>
+  function toggleMenu() {
+    document.getElementById("navLinks").classList.toggle("active");
+  }
+</script>
 
 <script type="module" src="script.js"></script>
+
 </body>
 </html>
