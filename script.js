@@ -180,6 +180,12 @@ document.addEventListener("keydown", function(e) {
   }
 });
 
+function logout() {
+  localStorage.removeItem("user");
+  window.location.href = "login.html";
+}
+
+
 // 🚀 LOAD PRODUCTS ON PAGE LOAD
 loadProducts();
 window.addToCart = addToCart;
