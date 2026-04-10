@@ -206,3 +206,176 @@ button:hover {
     order: 2;
   }
 }
+/* =======================
+   ADMIN PANEL 🔧
+======================= */
+.admin-container {
+  padding: 20px;
+}
+
+.admin-title {
+  font-size: 24px;
+  margin-bottom: 15px;
+  color: #4B2E2B;
+}
+
+/* Admin cards */
+.admin-card {
+  background: white;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  border-left: 6px solid #8B5E3C;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Inputs */
+.admin-container input,
+.admin-container select {
+  display: block;
+  width: 100%;
+  max-width: 350px;
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* Buttons */
+.admin-card button {
+  margin-top: 10px;
+  background: #4B2E2B;
+}
+
+.admin-card button:hover {
+  background: #8B5E3C;
+}
+
+/* Stats cards */
+.stats {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  flex: 1;
+  min-width: 150px;
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  border-top: 5px solid #8B5E3C;
+}
+
+.stat-card h3 {
+  margin: 0;
+  font-size: 28px;
+  color: #4B2E2B;
+}
+
+/* =======================
+   ORDERS PAGE 📦
+======================= */
+.orders-container {
+  padding: 20px;
+}
+
+/* Order card */
+.order-card {
+  background: white;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  border-left: 6px solid #4B2E2B;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Items inside order */
+.order-item {
+  display: flex;
+  gap: 15px;
+  margin: 10px 0;
+  align-items: center;
+}
+
+/* Image */
+.order-img {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+/* Text */
+.order-item div {
+  flex: 1;
+}
+
+/* Status styles */
+.status {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+/* Different statuses */
+.status.pending {
+  background: #ffe0b2;
+  color: #e65100;
+}
+
+.status.paid {
+  background: #c8e6c9;
+  color: #1b5e20;
+}
+
+.status.shipped {
+  background: #d1c4e9;
+  color: #4a148c;
+}
+
+.status.delivered {
+  background: #bbdefb;
+  color: #0d47a1;
+}
+
+/* Tracking */
+.tracking {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.track-step {
+  display: inline-block;
+  margin-right: 10px;
+  color: gray;
+}
+
+.track-step.active {
+  color: green;
+  font-weight: bold;
+}
+
+/* =======================
+   MOBILE OPTIMIZATION 📱
+======================= */
+@media (max-width: 768px) {
+  .order-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .order-img {
+    width: 100%;
+    max-width: 120px;
+  }
+
+  .admin-container input,
+  .admin-container select {
+    max-width: 100%;
+  }
+}
