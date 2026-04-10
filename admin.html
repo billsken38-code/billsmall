@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- 🔐 ADMIN LOGIN CHECK -->
 <script>
   const password = prompt("Enter admin password:");
 
@@ -16,14 +18,30 @@
   }
 </script>
 
-  <header class="navbar">
-    <h1 class="logo">Admin Panel</h1>
-    <a href="index.html"><button>Back to Shop</button></a>
-  </header>
-    
-    <!-- Orders will show here -->
-  </div>
-  <div class="stats">
+<!-- =======================
+     NAVBAR
+======================= -->
+<header class="navbar">
+  <h1 class="logo">BILLS MALL ADMIN</h1>
+
+  <a href="index.html">
+    <button>Back to Shop</button>
+  </a>
+</header>
+
+<!-- =======================
+     HERO HEADER
+======================= -->
+<div class="hero">
+  <h2>Admin Dashboard</h2>
+  <p>Manage orders, revenue, and customers</p>
+</div>
+
+<!-- =======================
+     STATS SECTION
+======================= -->
+<div class="stats">
+
   <div class="stat-card">
     <h3 id="total-orders">0</h3>
     <p>Total Orders</p>
@@ -39,9 +57,28 @@
     <p>Pending Orders</p>
   </div>
 
-  <div class="admin-container" id="admin-container">
-  
 </div>
+<div class="admin-container">
+  <canvas id="salesChart"></canvas>
+</div>
+<!-- =======================
+     ADMIN ORDERS CONTAINER
+======================= -->
+<div class="admin-container" id="admin-container">
+  <!-- Orders will be injected here -->
+</div>
+
+<!-- =======================
+     SCRIPT
+======================= -->
 <script type="module" src="admin.js"></script>
+
 </body>
+<!-- 🔔 NEW ORDER POPUP -->
+<div id="order-popup" class="order-popup">
+  <div class="popup-content">
+    <h3>🛒 New Order Received!</h3>
+    <p id="popup-text"></p>
+  </div>
+</div>
 </html>

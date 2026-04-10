@@ -90,3 +90,4 @@ function updateCartCount() {
     cartBtn.innerText = "Cart 🛒 (" + totalItems + ")";
   }
 }
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

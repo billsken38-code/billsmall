@@ -1,16 +1,33 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Orders</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>My Orders</h2>
+<!-- PAGE HEADER -->
+<div class="hero">
+  <h2>My Orders</h2>
+  <p>Track your purchases and delivery status</p>
+</div>
 
-<div id="orders-container"></div>
+<!-- ORDERS WRAPPER -->
+<div class="orders-container">
 
+  <!-- JS injects orders here -->
+  <div id="orders-container"></div>
+
+  <!-- EMPTY STATE (optional fallback) -->
+  <div class="empty-orders" id="empty-orders" style="display:none;">
+    You have no orders yet 🛒
+  </div>
+
+</div>
+
+<!-- SCRIPT -->
 <script type="module" src="orders-user.js"></script>
 
 </body>
