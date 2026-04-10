@@ -1,8 +1,23 @@
 // 🔥 FIREBASE IMPORTS
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getFirestore, collection, getDocs } 
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-const db = getFirestore();
+// 🔥 Your Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
+  authDomain: "bills-mall.firebaseapp.com",
+  projectId: "bills-mall",
+  storageBucket: "bills-mall.firebasestorage.app",
+  messagingSenderId: "741823099772",
+  appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
+};
+
+// ✅ Initialize FIRST
+const app = initializeApp(firebaseConfig);
+
+// ✅ THEN get Firestore
+const db = getFirestore(app);
 
 // 🔥 GLOBAL PRODUCTS ARRAY
 let products = [];
