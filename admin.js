@@ -1,7 +1,8 @@
-import { collection, getDocs } 
-from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs } 
+from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+// 🔥 Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
@@ -13,107 +14,16 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
 const container = document.getElementById("admin-container");
 
-function displayOrders() {
-  container.innerHTML = "";
+// 🔥 LOAD ORDERS
+async function loadOrders() {
+  container.innerHTML = "Loading orders...";
 
-  if (orders.length === 0) {
-    container.innerHTML = "<p>No orders available.</p>";
-    return;
-  }
-
-  orders.forEach((order, index) => {
-    let div = document.createElement("div");
-    div.classList.add("admin-card");
-
-    let itemsHTML = order.items.map(item => `
-      <p>${item.name} x ${item.quantity} = GHS ${item.price * item.quantity}</p>
-    `).join("");
-
-    div.innerHTML = `
-      <h3>Order ${index + 1}</h3>
-      <p><strong>Name:</strong> ${order.customer.name}</p>
-      <p><strong>Phone:</strong> ${order.customer.phone}</p>
-      <p><strong>Address:</strong> ${order.customer.address}</p>
-      <p><strong>Date:</strong> ${order.date}</p>
-      <p><strong>Location:</strong> ${order.customer.location}</p>
-      <p><strong>Delivery Fee:</strong> GHS ${order.deliveryFee}</p>
-      <div>${itemsHTML}</div>
-
-      <h4>Total: GHS ${order.total}</h4>
-      <p><strong>Payment:</strong> ${order.paymentMethod || "Not specified"}</p>
-     <p>Status: <strong class="status ${order.status}">
-  ${order.status}
-</strong></p>
-
-      <button onclick="updateStatus(${index}, 'Paid')">Mark Paid</button>
-      <button onclick="updateStatus(${index}, 'Shipped')">Mark Shipped</button>
-      <button onclick="updateStatus(${index}, 'Delivered')">Mark Delivered</button>
-      <button onclick="deleteOrder(${index})">Delete</button>
-
-      <hr>
-    `;
-
-    container.appendChild(div);
-  });
-}
-
-// Mark as delivered
-function markDelivered(index) {
-  orders[index].status = "Delivered";
-  saveOrders();
-}
-
-// Delete order
-function deleteOrder(index) {
-  if (confirm("Delete this order?")) {
-    orders.splice(index, 1);
-    saveOrders();
-  }
-}
-
-// Save + refresh
-function saveOrders() {
-  localStorage.setItem("orders", JSON.stringify(orders));
-  displayOrders();
-  updateStats(); // 👈 ADD THIS
-}
-
-
-
-function updateStats() {
-  let totalOrders = orders.length;
-
+  let totalOrders = 0;
   let totalRevenue = 0;
   let pending = 0;
-
-  orders.forEach(order => {
-    totalRevenue += order.total;
-
-    if (order.status === "Pending") {
-      pending++;
-    }
-  });
-
-  document.getElementById("total-orders").innerText = totalOrders;
-  document.getElementById("total-revenue").innerText = "GHS " + totalRevenue;
-  document.getElementById("pending-orders").innerText = pending;
-}
-
-function updateStatus(index, status) {
-  orders[index].status = status;
-  saveOrders();
-}
-
-
-// Initial display
-displayOrders();
-updateStats();
-async function loadOrders() {
-    const container = document.getElementById("orders-container");
-
-  container.innerHTML = "Loading orders...";
 
   try {
     const snapshot = await getDocs(collection(db, "orders"));
@@ -123,26 +33,26 @@ async function loadOrders() {
     snapshot.forEach(doc => {
       const order = doc.data();
 
-  
-  totalOrders++;
-  totalRevenue += Number(order.total) || 0;
-   
-  if ((order.status || "").toLowerCase() === "pending") {
-    pendingOrders++;
-  }
-      const div = document.createElement("div");
-      div.classList.add("order-card");
+      totalOrders++;
+      totalRevenue += Number(order.total) || 0;
 
-      // 🔥 SHOW ITEMS + IMAGES
+      if ((order.status || "").toLowerCase() === "pending") {
+        pending++;
+      }
+
       let itemsHTML = "";
+
       order.items.forEach(item => {
         itemsHTML += `
-          <div>
+          <div style="display:flex; gap:10px;">
             <img src="${item.image}" width="60">
-            <p>${item.name} (${item.variation}) x ${item.quantity}</p>
+            <p>${item.name} x ${item.quantity}</p>
           </div>
         `;
       });
+
+      const div = document.createElement("div");
+      div.classList.add("admin-card");
 
       div.innerHTML = `
         <h3>${order.customer.name}</h3>
@@ -153,23 +63,22 @@ async function loadOrders() {
         ${itemsHTML}
 
         <p><b>Total:</b> GHS ${order.total}</p>
-        <p><b>Status:</b> ${order.status}</p>
+        <p><b>Status:</b> ${order.status || "Pending"}</p>
         <hr>
       `;
 
       container.appendChild(div);
     });
-   const cardOrdersEl = document.getElementById("card-total-orders");
-const cardRevenueEl = document.getElementById("card-total-revenue");
-const cardPendingEl = document.getElementById("card-pending-orders");
 
-if (cardOrdersEl) cardOrdersEl.textContent = totalOrders;
-if (cardRevenueEl) cardRevenueEl.textContent = "GHS " + totalRevenue;
-if (cardPendingEl) cardPendingEl.textContent = pendingOrders;
+    // 🔥 UPDATE STATS
+    document.getElementById("total-orders").innerText = totalOrders;
+    document.getElementById("total-revenue").innerText = "GHS " + totalRevenue;
+    document.getElementById("pending-orders").innerText = pending;
+
   } catch (err) {
     console.error("Error loading orders:", err);
-    console.log("Orders:", totalOrders);
-    console.log("Revenue:", totalRevenue);
   }
 }
+
+// 🚀 RUN
 loadOrders();
