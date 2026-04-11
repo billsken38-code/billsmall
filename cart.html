@@ -3,24 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cart</title>
+  <title>Cart - BILLS MALL</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header class="navbar">
-    <h1>MyStore</h1>
-    <a href="index.html" style="color:white;">⬅ Back to Shop</a>
-  </header>
+<header class="navbar">
+  <h1 class="logo">BILLS MALL</h1>
+  <a href="index.html"><button>⬅ Back to Shop</button></a>
+</header>
 
-  <section class="cart-page">
-    <h2>Your Cart</h2>
-    <div id="cart-items"></div>
-  </section>
-  
-  <a href="checkout.html">
-  <button>Proceed to Checkout</button>
-</a>
-  <script src="cart.js"></script>
+<section class="cart-page">
+  <h2>Your Cart</h2>
+
+  <div id="cart-items"></div>
+
+  <!-- 🔥 TOTAL + CHECKOUT -->
+  <div class="cart-summary">
+    <h3 id="cart-total"></h3>
+    <a href="checkout.html">
+      <button id="checkout-btn">Proceed to Checkout</button>
+    </a>
+  </div>
+
+</section>
+
+<script src="cart.js"></script>
+
 </body>
 </html>

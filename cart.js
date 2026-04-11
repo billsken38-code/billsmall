@@ -1,18 +1,25 @@
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
-const cartContainer = document.getElementById("cart-items");
 
+const cartContainer = document.getElementById("cart-items");
+const totalDisplay = document.getElementById("cart-total");
+const checkoutBtn = document.getElementById("checkout-btn");
+
+// ================= DISPLAY CART =================
 function displayCart() {
   cartContainer.innerHTML = "";
-  let total = 0;
 
   if (cart.length === 0) {
-    cartContainer.innerHTML = "<p>Your cart is empty</p>";
+    cartContainer.innerHTML = "<p>Your cart is empty 🛒</p>";
+    totalDisplay.innerText = "";
+    checkoutBtn.disabled = true;
     return;
   }
 
+  let total = 0;
+
   cart.forEach((item, index) => {
-    if (!item.quantity) item.quantity = 1;
-    const subtotal = item.price * item.quantity;
+    let qty = item.quantity || 1;
+    let subtotal = item.price * qty;
     total += subtotal;
 
     const div = document.createElement("div");
@@ -20,42 +27,44 @@ function displayCart() {
 
     div.innerHTML = `
       <img src="${item.images ? item.images[0] : item.image}" width="80">
+
       <div class="cart-details">
         <h4>${item.name}</h4>
-        ${item.variation ? `
-  <p><strong>Option:</strong> ${item.variation}</p>
-` : ""}
-         <p>${item.description ? item.description : "No description available"}</p>
-        <p>Price: GHS ${item.price}</p>
+
+        ${item.variation ? `<p><strong>Option:</strong> ${item.variation}</p>` : ""}
+
+        <p>${item.description || "No description available"}</p>
+        <p><b>Price:</b> GHS ${item.price}</p>
+
         <div class="quantity-controls">
           <button onclick="decrease(${index})">-</button>
-          <span>${item.quantity}</span>
+          <span>${qty}</span>
           <button onclick="increase(${index})">+</button>
         </div>
-        <p>Subtotal: GHS ${subtotal}</p>
-        <button class="remove-btn" onclick="removeItem(${index})">Remove</button>
+
+        <p><b>Subtotal:</b> GHS ${subtotal}</p>
+
+        <button class="remove-btn" onclick="removeItem(${index})">
+          Remove
+        </button>
       </div>
-      <hr>
     `;
 
     cartContainer.appendChild(div);
   });
 
-  const totalDiv = document.createElement("h3");
-  totalDiv.innerText = "Total: GHS " + total;
-  cartContainer.appendChild(totalDiv);
+  totalDisplay.innerText = "Total: GHS " + total;
+  checkoutBtn.disabled = false;
 }
- updateCartCount();
 
-// Increase quantity
+// ================= ACTIONS =================
 function increase(index) {
-  cart[index].quantity++;
+  cart[index].quantity = (cart[index].quantity || 1) + 1;
   saveAndRefresh();
 }
 
-// Decrease quantity
 function decrease(index) {
-  if (cart[index].quantity > 1) {
+  if ((cart[index].quantity || 1) > 1) {
     cart[index].quantity--;
   } else {
     cart.splice(index, 1);
@@ -63,23 +72,19 @@ function decrease(index) {
   saveAndRefresh();
 }
 
-// Remove item
 function removeItem(index) {
   cart.splice(index, 1);
   saveAndRefresh();
 }
 
-// Save to localStorage and refresh cart display
+// ================= SAVE =================
 function saveAndRefresh() {
   localStorage.setItem("cart", JSON.stringify(cart));
-  displayCart(); // **no page reload needed**
+  displayCart();
 }
 
-// Initial display
-displayCart();
-
+// ================= CART COUNT =================
 function updateCartCount() {
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
   const cartBtn = document.querySelector(".cart-btn");
 
   let totalItems = cart.reduce((sum, item) => {
@@ -87,5 +92,10 @@ function updateCartCount() {
   }, 0);
 
   if (cartBtn) {
-    cartBtn.innerText = "Cart 🛒 (" + totalItems + ")";
-  }}
+    cartBtn.innerText = `Cart 🛒 (${totalItems})`;
+  }
+}
+
+// ================= INIT =================
+displayCart();
+updateCartCount();

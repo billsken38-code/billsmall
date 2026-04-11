@@ -8,74 +8,75 @@
 </head>
 <body>
 
-  <header class="navbar">
-    <h1 class="logo">BILLS MALL</h1>
-    <a href="index.html"><button>Back to Shop</button></a>
-  </header>
+<header class="navbar">
+  <h1 class="logo">BILLS MALL</h1>
+  <a href="index.html"><button>Back to Shop</button></a>
+</header>
 
-  <div class="checkout-container">
+<div class="checkout-container">
 
-    <!-- Customer Info -->
-    <div class="checkout-form">
-      <input type="text" id="name" placeholder="Full Name">
-      <input type="text" id="phone" placeholder="Phone Number">
-      <input type="text" id="address" placeholder="Delivery Address">
+  <!-- 🔥 CUSTOMER INFO -->
+  <div class="checkout-form">
+    <h2>Delivery Information</h2>
 
-      <!-- Proceed to Payment Button -->
-      <button id="proceed-btn">Proceed to Payment</button>
-      <p id="error" style="color:red;"></p>
-    </div>
-
-    <!-- Payment Section (Hidden initially) -->
-    <div id="payment-section" style="display:none; margin-top:20px;">
-      <h3>Select Payment Method</h3>
-
-      <select id="payment-method" onchange="togglePaymentMethod()">
-        <option value="">Choose Payment Method</option>
-        <option value="momo">Mobile Money</option>
-        <option value="cod">Pay on Delivery</option>
-      </select>
-
-      <!-- MOBILE MONEY SECTION -->
-      <div id="momo-section" style="display:none; margin-top:10px;">
-        <select id="network">
-          <option value="">Select Network</option>
-          <option value="MTN">MTN</option>
-          <option value="Telecel">Telecel</option>
-          <option value="AirtelTigo">AirtelTigo</option>
-        </select>
-
-        <input type="text" id="momo-number" placeholder="Mobile Money Number">
-
-        <button onclick="confirmPayment()">Pay Now</button>
-      </div>
-
-      <!-- PAY ON DELIVERY -->
-      <div id="cod-section" style="display:none; margin-top:10px;">
-        <p>You will pay when your order is delivered.</p>
-        <button onclick="placeCODOrder()">Confirm Order</button>
-      </div>
-
-      <p id="payment-msg"></p>
-    </div>
-
-    <!-- Order Summary -->
-   <div class="order-summary">
-  <h2>Order Summary</h2>
-  <div id="order-items"></div>
-  <h3 id="total-price"></h3>
-</div>
+    <input type="text" id="name" placeholder="Full Name">
+    <input type="text" id="phone" placeholder="Phone Number">
+    <input type="text" id="address" placeholder="Delivery Address">
 
     <select id="location">
-  <option value="">Select location</option>
-  <option value="kumasi">Kumasi</option>
-  <option value="accra">Accra</option>
-  <option value="obuasi">Obuasi</option>
-  <option value="other">Other</option>
-</select>
+      <option value="">Select Location</option>
+      <option value="kumasi">Kumasi</option>
+      <option value="accra">Accra</option>
+      <option value="obuasi">Obuasi</option>
+      <option value="other">Other</option>
+    </select>
+
+    <button id="proceed-btn">Proceed to Payment</button>
+    <p id="error"></p>
   </div>
 
- <script type="module" src="checkout.js"></script>
-  <script type="module"></script>
+  <!-- 🔥 ORDER SUMMARY -->
+  <div class="order-summary">
+    <h2>Order Summary</h2>
+    <div id="order-items"></div>
+    <h3 id="total-price"></h3>
+  </div>
+
+  <!-- 🔥 PAYMENT SECTION -->
+  <div id="payment-section" class="payment-section">
+    <h3>Select Payment Method</h3>
+
+    <select id="payment-method" onchange="togglePaymentMethod()">
+      <option value="">Choose Payment Method</option>
+      <option value="momo">Mobile Money</option>
+      <option value="cod">Pay on Delivery</option>
+    </select>
+
+    <!-- MOBILE MONEY -->
+    <div id="momo-section">
+      <select id="network">
+        <option value="">Select Network</option>
+        <option value="MTN">MTN</option>
+        <option value="Telecel">Telecel</option>
+        <option value="AirtelTigo">AirtelTigo</option>
+      </select>
+
+      <input type="text" id="momo-number" placeholder="Mobile Money Number">
+      <button onclick="confirmPayment()">Pay Now</button>
+    </div>
+
+    <!-- COD -->
+    <div id="cod-section">
+      <p>You will pay when your order is delivered.</p>
+      <button onclick="placeCODOrder()">Confirm Order</button>
+    </div>
+
+    <p id="payment-msg"></p>
+  </div>
+
+</div>
+
+<script type="module" src="checkout.js"></script>
+
 </body>
 </html>

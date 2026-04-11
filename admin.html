@@ -8,40 +8,29 @@
 </head>
 <body>
 
-<!-- 🔐 ADMIN LOGIN CHECK -->
+<!-- 🔐 ADMIN LOGIN -->
 <script>
   const password = prompt("Enter admin password:");
-
   if (password !== "Bilken13245") {
     alert("Access denied!");
     window.location.href = "index.html";
   }
 </script>
 
-<!-- =======================
-     NAVBAR
-======================= -->
+<!-- NAVBAR -->
 <header class="navbar">
   <h1 class="logo">BILLS MALL ADMIN</h1>
-
-  <a href="index.html">
-    <button>Back to Shop</button>
-  </a>
+  <a href="index.html"><button>Back to Shop</button></a>
 </header>
 
-<!-- =======================
-     HERO HEADER
-======================= -->
+<!-- HERO -->
 <div class="hero">
   <h2>Admin Dashboard</h2>
   <p>Manage orders, revenue, and customers</p>
 </div>
 
-<!-- =======================
-     STATS SECTION
-======================= -->
+<!-- STATS -->
 <div class="stats">
-
   <div class="stat-card">
     <h3 id="total-orders">0</h3>
     <p>Total Orders</p>
@@ -56,29 +45,27 @@
     <h3 id="pending-orders">0</h3>
     <p>Pending Orders</p>
   </div>
-
 </div>
+
+<!-- CHART -->
 <div class="admin-container">
   <canvas id="salesChart"></canvas>
 </div>
-<!-- =======================
-     ADMIN ORDERS CONTAINER
-======================= -->
-<div class="admin-container" id="admin-container">
-  <!-- Orders will be injected here -->
-</div>
 
-<!-- =======================
-     SCRIPT
-======================= -->
-<script type="module" src="admin.js"></script>
+<!-- ORDERS -->
+<div class="admin-container" id="admin-container"></div>
 
-</body>
-<!-- 🔔 NEW ORDER POPUP -->
+<!-- 🔔 POPUP -->
 <div id="order-popup" class="order-popup">
   <div class="popup-content">
     <h3>🛒 New Order Received!</h3>
     <p id="popup-text"></p>
   </div>
 </div>
+
+<!-- ✅ SCRIPTS (CORRECT POSITION) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="module" src="admin.js"></script>
+
+</body>
 </html>

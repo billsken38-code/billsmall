@@ -3,31 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Orders</title>
+  <title>My Orders - BILLS MALL</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- PAGE HEADER -->
+<header class="navbar">
+  <h1 class="logo">BILLS MALL</h1>
+  <a href="index.html"><button>⬅ Back to Shop</button></a>
+</header>
+
 <div class="hero">
   <h2>My Orders</h2>
   <p>Track your purchases and delivery status</p>
 </div>
 
-<!-- ORDERS WRAPPER -->
 <div class="orders-container">
 
-  <!-- JS injects orders here -->
   <div id="orders-container"></div>
 
-  <!-- EMPTY STATE (optional fallback) -->
   <div class="empty-orders" id="empty-orders" style="display:none;">
     You have no orders yet 🛒
   </div>
 
 </div>
 
-<!-- SCRIPT -->
 <script type="module" src="orders-user.js"></script>
 
 </body>

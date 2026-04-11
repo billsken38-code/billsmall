@@ -1,14 +1,14 @@
-// 🔐 CREATE USER ID (only once)
+// 🔐 CREATE USER ID
 if (!localStorage.getItem("userId")) {
   const uniqueId = "user_" + Date.now();
   localStorage.setItem("userId", uniqueId);
 }
-// 🔥 FIREBASE IMPORTS
+
+// 🔥 FIREBASE
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getFirestore, collection, getDocs } 
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-// 🔥 Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
@@ -18,67 +18,69 @@ const firebaseConfig = {
   appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
 };
 
-// ✅ Initialize FIRST
 const app = initializeApp(firebaseConfig);
-
-// ✅ THEN get Firestore
 const db = getFirestore(app);
 
-// 🔥 GLOBAL PRODUCTS ARRAY
+// 🔥 GLOBAL PRODUCTS
 let products = [];
 
-// 🔥 LOAD PRODUCTS FROM FIREBASE
+// ================= LOAD PRODUCTS =================
 async function loadProducts() {
-  const snapshot = await getDocs(collection(db, "products"));
+  try {
+    const snapshot = await getDocs(collection(db, "products"));
 
-  products = [];
+    products = [];
+    snapshot.forEach(doc => {
+      products.push({ id: doc.id, ...doc.data() });
+    });
 
-  snapshot.forEach(doc => {
-    products.push(doc.data());
-  });
+    displayProducts(products);
 
-  displayProducts(products);
+  } catch (err) {
+    console.error("Error loading products:", err);
+  }
 }
 
-// 🔥 DISPLAY PRODUCTS
+// ================= DISPLAY =================
 function displayProducts(list) {
-  const productContainer = document.getElementById("products-container");
-  productContainer.innerHTML = "";
+  const container = document.getElementById("products-container");
+  container.innerHTML = "";
 
-  list.forEach((product, index) => {
+  list.forEach(product => {
     let div = document.createElement("div");
     div.classList.add("product");
 
     div.innerHTML = `
-      <div onclick="goToDetails(${index})" style="cursor:pointer;">
-        <img src="${product.images ? product.images[0] : product.image}" class="main-img" alt="${product.name}">
+      <div onclick="goToDetails('${product.id}')" style="cursor:pointer;">
+        <img src="${product.images ? product.images[0] : product.image}">
         <h4>${product.name}</h4>
         <p>GHS ${product.price}</p>
         <p>${product.description || ""}</p>
       </div>
 
-      <button onclick="addToCart(${index})">Add to Cart</button>
+      <button onclick="addToCart('${product.id}')">Add to Cart</button>
     `;
 
-    productContainer.appendChild(div);
+    container.appendChild(div);
   });
 }
 
-// 🔥 CART SYSTEM
-function addToCart(index) {
+// ================= CART =================
+function addToCart(productId) {
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-  let product = products[index];
+  let product = products.find(p => p.id === productId);
 
-  let existing = cart.find(item => item.name === product.name);
+  let existing = cart.find(item => item.id === productId);
 
   if (existing) {
     existing.quantity = (existing.quantity || 1) + 1;
   } else {
     cart.push({
+      id: productId,
       name: product.name,
       price: product.price,
-      images: product.images ? product.images : [product.image],
+      images: product.images || [product.image],
       description: product.description || "",
       quantity: 1
     });
@@ -90,7 +92,7 @@ function addToCart(index) {
   updateCartCount();
 }
 
-// 🔥 UPDATE CART COUNT
+// ================= CART COUNT =================
 function updateCartCount() {
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
   const cartBtn = document.querySelector(".cart-btn");
@@ -100,48 +102,43 @@ function updateCartCount() {
   }, 0);
 
   if (cartBtn) {
-    cartBtn.innerText = "Cart 🛒 (" + totalItems + ")";
+    cartBtn.innerText = `Cart 🛒 (${totalItems})`;
   }
 }
 
 updateCartCount();
 
-// 🔥 SEARCH PRODUCTS
+// ================= SEARCH =================
 function searchProducts() {
   const input = document.getElementById("search-input").value.toLowerCase();
 
-  const filtered = products.filter(product =>
-    product.name.toLowerCase().includes(input) ||
-    (product.category && product.category.toLowerCase().includes(input))
+  const filtered = products.filter(p =>
+    p.name.toLowerCase().includes(input) ||
+    (p.category && p.category.toLowerCase().includes(input))
   );
 
   displayProducts(filtered);
 }
 
-// 🔥 FILTER CATEGORY
+// ================= CATEGORY =================
 function filterCategory(category) {
   if (category === "all") {
     displayProducts(products);
   } else {
-    const filtered = products.filter(product => product.category === category);
-    displayProducts(filtered);
+    displayProducts(products.filter(p => p.category === category));
   }
 }
 
-// 🔥 LIGHTBOX
-let currentProductIndex = 0;
+// ================= LIGHTBOX =================
+let currentProduct = null;
 let currentImageIndex = 0;
 
-function openLightbox(productIndex) {
-  currentProductIndex = productIndex;
+function openLightbox(productId) {
+  currentProduct = products.find(p => p.id === productId);
   currentImageIndex = 0;
 
-  const lb = document.getElementById("lightbox");
-  lb.style.display = "flex";
-
-  const product = products[productIndex];
-  document.querySelector(".lightbox-img").src =
-    product.images ? product.images[0] : product.image;
+  document.getElementById("lightbox").style.display = "flex";
+  document.querySelector(".lightbox-img").src = currentProduct.images[0];
 }
 
 function closeLightbox() {
@@ -149,46 +146,53 @@ function closeLightbox() {
 }
 
 function nextImage() {
-  const product = products[currentProductIndex];
+  if (!currentProduct.images) return;
 
-  if (!product.images) return;
-
-  currentImageIndex = (currentImageIndex + 1) % product.images.length;
-  document.querySelector(".lightbox-img").src = product.images[currentImageIndex];
+  currentImageIndex = (currentImageIndex + 1) % currentProduct.images.length;
+  document.querySelector(".lightbox-img").src = currentProduct.images[currentImageIndex];
 }
 
 function prevImage() {
-  const product = products[currentProductIndex];
+  if (!currentProduct.images) return;
 
-  if (!product.images) return;
+  currentImageIndex =
+    (currentImageIndex - 1 + currentProduct.images.length) %
+    currentProduct.images.length;
 
-  currentImageIndex = (currentImageIndex - 1 + product.images.length) % product.images.length;
-  document.querySelector(".lightbox-img").src = product.images[currentImageIndex];
+  document.querySelector(".lightbox-img").src = currentProduct.images[currentImageIndex];
 }
 
-// 🔥 GO TO DETAILS PAGE
-function goToDetails(index) {
-  localStorage.setItem("selectedProduct", index);
+// ================= DETAILS =================
+function goToDetails(productId) {
+  localStorage.setItem("selectedProduct", productId);
   window.location.href = "product.html";
 }
 
-// 🔥 ADMIN SHORTCUT
+// ================= ADMIN SHORTCUT =================
 document.addEventListener("keydown", function(e) {
   if (e.ctrlKey && e.key === "a") {
-    document.getElementById("admin-link").style.display = "block";
-    alert("Admin link unlocked!");
+    const adminLink = document.getElementById("admin-link");
+    if (adminLink) {
+      adminLink.style.display = "block";
+      alert("Admin unlocked!");
+    }
   }
 });
 
+// ================= LOGOUT =================
 function logout() {
-  localStorage.removeItem("user");
+  localStorage.removeItem("userId");
   window.location.href = "login.html";
 }
 
-
-// 🚀 LOAD PRODUCTS ON PAGE LOAD
+// ================= INIT =================
 loadProducts();
+
+// GLOBAL
 window.addToCart = addToCart;
 window.goToDetails = goToDetails;
 window.searchProducts = searchProducts;
 window.filterCategory = filterCategory;
+window.closeLightbox = closeLightbox;
+window.nextImage = nextImage;
+window.prevImage = prevImage;

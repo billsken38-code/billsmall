@@ -18,7 +18,7 @@ const firebaseConfig = {
 
 // 🔥 INIT FIREBASE
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+getAnalytics(app);
 const db = getFirestore(app);
 
 // 🔥 GET CART
@@ -32,6 +32,14 @@ const proceedBtn = document.getElementById("proceed-btn");
 
 // ================= DISPLAY ORDER =================
 function displayOrder() {
+  if (!orderItems || !totalPrice) return;
+
+  if (cart.length === 0) {
+    orderItems.innerHTML = "<p>Your cart is empty 🛒</p>";
+    totalPrice.innerHTML = "";
+    return;
+  }
+
   let total = 0;
   orderItems.innerHTML = "";
 
@@ -41,18 +49,27 @@ function displayOrder() {
     total += subtotal;
 
     let div = document.createElement("div");
-    div.innerHTML = `<p>${item.name} (${item.variation || "No option"}) x ${qty} = GHS ${subtotal}</p>`;
+    div.innerHTML = `
+      <p>
+        ${item.name} (${item.variation || "No option"}) 
+        x ${qty} = <b>GHS ${subtotal}</b>
+      </p>
+    `;
     orderItems.appendChild(div);
   });
 
-  const location = document.getElementById("location").value;
+  const location = document.getElementById("location")?.value;
 
-  // 🔥 DELIVERY FEES (CONSISTENT)
+  if (!location) {
+    totalPrice.innerHTML = "<p>Select location to see total</p>";
+    return;
+  }
+
   let deliveryFee = 0;
   if (location === "kumasi") deliveryFee = 20;
   else if (location === "accra") deliveryFee = 30;
   else if (location === "obuasi") deliveryFee = 10;
-  else if (location) deliveryFee = 15;
+  else deliveryFee = 15;
 
   let finalTotal = total + deliveryFee;
 
@@ -66,11 +83,8 @@ function displayOrder() {
 // 🔥 RUN ON LOAD
 displayOrder();
 
-// 🔥 UPDATE WHEN LOCATION CHANGES
-const locationSelect = document.getElementById("location");
-if (locationSelect) {
-  locationSelect.addEventListener("change", displayOrder);
-}
+// 🔄 UPDATE WHEN LOCATION CHANGES
+document.getElementById("location")?.addEventListener("change", displayOrder);
 
 // ================= FORM VALIDATION =================
 const inputs = document.querySelectorAll("#name, #phone, #address");
@@ -107,16 +121,21 @@ function goToPayment() {
 
   error.innerText = "";
 
-  document.getElementById("payment-section").style.display = "block";
+  const paymentSection = document.getElementById("payment-section");
+  paymentSection.style.display = "block";
+
+  paymentSection.scrollIntoView({
+    behavior: "smooth"
+  });
 }
 
-// 🔥 BUTTON EVENT
+// BUTTON EVENT
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("proceed-btn");
   if (btn) btn.addEventListener("click", goToPayment);
 });
 
-// ================= PAYMENT UI =================
+// ================= PAYMENT METHOD =================
 function togglePaymentMethod() {
   const method = document.getElementById("payment-method").value;
 
@@ -178,10 +197,14 @@ async function placeOrder(paymentType) {
     return;
   }
 
+  // 🔥 PREVENT DOUBLE CLICK
+  const buttons = document.querySelectorAll("button");
+  buttons.forEach(btn => btn.disabled = true);
+
   // 🔥 CALCULATE TOTAL
   let total = 0;
   cart.forEach(item => {
-    total += item.price * item.quantity;
+    total += item.price * (item.quantity || 1);
   });
 
   let deliveryFee = 0;
@@ -192,7 +215,6 @@ async function placeOrder(paymentType) {
 
   let finalTotal = total + deliveryFee;
 
-  // 🔥 FIXED IMAGE HANDLING
   const updatedCart = cart.map(item => ({
     ...item,
     images: item.images ? item.images : [item.image]
@@ -207,7 +229,7 @@ async function placeOrder(paymentType) {
     total: finalTotal,
     deliveryFee,
     paymentMethod: paymentType,
-    date: new Date().toLocaleString(),
+    date: new Date().toISOString(),
     status: paymentType === "Paid" ? "Paid" : "Pending"
   };
 
@@ -217,12 +239,14 @@ async function placeOrder(paymentType) {
     alert("✅ Order placed successfully!");
 
     localStorage.removeItem("cart");
-
     window.location.href = "index.html";
 
   } catch (err) {
     console.error(err);
-    alert("❌ Error placing order");
+    error.innerText = "❌ Failed to place order. Try again.";
+
+    // re-enable buttons if failed
+    document.querySelectorAll("button").forEach(btn => btn.disabled = false);
   }
 }
 

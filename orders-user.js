@@ -1,4 +1,4 @@
-// 🔥 IMPORT FIREBASE
+// 🔥 FIREBASE
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getFirestore, collection, getDocs } 
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
@@ -13,15 +13,16 @@ const firebaseConfig = {
   appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
 };
 
-// 🔥 INIT FIREBASE
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 🔥 LOAD ORDERS FROM FIREBASE
+// 🔐 GET CURRENT USER
+const userId = localStorage.getItem("userId");
+
+// ================= LOAD ORDERS =================
 async function loadOrders() {
-  const container =
-    document.getElementById("orders-container") ||
-    document.getElementById("admin-container");
+  const container = document.getElementById("orders-container");
+  const empty = document.getElementById("empty-orders");
 
   if (!container) return;
 
@@ -30,20 +31,39 @@ async function loadOrders() {
   try {
     const snapshot = await getDocs(collection(db, "orders"));
 
-    container.innerHTML = "";
+    let userOrders = [];
 
     snapshot.forEach(doc => {
       const order = doc.data();
 
+      // 🔥 FILTER ONLY CURRENT USER
+      if (order.userId === userId) {
+        userOrders.push({ id: doc.id, ...order });
+      }
+    });
+
+    // 🔥 SORT (LATEST FIRST)
+    userOrders.reverse();
+
+    container.innerHTML = "";
+
+    if (userOrders.length === 0) {
+      empty.style.display = "block";
+      return;
+    }
+
+    empty.style.display = "none";
+
+    userOrders.forEach(order => {
       let itemsHTML = "";
 
-      order.items.forEach(item => {
+      (order.items || []).forEach(item => {
         itemsHTML += `
-          <div style="display:flex; gap:10px; align-items:center;">
-            <img src="${item.image}" width="60">
+          <div class="order-item">
+            <img src="${item.images ? item.images[0] : item.image}" class="order-img">
             <div>
-              <p>${item.name}</p>
-              <p>${item.variation || "No variation"}</p>
+              <p><b>${item.name}</b></p>
+              <p>${item.variation || "No option"}</p>
               <p>Qty: ${item.quantity}</p>
             </div>
           </div>
@@ -51,25 +71,27 @@ async function loadOrders() {
       });
 
       const div = document.createElement("div");
-      div.style.border = "1px solid #ccc";
-      div.style.margin = "10px";
-      div.style.padding = "10px";
+      div.classList.add("order-card");
 
       div.innerHTML = `
-        <h3>${order.customer.name}</h3>
-        <p>${order.customer.phone}</p>
-        <p>${order.customer.address}</p>
-        <p><b>Location:</b> ${order.customer.location}</p>
+        <h3>Order #${order.id}</h3>
+
+        <p><b>Date:</b> ${order.date || ""}</p>
+        <p><b>Total:</b> GHS ${order.total}</p>
 
         ${itemsHTML}
 
-        <p><b>Total:</b> GHS ${order.total}</p>
+        <!-- 🔥 TRACKING -->
         <div class="tracking">
-  <span class="track-step ${order.status === "Pending" ? "active" : ""}">Pending</span> →
-  <span class="track-step ${order.status === "Paid" ? "active" : ""}">Paid</span> →
-  <span class="track-step ${order.status === "Shipped" ? "active" : ""}">Shipped</span> →
-  <span class="track-step ${order.status === "Delivered" ? "active" : ""}">Delivered</span>
-</div>
+          <span class="track-step ${order.status === "Pending" ? "active" : ""}">Pending</span> →
+          <span class="track-step ${order.status === "Paid" ? "active" : ""}">Paid</span> →
+          <span class="track-step ${order.status === "Shipped" ? "active" : ""}">Shipped</span> →
+          <span class="track-step ${order.status === "Delivered" ? "active" : ""}">Delivered</span>
+        </div>
+
+        <p class="status ${order.status?.toLowerCase()}">
+          ${order.status || "Pending"}
+        </p>
       `;
 
       container.appendChild(div);

@@ -1,7 +1,11 @@
-// 🔥 FIREBASE IMPORTS
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, getDocs } 
-from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  updateDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 // 🔥 CONFIG
 const firebaseConfig = {
@@ -13,18 +17,13 @@ const firebaseConfig = {
   appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
 };
 
-// 🔥 INIT
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 🔥 LOAD ORDERS
+const container = document.getElementById("orders-container");
+
+// ================= LOAD ORDERS =================
 async function loadOrders() {
-  const container =
-    document.getElementById("orders-container") ||
-    document.getElementById("admin-container");
-
-  if (!container) return;
-
   container.innerHTML = "Loading orders...";
 
   try {
@@ -32,31 +31,53 @@ async function loadOrders() {
 
     container.innerHTML = "";
 
-    snapshot.forEach(doc => {
-      const order = doc.data();
+    snapshot.forEach(docSnap => {
+      const order = docSnap.data();
+      const orderId = docSnap.id;
 
       let itemsHTML = "";
 
-      order.items.forEach(item => {
+      (order.items || []).forEach(item => {
         itemsHTML += `
-          <div style="display:flex; gap:10px;">
-            <img src="https://billsken38-code.github.io/bills-mall/${item.image}" width="60">
-            <p>${item.name} x ${item.quantity}</p>
+          <div style="display:flex; gap:10px; align-items:center; margin:5px 0;">
+            <img src="${item.images ? item.images[0] : item.image}" width="60">
+            <div>
+              <p><b>${item.name}</b></p>
+              <p>Qty: ${item.quantity}</p>
+            </div>
           </div>
         `;
       });
 
       const div = document.createElement("div");
+      div.classList.add("order-card");
 
       div.innerHTML = `
-        <h3>${order.customer.name}</h3>
-        <p>${order.customer.phone}</p>
-        <p>${order.customer.address}</p>
+        <h3>Order #${orderId}</h3>
+
+        <p><b>Name:</b> ${order.customer?.name || ""}</p>
+        <p><b>Phone:</b> ${order.customer?.phone || ""}</p>
+        <p><b>Address:</b> ${order.customer?.address || ""}</p>
+        <p><b>Location:</b> ${order.customer?.location || ""}</p>
 
         ${itemsHTML}
 
         <p><b>Total:</b> GHS ${order.total}</p>
+
         <p><b>Status:</b> ${order.status || "Pending"}</p>
+
+        <!-- STATUS CONTROL -->
+        <select id="status-${orderId}">
+          <option value="Pending">Pending</option>
+          <option value="Paid">Paid</option>
+          <option value="Shipped">Shipped</option>
+          <option value="Delivered">Delivered</option>
+        </select>
+
+        <button onclick="updateStatus('${orderId}')">
+          Update Status
+        </button>
+
         <hr>
       `;
 
@@ -67,6 +88,21 @@ async function loadOrders() {
     console.error("Error loading orders:", err);
   }
 }
+
+// ================= UPDATE STATUS =================
+window.updateStatus = async function(orderId) {
+  const select = document.getElementById(`status-${orderId}`);
+  const newStatus = select.value;
+
+  const ref = doc(db, "orders", orderId);
+
+  await updateDoc(ref, {
+    status: newStatus
+  });
+
+  alert("Status updated!");
+  loadOrders(); // refresh UI
+};
 
 // 🚀 RUN
 loadOrders();

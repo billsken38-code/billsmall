@@ -2,8 +2,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/fireba
 import { getFirestore, collection, getDocs } 
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
+// 🔥 Firebase config (FIXED)
 const firebaseConfig = {
-  apiKey: "AIzaSy...",
+  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
   projectId: "bills-mall",
   storageBucket: "bills-mall.firebasestorage.app",
@@ -14,43 +15,48 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 🔥 GLOBAL PRODUCTS
+// ================= STATE =================
 let products = [];
+let selectedProduct = null;
+let selectedVariation = null;
 
-// 🔥 GET SELECTED PRODUCT INDEX
-let index = localStorage.getItem("selectedProduct");
-
-// 🔥 LOAD PRODUCTS FROM FIREBASE
+// ================= LOAD PRODUCTS =================
 async function loadProductDetails() {
-  const snapshot = await getDocs(collection(db, "products"));
+  const container = document.getElementById("product-details");
+  container.innerHTML = "Loading product...";
 
-  products = [];
+  try {
+    const snapshot = await getDocs(collection(db, "products"));
 
-  snapshot.forEach(doc => {
-    products.push(doc.data());
-  });
+    products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
-  showProduct();
+    const index = localStorage.getItem("selectedProduct");
+
+    selectedProduct = products[index];
+
+    if (!selectedProduct) {
+      container.innerHTML = "<p>Product not found</p>";
+      return;
+    }
+
+    renderProduct();
+
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = "<p>Error loading product</p>";
+  }
 }
 
-// 🔥 DISPLAY PRODUCT
-function showProduct() {
+// ================= RENDER PRODUCT =================
+function renderProduct() {
   const container = document.getElementById("product-details");
 
-  if (index === null || !products[index]) {
-    container.innerHTML = "<p>Product not found</p>";
-    return;
-  }
+  selectedVariation = null;
 
-  let product = products[index];
-
-  // ✅ Handle images
-  let images = product.images ? product.images : [product.image];
-
-  // ✅ Create thumbnails
-  const imagesHTML = images.map(img => `
-    <img src="${img}" class="thumb" onclick="changeMainImage('${img}')">
-  `).join("");
+  const images = selectedProduct.images || [selectedProduct.image];
 
   container.innerHTML = `
     <div class="details-container">
@@ -60,81 +66,82 @@ function showProduct() {
         <img src="${images[0]}" id="main-image" class="details-img">
 
         <div class="thumbnail-container">
-          ${imagesHTML}
+          ${images.map(img => `
+            <img src="${img}" class="thumb" onclick="changeImage('${img}')">
+          `).join("")}
         </div>
       </div>
 
       <!-- RIGHT -->
       <div class="details-right">
-        <h2>${product.name}</h2>
-        <p><strong>GHS ${product.price}</strong></p>
+        <h2>${selectedProduct.name}</h2>
+        <p><strong>GHS ${selectedProduct.price}</strong></p>
 
         <p class="details-description">
-          ${product.description || "No description available"}
+          ${selectedProduct.description || "No description available"}
         </p>
 
-        ${product.variations ? `
+        ${
+          selectedProduct.variations?.length
+            ? `
           <label>Select Option:</label>
           <div class="variation-container">
-            ${product.variations.map(v => `
+            ${selectedProduct.variations.map(v => `
               <button class="variation-btn" onclick="selectVariation('${v}', this)">
                 ${v}
               </button>
             `).join("")}
           </div>
-        ` : ""}
+        `
+            : ""
+        }
 
-        <br>
-
-        <button onclick="addToCart(${index})">Add to Cart</button>
+        <button onclick="addToCart()">Add to Cart</button>
       </div>
 
     </div>
   `;
 }
 
-// 🔥 VARIATION
-let selectedVariation = null;
-
-function selectVariation(value, element) {
-  selectedVariation = value;
-
-  document.querySelectorAll(".variation-btn").forEach(btn => {
-    btn.classList.remove("active");
-  });
-
-  element.classList.add("active");
-}
-
-// 🔥 CHANGE IMAGE
-function changeMainImage(src) {
+// ================= CHANGE IMAGE =================
+function changeImage(src) {
   document.getElementById("main-image").src = src;
 }
 
-// 🔥 ADD TO CART
-function addToCart(index) {
+// ================= SELECT VARIATION =================
+function selectVariation(value, btn) {
+  selectedVariation = value;
+
+  document.querySelectorAll(".variation-btn").forEach(b => {
+    b.classList.remove("active");
+  });
+
+  btn.classList.add("active");
+}
+
+// ================= ADD TO CART =================
+function addToCart() {
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-  let product = products[index];
-
-  // 🚨 Require variation if exists
-  if (product.variations && !selectedVariation) {
+  if (selectedProduct.variations?.length && !selectedVariation) {
     alert("Please select a variation!");
     return;
   }
 
-  let existing = cart.find(item => 
-    item.name === product.name && item.variation === selectedVariation
+  const existing = cart.find(
+    item =>
+      item.name === selectedProduct.name &&
+      item.variation === selectedVariation
   );
 
   if (existing) {
-    existing.quantity = (existing.quantity || 1) + 1;
+    existing.quantity += 1;
   } else {
     cart.push({
-      name: product.name,
-      price: product.price,
-      images: product.images ? product.images : [product.image],
-      description: product.description || "",
+      name: selectedProduct.name,
+      price: selectedProduct.price,
+      images: selectedProduct.images || [selectedProduct.image],
+      description: selectedProduct.description || "",
       variation: selectedVariation,
       quantity: 1
     });
@@ -145,5 +152,10 @@ function addToCart(index) {
   alert("Added to cart!");
 }
 
-// 🚀 LOAD PRODUCT ON PAGE LOAD
+// ================= GLOBAL EXPORTS =================
+window.changeImage = changeImage;
+window.selectVariation = selectVariation;
+window.addToCart = addToCart;
+
+// ================= INIT =================
 loadProductDetails();
