@@ -192,7 +192,9 @@ document.addEventListener("keydown", function (e) {
 
 // ================= LOGOUT =================
 function logout() {
-  localStorage.removeItem("userId");
+  localStorage.removeItem("user");
+  localStorage.removeItem("cart"); // optional
+
   window.location.href = "login.html";
 }
 
@@ -208,3 +210,4 @@ window.filterCategory = filterCategory;
 window.closeLightbox = closeLightbox;
 window.nextImage = nextImage;
 window.prevImage = prevImage;
+window.logout = logout;
