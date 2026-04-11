@@ -205,7 +205,7 @@ function payWithPaystack() {
 
   const handler = PaystackPop.setup({
     key: "pk_live_1593829182b5428b42076c0a6896a88c64e498ba", // ✅ your public key
-    email: email,
+    email:"customer@email.com" ,
     amount: amount,
     currency: "GHS",
 
@@ -254,3 +254,4 @@ async function verifyPayment(reference) {
 }
 window.confirmPayment = confirmPayment;
 window.placeCODOrder = placeCODOrder;
+window.payWithPaystack = payWithPaystack;
