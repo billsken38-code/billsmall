@@ -174,9 +174,10 @@ function prevImage() {
 
 // ================= PRODUCT DETAILS =================
 function goToDetails(productId) {
-  localStorage.setItem("selectedProduct", productId);
+  localStorage.setItem("selectedProductId", productId);
   window.location.href = "product.html";
 }
+
 
 // ================= ADMIN SHORTCUT =================
 document.addEventListener("keydown", function (e) {
