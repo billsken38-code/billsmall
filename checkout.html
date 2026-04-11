@@ -18,16 +18,16 @@
   <!-- 🔥 CUSTOMER INFO -->
   <div class="checkout-form">
     <h2>Delivery Information</h2>
-
+    <input type="email" id="email" placeholder="Email Address">
     <input type="text" id="name" placeholder="Full Name">
     <input type="text" id="phone" placeholder="Phone Number">
     <input type="text" id="address" placeholder="Delivery Address">
 
     <select id="location">
       <option value="">Select Location</option>
-      <option value="kumasi">Kumasi</option>
+      <option value="knust kumasi campus">Kumasi</option>
       <option value="accra">Accra</option>
-      <option value="obuasi">Obuasi</option>
+      <option value="knust obuasi campus">Obuasi</option>
       <option value="other">Other</option>
     </select>
 
@@ -62,7 +62,7 @@
       </select>
 
       <input type="text" id="momo-number" placeholder="Mobile Money Number">
-      <button onclick="confirmPayment()">Pay Now</button>
+      <button onclick="payWithPaystack()">Pay Now</button>
     </div>
 
     <!-- COD -->
@@ -75,7 +75,7 @@
   </div>
 
 </div>
-
+<script src="https://js.paystack.co/v1/inline.js"></script>
 <script type="module" src="checkout.js"></script>
 
 </body>

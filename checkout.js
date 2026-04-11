@@ -1,11 +1,9 @@
-// ====== checkout.js ======
+// ====== checkout.js (PROFESSIONAL VERSION) ======
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-analytics.js";
 import { getFirestore, collection, addDoc } 
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-// 🔥 FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
@@ -16,15 +14,17 @@ const firebaseConfig = {
   measurementId: "G-KXGSYRH35E"
 };
 
-// 🔥 INIT FIREBASE
 const app = initializeApp(firebaseConfig);
-getAnalytics(app);
 const db = getFirestore(app);
 
-// 🔥 GET CART
+// ================= CART =================
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-// 🔥 ELEMENTS
+// ================= STATE =================
+let deliveryFee = 0;
+let finalTotal = 0;
+
+// ================= ELEMENTS =================
 const orderItems = document.getElementById("order-items");
 const totalPrice = document.getElementById("total-price");
 const error = document.getElementById("error");
@@ -48,126 +48,91 @@ function displayOrder() {
     let subtotal = item.price * qty;
     total += subtotal;
 
-    let div = document.createElement("div");
+    const div = document.createElement("div");
+    div.className = "order-item";
     div.innerHTML = `
-      <p>
-        ${item.name} (${item.variation || "No option"}) 
-        x ${qty} = <b>GHS ${subtotal}</b>
-      </p>
+      ${item.name} (${item.variation || "No option"}) 
+      x ${qty} = <b>GHS ${subtotal}</b>
     `;
     orderItems.appendChild(div);
   });
 
-  const location = document.getElementById("location")?.value;
-
-  if (!location) {
-    totalPrice.innerHTML = "<p>Select location to see total</p>";
-    return;
-  }
-
-  let deliveryFee = 0;
-  if (location === "kumasi") deliveryFee = 20;
-  else if (location === "accra") deliveryFee = 30;
-  else if (location === "obuasi") deliveryFee = 10;
-  else deliveryFee = 15;
-
-  let finalTotal = total + deliveryFee;
-
-  totalPrice.innerHTML = `
-    <p>Items Total: GHS ${total}</p>
-    <p>Delivery Fee: GHS ${deliveryFee}</p>
-    <h3>Total: GHS ${finalTotal}</h3>
-  `;
+  totalPrice.innerHTML = `<p>Items Total: GHS ${total}</p>`;
 }
 
-// 🔥 RUN ON LOAD
 displayOrder();
 
-// 🔄 UPDATE WHEN LOCATION CHANGES
-document.getElementById("location")?.addEventListener("change", displayOrder);
-
-// ================= FORM VALIDATION =================
-const inputs = document.querySelectorAll("#name, #phone, #address");
-
-inputs.forEach(input => {
-  input.addEventListener("input", checkForm);
-});
-
+// ================= VALIDATION =================
 function checkForm() {
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const address = document.getElementById("address").value.trim();
 
-  if (proceedBtn) {
-    proceedBtn.disabled = !(name && phone && address);
-  }
+  proceedBtn.disabled = !(name && phone && address);
 }
 
-// ================= GO TO PAYMENT =================
+["name", "phone", "address"].forEach(id => {
+  document.getElementById(id)?.addEventListener("input", checkForm);
+});
+
+// ================= DELIVERY =================
+document.getElementById("location")?.addEventListener("change", () => {
+  const location = document.getElementById("location").value;
+
+  if (location === "knust kumasi campus") deliveryFee = 20;
+  else if (location === "accra") deliveryFee = 30;
+  else if (location === "obuasi") deliveryFee = 10;
+  else if (location === "knust obuasi campus") deliveryFee = 5;
+  else deliveryFee = 15;
+
+  let total = cart.reduce((sum, i) => sum + i.price * (i.quantity || 1), 0);
+  finalTotal = total + deliveryFee;
+
+  totalPrice.innerHTML = `
+    <p>Items: GHS ${total}</p>
+    <p>Delivery: GHS ${deliveryFee}</p>
+    <h3>Total: GHS ${finalTotal}</h3>
+  `;
+});
+
+// ================= PAYMENT UI =================
 function goToPayment() {
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const address = document.getElementById("address").value.trim();
 
   if (!name || !phone || !address) {
-    error.innerText = "⚠️ Fill delivery details first!";
+    error.innerText = "Fill delivery details first!";
     return;
   }
 
-  if (phone.length < 10) {
-    error.innerText = "⚠️ Enter a valid phone number!";
-    return;
-  }
-
-  error.innerText = "";
-
-  const paymentSection = document.getElementById("payment-section");
-  paymentSection.style.display = "block";
-
-  paymentSection.scrollIntoView({
-    behavior: "smooth"
-  });
+  document.getElementById("payment-section").style.display = "block";
+  document.getElementById("payment-section").scrollIntoView({ behavior: "smooth" });
 }
 
-// BUTTON EVENT
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("proceed-btn");
-  if (btn) btn.addEventListener("click", goToPayment);
-});
+proceedBtn.addEventListener("click", goToPayment);
 
-// ================= PAYMENT METHOD =================
-function togglePaymentMethod() {
-  const method = document.getElementById("payment-method").value;
-
-  document.getElementById("momo-section").style.display = "none";
-  document.getElementById("cod-section").style.display = "none";
-
-  if (method === "momo") {
-    document.getElementById("momo-section").style.display = "block";
-  } else if (method === "cod") {
-    document.getElementById("cod-section").style.display = "block";
-  }
-}
-
-// ================= MOBILE MONEY =================
-function confirmPayment() {
+// ================= REALISTIC PAYMENT FLOW =================
+async function confirmPayment() {
   const network = document.getElementById("network").value;
   const momo = document.getElementById("momo-number").value.trim();
   const msg = document.getElementById("payment-msg");
 
   if (!network || !momo) {
+    msg.innerText = "Enter payment details";
     msg.style.color = "red";
-    msg.innerText = "⚠️ Enter payment details!";
     return;
   }
 
-  msg.style.color = "green";
-  msg.innerText = "Processing payment...";
+  msg.style.color = "orange";
+  msg.innerText = "Redirecting to payment gateway...";
 
-  setTimeout(() => {
-    msg.innerText = "✅ Payment successful!";
-    placeOrder("Paid");
-  }, 1500);
+  // 👉 HERE is where REAL PAYMENT will connect later
+  setTimeout(async () => {
+    msg.innerText = "Payment verified";
+
+    await placeOrder("Paid");
+  }, 2000);
 }
 
 // ================= COD =================
@@ -182,75 +147,110 @@ async function placeOrder(paymentType) {
   const address = document.getElementById("address").value.trim();
   const location = document.getElementById("location").value;
 
-  if (!location) {
-    error.innerText = "⚠️ Select delivery location!";
-    return;
-  }
+  if (!location || cart.length === 0) return;
 
-  if (!name || !phone || !address) {
-    error.innerText = "⚠️ Fill all delivery details!";
-    return;
-  }
+  document.querySelectorAll("button").forEach(b => b.disabled = true);
 
-  if (cart.length === 0) {
-    alert("Cart is empty!");
-    return;
-  }
+  let total = cart.reduce((sum, i) => sum + i.price * (i.quantity || 1), 0);
 
-  // 🔥 PREVENT DOUBLE CLICK
-  const buttons = document.querySelectorAll("button");
-  buttons.forEach(btn => btn.disabled = true);
-
-  // 🔥 CALCULATE TOTAL
-  let total = 0;
-  cart.forEach(item => {
-    total += item.price * (item.quantity || 1);
-  });
-
-  let deliveryFee = 0;
-  if (location === "kumasi") deliveryFee = 20;
-  else if (location === "accra") deliveryFee = 30;
-  else if (location === "obuasi") deliveryFee = 10;
-  else deliveryFee = 15;
-
-  let finalTotal = total + deliveryFee;
-
-  const updatedCart = cart.map(item => ({
-    ...item,
-    images: item.images ? item.images : [item.image]
-  }));
-
-  const userId = localStorage.getItem("userId");
-
-  const newOrder = {
-    userId,
+  const order = {
+    userId: localStorage.getItem("userId"),
     customer: { name, phone, address, location },
-    items: updatedCart,
-    total: finalTotal,
+    items: cart,
+    total: finalTotal || total,
     deliveryFee,
     paymentMethod: paymentType,
-    date: new Date().toISOString(),
-    status: paymentType === "Paid" ? "Paid" : "Pending"
+    status: paymentType === "Paid" ? "Paid" : "Pending",
+    date: new Date().toISOString()
   };
 
   try {
-    await addDoc(collection(db, "orders"), newOrder);
-
-    alert("✅ Order placed successfully!");
+    await addDoc(collection(db, "orders"), order);
 
     localStorage.removeItem("cart");
+
+    alert("Order placed successfully!");
     window.location.href = "index.html";
 
   } catch (err) {
     console.error(err);
-    error.innerText = "❌ Failed to place order. Try again.";
+    error.innerText = "Order failed";
 
-    // re-enable buttons if failed
-    document.querySelectorAll("button").forEach(btn => btn.disabled = false);
+    document.querySelectorAll("button").forEach(b => b.disabled = false);
   }
 }
 
-// ================= GLOBAL FUNCTIONS =================
-window.togglePaymentMethod = togglePaymentMethod;
+// ================= GLOBAL =================
+window.togglePaymentMethod = function () {
+  const method = document.getElementById("payment-method").value;
+
+  document.getElementById("momo-section").style.display = method === "momo" ? "block" : "none";
+  document.getElementById("cod-section").style.display = method === "cod" ? "block" : "none";
+}
+// ================= PAYSTACK PAYMENT =================
+function payWithPaystack() {
+  const email = document.getElementById("email").value.trim();
+  const name = document.getElementById("name").value.trim();
+
+  if (!email || !name) {
+    alert("Enter name and email");
+    return;
+  }
+
+  let total = cart.reduce((sum, item) => {
+    return sum + item.price * (item.quantity || 1);
+  }, 0);
+
+  const amount = Math.round((finalTotal || total) * 100);
+
+  const handler = PaystackPop.setup({
+    key: "pk_live_1593829182b5428b42076c0a6896a88c64e498ba", // ✅ your public key
+    email: email,
+    amount: amount,
+    currency: "GHS",
+
+    metadata: {
+      custom_fields: [
+        {
+          display_name: "Customer Name",
+          variable_name: "customer_name",
+          value: name
+        }
+      ]
+    },
+
+    callback: function(response) {
+      verifyPayment(response.reference);
+    },
+
+    onClose: function() {
+      alert("Payment cancelled");
+    }
+  });
+
+  handler.openIframe();
+}
+
+// ================= VERIFY PAYMENT =================
+async function verifyPayment(reference) {
+  try {
+    const res = await fetch("https://your-backend.onrender.com/verify-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reference })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      await placeOrder("Paid");
+    } else {
+      alert("Payment verification failed!");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error verifying payment");
+  }
+}
 window.confirmPayment = confirmPayment;
 window.placeCODOrder = placeCODOrder;

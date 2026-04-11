@@ -29,10 +29,10 @@ async function loadProducts() {
   try {
     const snapshot = await getDocs(collection(db, "products"));
 
-    products = [];
-    snapshot.forEach(doc => {
-      products.push({ id: doc.id, ...doc.data() });
-    });
+    products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
     displayProducts(products);
 
@@ -41,18 +41,18 @@ async function loadProducts() {
   }
 }
 
-// ================= DISPLAY =================
+// ================= DISPLAY PRODUCTS =================
 function displayProducts(list) {
   const container = document.getElementById("products-container");
   container.innerHTML = "";
 
   list.forEach(product => {
-    let div = document.createElement("div");
+    const div = document.createElement("div");
     div.classList.add("product");
 
     div.innerHTML = `
       <div onclick="goToDetails('${product.id}')" style="cursor:pointer;">
-        <img src="${product.images ? product.images[0] : product.image}">
+        <img src="${product.images?.[0] || product.image}" />
         <h4>${product.name}</h4>
         <p>GHS ${product.price}</p>
         <p>${product.description || ""}</p>
@@ -67,17 +67,18 @@ function displayProducts(list) {
 
 // ================= CART =================
 function addToCart(productId) {
+  const product = products.find(p => p.id === productId);
+  if (!product) return;
+
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-  let product = products.find(p => p.id === productId);
-
-  let existing = cart.find(item => item.id === productId);
+  const existing = cart.find(item => item.id === productId);
 
   if (existing) {
-    existing.quantity = (existing.quantity || 1) + 1;
+    existing.quantity += 1;
   } else {
     cart.push({
-      id: productId,
+      id: product.id,
       name: product.name,
       price: product.price,
       images: product.images || [product.image],
@@ -94,19 +95,15 @@ function addToCart(productId) {
 
 // ================= CART COUNT =================
 function updateCartCount() {
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
+  const cart = JSON.parse(localStorage.getItem("cart")) || [];
   const cartBtn = document.querySelector(".cart-btn");
 
-  let totalItems = cart.reduce((sum, item) => {
-    return sum + (item.quantity || 1);
-  }, 0);
+  const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
   if (cartBtn) {
     cartBtn.innerText = `Cart 🛒 (${totalItems})`;
   }
 }
-
-updateCartCount();
 
 // ================= SEARCH =================
 function searchProducts() {
@@ -120,7 +117,7 @@ function searchProducts() {
   displayProducts(filtered);
 }
 
-// ================= CATEGORY =================
+// ================= CATEGORY FILTER =================
 function filterCategory(category) {
   if (category === "all") {
     displayProducts(products);
@@ -135,41 +132,54 @@ let currentImageIndex = 0;
 
 function openLightbox(productId) {
   currentProduct = products.find(p => p.id === productId);
+
+  if (!currentProduct || !currentProduct.images) return;
+
   currentImageIndex = 0;
 
-  document.getElementById("lightbox").style.display = "flex";
-  document.querySelector(".lightbox-img").src = currentProduct.images[0];
+  const lightbox = document.getElementById("lightbox");
+  const img = document.querySelector(".lightbox-img");
+
+  if (!lightbox || !img) return;
+
+  lightbox.style.display = "flex";
+  img.src = currentProduct.images[0];
 }
 
 function closeLightbox() {
-  document.getElementById("lightbox").style.display = "none";
+  const lightbox = document.getElementById("lightbox");
+  if (lightbox) lightbox.style.display = "none";
 }
 
 function nextImage() {
-  if (!currentProduct.images) return;
+  if (!currentProduct?.images) return;
 
-  currentImageIndex = (currentImageIndex + 1) % currentProduct.images.length;
-  document.querySelector(".lightbox-img").src = currentProduct.images[currentImageIndex];
+  currentImageIndex =
+    (currentImageIndex + 1) % currentProduct.images.length;
+
+  document.querySelector(".lightbox-img").src =
+    currentProduct.images[currentImageIndex];
 }
 
 function prevImage() {
-  if (!currentProduct.images) return;
+  if (!currentProduct?.images) return;
 
   currentImageIndex =
     (currentImageIndex - 1 + currentProduct.images.length) %
     currentProduct.images.length;
 
-  document.querySelector(".lightbox-img").src = currentProduct.images[currentImageIndex];
+  document.querySelector(".lightbox-img").src =
+    currentProduct.images[currentImageIndex];
 }
 
-// ================= DETAILS =================
+// ================= PRODUCT DETAILS =================
 function goToDetails(productId) {
   localStorage.setItem("selectedProduct", productId);
   window.location.href = "product.html";
 }
 
 // ================= ADMIN SHORTCUT =================
-document.addEventListener("keydown", function(e) {
+document.addEventListener("keydown", function (e) {
   if (e.ctrlKey && e.key === "a") {
     const adminLink = document.getElementById("admin-link");
     if (adminLink) {
@@ -187,8 +197,9 @@ function logout() {
 
 // ================= INIT =================
 loadProducts();
+updateCartCount();
 
-// GLOBAL
+// GLOBAL EXPORTS
 window.addToCart = addToCart;
 window.goToDetails = goToDetails;
 window.searchProducts = searchProducts;

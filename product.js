@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/fireba
 import { getFirestore, collection, getDocs } 
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-// 🔥 Firebase config (FIXED)
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
@@ -15,86 +14,64 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ================= STATE =================
-let products = [];
-let selectedProduct = null;
+let product = null;
 let selectedVariation = null;
 
-// ================= LOAD PRODUCTS =================
-async function loadProductDetails() {
-  const container = document.getElementById("product-details");
-  container.innerHTML = "Loading product...";
+// ================= LOAD PRODUCT =================
+async function loadProduct() {
+  const productId = localStorage.getItem("selectedProductId");
 
-  try {
-    const snapshot = await getDocs(collection(db, "products"));
+  const snapshot = await getDocs(collection(db, "products"));
 
-    products = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
-    const index = localStorage.getItem("selectedProduct");
-
-    selectedProduct = products[index];
-
-    if (!selectedProduct) {
-      container.innerHTML = "<p>Product not found</p>";
-      return;
+  snapshot.forEach(doc => {
+    if (doc.id === productId) {
+      product = { id: doc.id, ...doc.data() };
     }
+  });
 
-    renderProduct();
-
-  } catch (err) {
-    console.error(err);
-    container.innerHTML = "<p>Error loading product</p>";
+  if (!product) {
+    document.getElementById("product-details").innerHTML =
+      "<p>Product not found</p>";
+    return;
   }
+
+  renderProduct();
 }
 
-// ================= RENDER PRODUCT =================
+// ================= RENDER =================
 function renderProduct() {
   const container = document.getElementById("product-details");
 
-  selectedVariation = null;
-
-  const images = selectedProduct.images || [selectedProduct.image];
+  const images = product.images || [product.image];
 
   container.innerHTML = `
     <div class="details-container">
 
-      <!-- LEFT -->
       <div class="details-left">
-        <img src="${images[0]}" id="main-image" class="details-img">
+        <img id="main-image" src="${images[0]}" />
 
-        <div class="thumbnail-container">
+        <div>
           ${images.map(img => `
             <img src="${img}" class="thumb" onclick="changeImage('${img}')">
           `).join("")}
         </div>
       </div>
 
-      <!-- RIGHT -->
       <div class="details-right">
-        <h2>${selectedProduct.name}</h2>
-        <p><strong>GHS ${selectedProduct.price}</strong></p>
+        <h2>${product.name}</h2>
+        <p>GHS ${product.price}</p>
 
-        <p class="details-description">
-          ${selectedProduct.description || "No description available"}
-        </p>
+        <p>${product.description || ""}</p>
 
-        ${
-          selectedProduct.variations?.length
-            ? `
-          <label>Select Option:</label>
-          <div class="variation-container">
-            ${selectedProduct.variations.map(v => `
-              <button class="variation-btn" onclick="selectVariation('${v}', this)">
+        ${product.variations?.length ? `
+          <div>
+            ${product.variations.map(v => `
+              <button onclick="selectVariation('${v}', this)">
                 ${v}
               </button>
             `).join("")}
           </div>
-        `
-            : ""
-        }
+        ` : ""}
 
         <button onclick="addToCart()">Add to Cart</button>
       </div>
@@ -103,59 +80,54 @@ function renderProduct() {
   `;
 }
 
-// ================= CHANGE IMAGE =================
+// ================= FUNCTIONS =================
 function changeImage(src) {
   document.getElementById("main-image").src = src;
 }
 
-// ================= SELECT VARIATION =================
 function selectVariation(value, btn) {
   selectedVariation = value;
 
-  document.querySelectorAll(".variation-btn").forEach(b => {
+  document.querySelectorAll("button").forEach(b => {
     b.classList.remove("active");
   });
 
   btn.classList.add("active");
 }
 
-// ================= ADD TO CART =================
 function addToCart() {
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-  if (selectedProduct.variations?.length && !selectedVariation) {
-    alert("Please select a variation!");
+  if (product.variations?.length && !selectedVariation) {
+    alert("Select a variation");
     return;
   }
 
   const existing = cart.find(
-    item =>
-      item.name === selectedProduct.name &&
-      item.variation === selectedVariation
+    i => i.id === product.id && i.variation === selectedVariation
   );
 
   if (existing) {
-    existing.quantity += 1;
+    existing.quantity++;
   } else {
     cart.push({
-      name: selectedProduct.name,
-      price: selectedProduct.price,
-      images: selectedProduct.images || [selectedProduct.image],
-      description: selectedProduct.description || "",
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      images: product.images,
       variation: selectedVariation,
       quantity: 1
     });
   }
 
   localStorage.setItem("cart", JSON.stringify(cart));
-
   alert("Added to cart!");
 }
 
-// ================= GLOBAL EXPORTS =================
+// expose
 window.changeImage = changeImage;
 window.selectVariation = selectVariation;
 window.addToCart = addToCart;
 
-// ================= INIT =================
-loadProductDetails();
+// init
+loadProduct();
