@@ -189,14 +189,22 @@ document.addEventListener("keydown", function (e) {
     }
   }
 });
-
 // ================= LOGOUT =================
 function logout() {
+  // Remove only user session (recommended)
   localStorage.removeItem("user");
-  localStorage.removeItem("cart"); // optional
 
+  // Optional: clear everything
+  // localStorage.clear();
+
+  alert("Logged out successfully");
+
+  // Redirect to login page
   window.location.href = "login.html";
 }
+
+// Make it accessible to HTML onclick
+
 
 // ================= INIT =================
 loadProducts();
