@@ -774,14 +774,30 @@ button:hover {
   font-size: 16px;
 }
 
-/* VARIATION BUTTONS */
-.details-right button {
-  margin: 5px;
-  padding: 8px 12px;
+/* ================= VARIATION BUTTON FIX ================= */
+
+.variation-box button {
+  background: #fff;
+  color: #000;
   border: 1px solid #333;
-  background: rgb(230, 138, 18);
-  cursor: pointer;
+  padding: 8px 12px;
+  margin: 5px;
   border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* hover effect */
+.variation-box button:hover {
+  background: #000;
+  color: #fff;
+}
+
+/* active selected variation */
+.variation-box button.active {
+  background: #000;
+  color: #fff;
+  border: 1px solid #000;
 }
 
 .details-right button.active {
@@ -793,8 +809,8 @@ button:hover {
 .details-right button:last-child {
   margin-top: 15px;
   padding: 12px 20px;
-  background: #000;
-  color: #fff;
+  background: #f2eded;
+  color: #120202;
   border: none;
   cursor: pointer;
 }
