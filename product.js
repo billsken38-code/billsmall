@@ -17,15 +17,20 @@ const db = getFirestore(app);
 let product = null;
 let selectedVariation = null;
 
-// ================= LOAD PRODUCT (FIXED) =================
 async function loadProduct() {
   const productId = localStorage.getItem("selectedProductId");
 
+  if (!productId) {
+    document.getElementById("product-details").innerHTML =
+      "<h2>No product selected</h2>";
+    return;
+  }
+
   const snapshot = await getDocs(collection(db, "products"));
 
-  snapshot.forEach(doc => {
-    if (doc.id === productId) {
-      product = { id: doc.id, ...doc.data() };
+  snapshot.forEach(docSnap => {
+    if (docSnap.id === productId) {
+      product = { id: docSnap.id, ...docSnap.data() };
     }
   });
 
@@ -38,17 +43,15 @@ async function loadProduct() {
   renderProduct();
 }
 
-// ================= RENDER (FIXED IMAGES) =================
 function renderProduct() {
   const container = document.getElementById("product-details");
 
-  const images = product.images && product.images.length
-    ? product.images
-    : [];
+  const images = product.images?.length ? product.images : [];
 
   container.innerHTML = `
     <div class="details-container">
 
+      <!-- LEFT SIDE -->
       <div class="details-left">
         <img id="main-image" src="${images[0] || ''}" />
 
@@ -59,14 +62,15 @@ function renderProduct() {
         </div>
       </div>
 
+      <!-- RIGHT SIDE -->
       <div class="details-right">
         <h2>${product.name}</h2>
-        <p>GHS ${product.price}</p>
+        <p><b>GHS ${product.price}</b></p>
 
         <p>${product.description || ""}</p>
 
         ${product.variations?.length ? `
-          <div>
+          <div class="variation-box">
             ${product.variations.map(v => `
               <button onclick="selectVariation('${v}', this)">
                 ${v}
@@ -75,13 +79,14 @@ function renderProduct() {
           </div>
         ` : ""}
 
-        <button onclick="addToCart()">Add to Cart</button>
+        <button class="add-btn" onclick="addToCart()">
+          Add to Cart
+        </button>
       </div>
 
     </div>
   `;
 }
-
 // ================= IMAGE SWITCH =================
 function changeImage(src) {
   document.getElementById("main-image").src = src;

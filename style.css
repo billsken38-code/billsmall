@@ -723,3 +723,124 @@ button:hover {
   font-size: 12px;
   color: gray;
 }
+/* ================= PRODUCT DETAILS LAYOUT ================= */
+
+.details-container {
+  display: flex;
+  gap: 40px;
+  padding: 20px;
+  align-items: flex-start;
+}
+
+/* LEFT SIDE (IMAGES) */
+.details-left {
+  flex: 1;
+}
+
+#main-image {
+  width: 100%;
+  max-width: 450px;
+  border-radius: 10px;
+  object-fit: cover;
+  margin-bottom: 10px;
+}
+
+.thumb {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  margin-right: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.thumb:hover {
+  border: 2px solid #000;
+}
+
+/* RIGHT SIDE (DETAILS) */
+.details-right {
+  flex: 1;
+}
+
+.details-right h2 {
+  font-size: 26px;
+  margin-bottom: 10px;
+}
+
+.details-right p {
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+/* VARIATION BUTTONS */
+.details-right button {
+  margin: 5px;
+  padding: 8px 12px;
+  border: 1px solid #333;
+  background: white;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.details-right button.active {
+  background: black;
+  color: white;
+}
+
+/* ADD TO CART BUTTON */
+.details-right button:last-child {
+  margin-top: 15px;
+  padding: 12px 20px;
+  background: #000;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+/* ================= MOBILE RESPONSIVE ================= */
+@media (max-width: 768px) {
+  .details-container {
+    flex-direction: column;
+  }
+
+  #main-image {
+    max-width: 100%;
+  }
+}
+.details-container {
+  display: flex;
+  gap: 40px;
+  padding: 20px;
+  align-items: flex-start;
+}
+
+.details-left {
+  flex: 1;
+}
+
+.details-right {
+  flex: 1;
+}
+
+#main-image {
+  width: 100%;
+  max-width: 450px;
+  border-radius: 10px;
+}
+
+.thumb {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  margin-right: 5px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+@media (max-width: 768px) {
+  .details-container {
+    flex-direction: column;
+  }
+}
