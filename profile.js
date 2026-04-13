@@ -24,7 +24,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const userId = auth.currentUser?.uid;
 const auth = getAuth();
 
 onAuthStateChanged(auth, (user) => {
