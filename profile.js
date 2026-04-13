@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+
 import {
   getFirestore,
   doc,
@@ -8,6 +9,10 @@ import {
   getDocs
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
+import {
+  getAuth,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
@@ -19,35 +24,35 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const userId = auth.currentUser?.uid;
+const auth = getAuth();
 
-const userId = localStorage.getItem("userId");
-
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loadProfile(user.uid);
+  } else {
+    window.location.href = "login.html";
+  }
+});
 
 // ================= PROFILE =================
-async function loadProfile() {
-  if (!userId) return;
-
-  const userRef = doc(db, "users", userId);
+async function loadProfile(uid) {
+  const userRef = doc(db, "users", uid);
   const userSnap = await getDoc(userRef);
 
-  let userData;
-
   if (!userSnap.exists()) {
-    userData = {
+    await setDoc(userRef, {
       name: "Guest User",
       email: "",
-      address: "",
-      createdAt: new Date()
-    };
-
-    await setDoc(userRef, userData);
-  } else {
-    userData = userSnap.data();
+      address: ""
+    });
   }
 
-  document.getElementById("user-name").innerText = userData.name || "Guest User";
-  document.getElementById("user-email").innerText = userData.email || "No email";
-  document.getElementById("user-address").innerText = userData.address || "No address";
+  const data = (await getDoc(userRef)).data();
+
+  document.getElementById("user-name").innerText = data.name;
+  document.getElementById("user-email").innerText = data.email;
+  document.getElementById("user-address").innerText = data.address;
 }
 
 
