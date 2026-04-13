@@ -1,5 +1,4 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-
 import {
   getFirestore,
   doc,
@@ -13,8 +12,10 @@ import {
   getAuth,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+
+// ================= FIREBASE =================
 const firebaseConfig = {
-  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
+  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWvW69BU",
   authDomain: "bills-mall.firebaseapp.com",
   projectId: "bills-mall",
   storageBucket: "bills-mall.firebasestorage.app",
@@ -26,30 +27,29 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth();
 
-onAuthStateChanged(auth, (user) => {
+// ================= GLOBAL UID =================
+let currentUID = null;
+
+// ================= AUTH =================
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "login.html";
     return;
   }
 
-  const uid = user.uid;
+  currentUID = user.uid;
 
-  loadProfile(uid);
-  loadStats(uid);
+  loadProfile(currentUID);
+  loadStats(currentUID);
   loadCart();
 });
 
 // ================= PROFILE =================
 async function loadProfile(uid) {
-  if (!uid) {
-    console.error("UID is missing");
-    return;
-  }
-
   const userRef = doc(db, "users", uid);
-  const userSnap = await getDoc(userRef);
+  const snap = await getDoc(userRef);
 
-  if (!userSnap.exists()) {
+  if (!snap.exists()) {
     await setDoc(userRef, {
       name: "Guest User",
       email: "",
@@ -60,39 +60,35 @@ async function loadProfile(uid) {
   const data = (await getDoc(userRef)).data();
 
   document.getElementById("user-name").innerText = data.name || "Guest User";
-  document.getElementById("user-email").innerText = data.email || "No email";
-  document.getElementById("user-address").innerText = data.address || "No address";
+  document.getElementById("user-email").innerText = data.email || "No email saved";
+  document.getElementById("user-address").innerText = data.address || "No address added";
 }
-
-
 
 // ================= STATS =================
 async function loadStats(uid) {
-  const ordersSnap = await getDocs(collection(db, "orders"));
+  const snap = await getDocs(collection(db, "orders"));
 
-  let totalOrders = 0;
-  let totalSpent = 0;
+  let orders = 0;
+  let spent = 0;
 
-  ordersSnap.forEach(docSnap => {
+  snap.forEach((docSnap) => {
     const data = docSnap.data();
 
     if (data.userId === uid) {
-      totalOrders++;
-      totalSpent += data.total || 0;
+      orders++;
+      spent += data.total || 0;
     }
   });
 
-  document.getElementById("total-orders").innerText = totalOrders;
-  document.getElementById("total-spent").innerText = "GHS " + totalSpent;
+  document.getElementById("total-orders").innerText = orders;
+  document.getElementById("total-spent").innerText = "GHS " + spent;
 }
-
 
 // ================= CART =================
 function loadCart() {
   const cart = JSON.parse(localStorage.getItem("cart")) || [];
   document.getElementById("cart-items").innerText = cart.length;
 }
-
 
 // ================= ADDRESS MODAL =================
 window.editAddress = function () {
@@ -108,24 +104,19 @@ window.saveAddress = async function () {
 
   if (!address) return;
 
-  const userRef = doc(db, "users", userId);
+  const userRef = doc(db, "users", currentUID);
 
-  await setDoc(userRef, {
-    address: address
-  }, { merge: true });
+  await setDoc(userRef, { address }, { merge: true });
 
   document.getElementById("user-address").innerText = address;
 
-  window.closeModal();
+  closeModal();
   showToast("Address saved ✔");
 };
-
 
 // ================= TOAST =================
 function showToast(message) {
   const toast = document.getElementById("toast");
-
-  if (!toast) return;
 
   toast.innerText = message;
   toast.classList.add("show");
@@ -135,17 +126,9 @@ function showToast(message) {
   }, 2000);
 }
 
-
 // ================= LOGOUT =================
 window.logout = function () {
+  auth.signOut();
   localStorage.clear();
   window.location.href = "login.html";
 };
-
-
-// ================= INIT =================
-window.addEventListener("DOMContentLoaded", () => {
-  loadProfile();
-  loadStats();
-  loadCart();
-});
