@@ -61,8 +61,14 @@ window.login = async function () {
     localStorage.setItem("userId", userCredential.user.uid);
 
     msg.style.color = "green";
-    msg.innerText = "Login successful!";
+msg.innerHTML = `
+    Account created successfully!<br><br>
 
+  📩 We sent a verification email to your inbox.<br>
+  ⚠️ If you don’t see it, check your <b>Spam / Promotions</b> folder.<br><br>
+  
+  After verifying, return here to login.
+  `;
     window.location.href = "index.html";
 
   } catch (err) {

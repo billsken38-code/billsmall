@@ -1045,3 +1045,12 @@ button:hover {
     flex-direction: column;
   }
 }
+.notice{
+  margin-top:15px;
+  padding:10px;
+  background:#e66209;
+  border:1px solid #ffeeba;
+  border-radius:8px;
+  font-size:13px;
+  color:#3b3113;
+}
