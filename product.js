@@ -97,7 +97,7 @@ function selectVariation(value, btn) {
   selectedVariation = value;
 
   document
-    .querySelectorAll(".details-right button")
+    .querySelectorAll(".variation-box button")
     .forEach(b => b.classList.remove("active"));
 
   btn.classList.add("active");
