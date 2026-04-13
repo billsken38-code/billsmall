@@ -16,20 +16,22 @@
 </script>
 
 <header class="navbar">
-  <h1 class="logo">BILLS MALL</h1>
+  <h1 class="logo">🛍️ BILLS MALL</h1>
 
-  <!-- SEARCH -->
-  <div class="search-bar">
-    <input type="text" placeholder="Search products..." id="search-input">
-    <button onclick="searchProducts()">Search</button>
+  <input type="text" placeholder="Search for products..." id="search-input">
+
+  <div class="nav-actions">
+     <a href="cart.html" class="cart-link">
+  <div class="cart-icon">
+    🛒
+    <span class="cart-count">0</span>
+  </div>
+</a>
+     
+   
   </div>
 
-  <!-- CART -->
-  <a href="cart.html">
-    <button class="cart-btn">Cart 🛒</button>
-  </a>
-
-  <!-- HAMBURGER -->
+ <!-- HAMBURGER -->
   <div class="hamburger" onclick="toggleMenu()">☰</div>
 
   <!-- MOBILE MENU -->
@@ -39,7 +41,6 @@
     <button onclick="logout()">Logout</button>
   </div>
 </header>
-
 <!-- 🔒 HIDDEN ADMIN LINK -->
 <a href="admin.html" id="admin-link" style="display:none;">Admin</a>
 
@@ -76,5 +77,27 @@ function toggleMenu() {
 
 <script type="module" src="script.js"></script>
 
+<div class="bottom-nav">
+  <a href="index.html" class="nav-item">
+    <span>🏠</span>
+    <p>Home</p>
+  </a>
+
+  <a href="cart.html" class="nav-item">
+    <span>🛒</span>
+    <p>Cart</p>
+  </a>
+
+  <a href="orders-user.html" class="nav-item">
+    <span>📦</span>
+    <p>Orders</p>
+  </a>
+
+  <a href="profile.html" class="nav-item">
+    <span>👤</span>
+    <p>Profile</p>
+  </a>
+</div>
+<div id="toast" class="toast">Added to cart ✅</div>
 </body>
 </html>

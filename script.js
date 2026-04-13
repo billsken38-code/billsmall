@@ -49,17 +49,24 @@ function displayProducts(list) {
   list.forEach(product => {
     const div = document.createElement("div");
     div.classList.add("product");
+div.innerHTML = `
+  <div class="product-card">
+    
+    <div class="product-image" onclick="goToDetails('${product.id}')">
+      <img src="${product.images?.[0] || product.image}" />
+    </div>
 
-    div.innerHTML = `
-      <div onclick="goToDetails('${product.id}')" style="cursor:pointer;">
-        <img src="${product.images?.[0] || product.image}" />
-        <h4>${product.name}</h4>
-        <p>GHS ${product.price}</p>
-        <p>${product.description || ""}</p>
-      </div>
+    <div class="product-info">
+      <h3>${product.name}</h3>
+      <p class="price">GHS ${product.price}</p>
+      
+      <button class="add-btn" onclick="addToCart('${product.id}')">
+        Add to Cart
+      </button>
+    </div>
 
-      <button onclick="addToCart('${product.id}')">Add to Cart</button>
-    `;
+  </div>
+`;
 
     container.appendChild(div);
   });
@@ -89,32 +96,54 @@ function addToCart(productId) {
 
   localStorage.setItem("cart", JSON.stringify(cart));
 
-  alert("Added to cart!");
+  showToast("Added to cart 🛒");
   updateCartCount();
+}
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+
+  // Reset first (this is the fix)
+  toast.classList.remove("show");
+
+  // Force reflow (important trick)
+  void toast.offsetWidth;
+
+  // Set new message
+  toast.innerText = message;
+
+  // Show again
+  toast.classList.add("show");
+
+  // Auto hide
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, 2000);
 }
 
 // ================= CART COUNT =================
 function updateCartCount() {
   const cart = JSON.parse(localStorage.getItem("cart")) || [];
-  const cartBtn = document.querySelector(".cart-btn");
+  const countElement = document.querySelector(".cart-count");
 
   const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-  if (cartBtn) {
-    cartBtn.innerText = `Cart 🛒 (${totalItems})`;
+  if (countElement) {
+    countElement.innerText = totalItems;
   }
 }
-
 // ================= SEARCH =================
 function searchProducts() {
-  const input = document.getElementById("search-input").value.toLowerCase();
+document.getElementById("search-input")
+  .addEventListener("input", function () {
+    const input = this.value.toLowerCase();
 
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(input) ||
-    (p.category && p.category.toLowerCase().includes(input))
-  );
+    const filtered = products.filter(p =>
+      p.name.toLowerCase().includes(input)
+    );
 
-  displayProducts(filtered);
+    displayProducts(filtered);
+  });
 }
 
 // ================= CATEGORY FILTER =================
