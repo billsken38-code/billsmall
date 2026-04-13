@@ -27,17 +27,25 @@ const db = getFirestore(app);
 const auth = getAuth();
 
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    loadProfile(user.uid);
-    loadStats(user.uid);
-    loadCart();
-  } else {
+  if (!user) {
     window.location.href = "login.html";
+    return;
   }
+
+  const uid = user.uid;
+
+  loadProfile(uid);
+  loadStats(uid);
+  loadCart();
 });
 
 // ================= PROFILE =================
 async function loadProfile(uid) {
+  if (!uid) {
+    console.error("UID is missing");
+    return;
+  }
+
   const userRef = doc(db, "users", uid);
   const userSnap = await getDoc(userRef);
 
@@ -51,10 +59,11 @@ async function loadProfile(uid) {
 
   const data = (await getDoc(userRef)).data();
 
-  document.getElementById("user-name").innerText = data.name;
-  document.getElementById("user-email").innerText = data.email;
-  document.getElementById("user-address").innerText = data.address;
+  document.getElementById("user-name").innerText = data.name || "Guest User";
+  document.getElementById("user-email").innerText = data.email || "No email";
+  document.getElementById("user-address").innerText = data.address || "No address";
 }
+
 
 
 // ================= STATS =================
