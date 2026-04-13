@@ -31,9 +31,21 @@ const auth = getAuth();
 let currentUID = null;
 
 // ================= AUTH =================
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, (user) => {
+  console.log("AUTH USER:", user);
+
   if (!user) {
-    window.location.href = "login.html";
+    console.log("No user logged in — showing empty profile");
+
+    // show empty UI instead of redirecting
+    document.getElementById("user-name").innerText = "Guest User";
+    document.getElementById("user-email").innerText = "Not logged in";
+    document.getElementById("user-address").innerText = "No address";
+
+    document.getElementById("total-orders").innerText = "0";
+    document.getElementById("total-spent").innerText = "GHS 0";
+    document.getElementById("cart-items").innerText = "0";
+
     return;
   }
 
@@ -43,7 +55,6 @@ onAuthStateChanged(auth, async (user) => {
   loadStats(currentUID);
   loadCart();
 });
-
 // ================= PROFILE =================
 async function loadProfile(uid) {
   const userRef = doc(db, "users", uid);
