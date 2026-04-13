@@ -29,6 +29,8 @@ const auth = getAuth();
 onAuthStateChanged(auth, (user) => {
   if (user) {
     loadProfile(user.uid);
+    loadStats(user.uid);
+    loadCart();
   } else {
     window.location.href = "login.html";
   }
@@ -56,7 +58,7 @@ async function loadProfile(uid) {
 
 
 // ================= STATS =================
-async function loadStats() {
+async function loadStats(uid) {
   const ordersSnap = await getDocs(collection(db, "orders"));
 
   let totalOrders = 0;
@@ -65,7 +67,7 @@ async function loadStats() {
   ordersSnap.forEach(docSnap => {
     const data = docSnap.data();
 
-    if (data.userId === userId) {
+    if (data.userId === uid) {
       totalOrders++;
       totalSpent += data.total || 0;
     }
