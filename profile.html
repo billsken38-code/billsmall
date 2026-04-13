@@ -1,10 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile - BILLS MALL</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
 <header class="navbar">
   <h1>👤 My Profile</h1>
 </header>
 
 <div class="profile-container">
 
-  <!-- PROFILE HEADER -->
   <div class="profile-header">
     <div class="avatar">👤</div>
     <div>
@@ -13,9 +23,7 @@
     </div>
   </div>
 
-  <!-- STATS DASHBOARD -->
   <div class="stats-grid">
-
     <div class="stat-card">
       <h3 id="total-orders">0</h3>
       <p>Orders</p>
@@ -30,30 +38,40 @@
       <h3 id="total-spent">GHS 0</h3>
       <p>Total Spent</p>
     </div>
-
   </div>
 
-  <!-- ADDRESS -->
   <div class="section">
     <h3>📍 Saved Address</h3>
     <p id="user-address">No address added</p>
-    <button onclick="editAddress()">Edit Address</button>
+   <button onclick="editAddress()">Edit Address</button>
   </div>
 
-  <!-- ACTIONS -->
   <div class="profile-actions">
-
     <a href="orders-user.html" class="action-card">📦 Orders</a>
     <a href="cart.html" class="action-card">🛒 Cart</a>
-
   </div>
 
-  <!-- LOGOUT -->
   <button class="logout-btn" onclick="logout()">🚪 Logout</button>
 
 </div>
+<!-- ADDRESS MODAL -->
+<div id="addressModal" class="modal">
+  <div class="modal-box">
 
-<!-- BOTTOM NAV -->
+    <h3>📍 Edit Address</h3>
+
+    <input type="text" id="addressInput" placeholder="Enter your address">
+
+    <div class="modal-actions">
+      <button onclick="saveAddress()">Save</button>
+      <button onclick="closeModal()" class="cancel">Cancel</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast">Saved ✔</div>
 <div class="bottom-nav">
   <a href="index.html" class="nav-item">🏠<p>Home</p></a>
   <a href="cart.html" class="nav-item">🛒<p>Cart</p></a>
@@ -62,3 +80,6 @@
 </div>
 
 <script type="module" src="profile.js"></script>
+
+</body>
+</html>
