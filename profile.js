@@ -1,6 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, getDocs } 
-from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
@@ -16,78 +22,95 @@ const db = getFirestore(app);
 
 const userId = localStorage.getItem("userId");
 
-// ================= LOAD PROFILE =================
+
+// ================= PROFILE =================
 async function loadProfile() {
-  try {
-    const snapshot = await getDocs(collection(db, "orders"));
+  if (!userId) return;
 
-    let orders = [];
-    let totalSpent = 0;
+  const userRef = doc(db, "users", userId);
+  const userSnap = await getDoc(userRef);
 
-    snapshot.forEach(orderDoc => {
-      const data = orderDoc.data();
+  let userData;
 
-      if (data.userId === userId) {
-        orders.push(data);
-        totalSpent += data.total || 0;
-      }
-    });
+  if (!userSnap.exists()) {
+    userData = {
+      name: "Guest User",
+      email: "",
+      address: "",
+      createdAt: new Date()
+    };
 
-    // ===== SAFE DOM UPDATES =====
-    const ordersEl = document.getElementById("total-orders");
-    const spentEl = document.getElementById("total-spent");
-    const cartEl = document.getElementById("cart-items");
-    const nameEl = document.getElementById("user-name");
-    const emailEl = document.getElementById("user-email");
-    const addressEl = document.getElementById("user-address");
-
-    if (ordersEl) ordersEl.innerText = orders.length;
-    if (spentEl) spentEl.innerText = "GHS " + totalSpent;
-    if (cartEl) cartEl.innerText = JSON.parse(localStorage.getItem("cart") || "[]").length;
-
-    if (nameEl) nameEl.innerText = userId || "Guest User";
-    if (emailEl) emailEl.innerText = localStorage.getItem("email") || "No email saved";
-    if (addressEl) addressEl.innerText = localStorage.getItem("address") || "No address saved";
-
-  } catch (err) {
-    console.error("Profile load error:", err);
+    await setDoc(userRef, userData);
+  } else {
+    userData = userSnap.data();
   }
+
+  document.getElementById("user-name").innerText = userData.name || "Guest User";
+  document.getElementById("user-email").innerText = userData.email || "No email";
+  document.getElementById("user-address").innerText = userData.address || "No address";
 }
 
-// ================= ADDRESS =================
-function editAddress() {
+
+// ================= STATS =================
+async function loadStats() {
+  const ordersSnap = await getDocs(collection(db, "orders"));
+
+  let totalOrders = 0;
+  let totalSpent = 0;
+
+  ordersSnap.forEach(docSnap => {
+    const data = docSnap.data();
+
+    if (data.userId === userId) {
+      totalOrders++;
+      totalSpent += data.total || 0;
+    }
+  });
+
+  document.getElementById("total-orders").innerText = totalOrders;
+  document.getElementById("total-spent").innerText = "GHS " + totalSpent;
+}
+
+
+// ================= CART =================
+function loadCart() {
+  const cart = JSON.parse(localStorage.getItem("cart")) || [];
+  document.getElementById("cart-items").innerText = cart.length;
+}
+
+
+// ================= ADDRESS MODAL =================
+window.editAddress = function () {
   document.getElementById("addressModal").style.display = "flex";
-}
+};
 
-  localStorage.setItem("address", address);
+window.closeModal = function () {
+  document.getElementById("addressModal").style.display = "none";
+};
+
+window.saveAddress = async function () {
+  const address = document.getElementById("addressInput").value.trim();
+
+  if (!address) return;
+
+  const userRef = doc(db, "users", userId);
+
+  await setDoc(userRef, {
+    address: address
+  }, { merge: true });
+
   document.getElementById("user-address").innerText = address;
 
-// ================= LOGOUT =================
-function logout() {
-  localStorage.clear();
-  window.location.href = "login.html";
-}
-
-// ================= WAIT FOR PAGE LOAD =================
-window.addEventListener("DOMContentLoaded", loadProfile);
-
-function closeModal() {
-  document.getElementById("addressModal").style.display = "none";
-}
-
-window.editAddress = function () {
-  const input = document.getElementById("addressInput").value;
-
-  if (!input) return;
-
-  localStorage.setItem("address", input);
-  document.getElementById("user-address").innerText = input;
-
-  closeModal();
+  window.closeModal();
   showToast("Address saved ✔");
-}
+};
+
+
+// ================= TOAST =================
 function showToast(message) {
   const toast = document.getElementById("toast");
+
+  if (!toast) return;
 
   toast.innerText = message;
   toast.classList.add("show");
@@ -96,8 +119,18 @@ function showToast(message) {
     toast.classList.remove("show");
   }, 2000);
 }
-// EXPORTS
-window.editAddress = editAddress;
-window.saveAddress = saveAddress;
-window.closeModal = closeModal;
-window.logout = logout;
+
+
+// ================= LOGOUT =================
+window.logout = function () {
+  localStorage.clear();
+  window.location.href = "login.html";
+};
+
+
+// ================= INIT =================
+window.addEventListener("DOMContentLoaded", () => {
+  loadProfile();
+  loadStats();
+  loadCart();
+});
