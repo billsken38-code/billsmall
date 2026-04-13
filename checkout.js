@@ -205,7 +205,7 @@ function payWithPaystack() {
 
   const handler = PaystackPop.setup({
     key: "pk_live_1593829182b5428b42076c0a6896a88c64e498ba", // ✅ your public key
-    email:"customer@email.com" ,
+    email:"email" ,
     amount: amount,
     currency: "GHS",
 
@@ -234,7 +234,7 @@ function payWithPaystack() {
 // ================= VERIFY PAYMENT =================
 async function verifyPayment(reference) {
   try {
-    const res = await fetch("https://your-backend.onrender.com/verify-payment", {
+    const res = await fetch("https://backend-616b.onrender.com/verify-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reference })
