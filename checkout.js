@@ -1,9 +1,8 @@
 // ====== checkout.js (PROFESSIONAL VERSION) ======
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, addDoc } 
+import { getFirestore, collection, addDoc, serverTimestamp, getAuth, onAuthStateChanged} 
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
@@ -16,7 +15,14 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth();
 
+onAuthStateChanged(auth, (user) => {
+  if (!user || !user.emailVerified)  {
+    alert("Please login first");
+    window.location.href = "login.html";
+  }
+});
 // ================= CART =================
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
@@ -161,7 +167,7 @@ async function placeOrder(paymentType) {
     deliveryFee,
     paymentMethod: paymentType,
     status: paymentType === "Paid" ? "Paid" : "Pending",
-    date: new Date().toISOString()
+   createdAt: serverTimestamp()
   };
 
   try {
@@ -188,48 +194,47 @@ window.togglePaymentMethod = function () {
   document.getElementById("cod-section").style.display = method === "cod" ? "block" : "none";
 }
 // ================= PAYSTACK PAYMENT =================
-function payWithPaystack() {
-  const email = document.getElementById("email").value.trim();
-  const name = document.getElementById("name").value.trim();
+const email = document.getElementById("email").value.trim();
+const name = document.getElementById("name").value.trim();
+const phone = document.getElementById("phone").value.trim();
 
-  if (!email || !name) {
-    alert("Enter name and email");
-    return;
+// Split name into first & last
+const nameParts = name.split(" ");
+const firstName = nameParts[0];
+const lastName = nameParts.slice(1).join(" ") || "Customer";
+
+const handler = PaystackPop.setup({
+  key: "pk_live_1593829182b5428b42076c0a6896a88c64e498ba",
+
+  email: email,              // ✅ REAL email
+  amount: amount,
+  currency: "GHS",
+
+  firstname: firstName,      // ✅ IMPORTANT
+  lastname: lastName,        // ✅ IMPORTANT
+  phone: phone,              // ✅ IMPORTANT
+
+  metadata: {
+    custom_fields: [
+      {
+        display_name: "Customer Name",
+        variable_name: "customer_name",
+        value: name
+      }
+    ]
+  },
+
+  callback: function(response) {
+    verifyPayment(response.reference);
+  },
+
+  onClose: function() {
+    alert("Payment cancelled");
   }
-
-  let total = cart.reduce((sum, item) => {
-    return sum + item.price * (item.quantity || 1);
-  }, 0);
-
-  const amount = Math.round((finalTotal || total) * 100);
-
-  const handler = PaystackPop.setup({
-    key: "pk_live_1593829182b5428b42076c0a6896a88c64e498ba", // ✅ your public key
-    email:"customer@gmail.com" ,
-    amount: amount,
-    currency: "GHS",
-
-    metadata: {
-      custom_fields: [
-        {
-          display_name: "Customer Name",
-          variable_name: "customer_name",
-          value: name
-        }
-      ]
-    },
-
-    callback: function(response) {
-      verifyPayment(response.reference);
-    },
-
-    onClose: function() {
-      alert("Payment cancelled");
-    }
-  });
+});
 
   handler.openIframe();
-}
+
 
 // ================= VERIFY PAYMENT =================
 async function verifyPayment(reference) {

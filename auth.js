@@ -3,7 +3,7 @@ import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut,
+  sendEmailVerification,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
@@ -22,15 +22,23 @@ const auth = getAuth(app);
 
 // ================= SIGN UP =================
 window.signup = async function () {
+  const name = document.getElementById("name").value;
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
+  const msg = document.getElementById("msg");
 
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    alert("Account created!");
-    console.log(userCredential.user);
+
+    // ✅ send verification email
+    await sendEmailVerification(userCredential.user);
+
+    msg.style.color = "green";
+    msg.innerText = "Account created! Check your email to verify.";
+
   } catch (err) {
-    alert(err.message);
+    msg.style.color = "red";
+    msg.innerText = err.message;
   }
 };
 
@@ -38,30 +46,36 @@ window.signup = async function () {
 window.login = async function () {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
+  const msg = document.getElementById("msg");
 
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    alert("Login successful!");
-   window.location.href = "index.html";
-    console.log(userCredential.user);
-  } catch (err) {
-    alert(err.message);
-  }
-};
 
-// ================= LOGOUT =================
-window.logout = async function () {
-  await signOut(auth);
-  alert("Logged out");
+    // ❌ BLOCK UNVERIFIED USERS
+    if (!userCredential.user.emailVerified) {
+      msg.style.color = "red";
+      msg.innerText = "Please verify your email before logging in.";
+      return;
+    }
+
+    localStorage.setItem("userId", userCredential.user.uid);
+
+    msg.style.color = "green";
+    msg.innerText = "Login successful!";
+
+    window.location.href = "index.html";
+
+  } catch (err) {
+    msg.style.color = "red";
+    msg.innerText = err.message;
+  }
 };
 
 // ================= AUTH STATE =================
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("Logged in:", user.uid);
+  if (user && user.emailVerified) {
     localStorage.setItem("userId", user.uid);
   } else {
-    console.log("No user");
     localStorage.removeItem("userId");
   }
 });

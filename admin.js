@@ -13,7 +13,7 @@ import {
   getToken,
   onMessage
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging.js";
-
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 // 🔥 FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
@@ -28,9 +28,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const messaging = getMessaging(app);
-
+const auth = getAuth();
+const ADMIN_EMAIL = "billsken38@gmail.com";
 const container = document.getElementById("admin-container");
 
+
+
+
+onAuthStateChanged(auth, (user) => {
+  if (!user || user.email !== ADMIN_EMAIL) {
+    alert("Access denied");
+    window.location.href = "index.html";
+  }
+});
 // =======================
 // 🔔 NOTIFICATIONS
 // =======================
@@ -103,24 +113,46 @@ let chartInstance = null;
 
 function renderChart(orders) {
   const ctx = document.getElementById("salesChart");
-
   if (!ctx) return;
 
   if (chartInstance) {
-    chartInstance.destroy(); // prevent duplicates
+    chartInstance.destroy();
   }
 
-  const labels = orders.map(o => o.customer?.name || "User");
-  const data = orders.map(o => Number(o.total) || 0);
+  // 📊 Group orders by DAY
+  const ordersByDate = {};
+
+  orders.forEach(order => {
+    if (!order.createdAt) return;
+
+    // Convert Firestore timestamp
+    const date = order.createdAt.seconds
+      ? new Date(order.createdAt.seconds * 1000)
+      : new Date(order.createdAt);
+const key = date.toLocaleString("default", { month: "short", year: "numeric" });
+
+    if (!ordersByDate[key]) {
+      ordersByDate[key] = 0;
+    }
+
+    ordersByDate[key]++;
+  });
+
+  // 📈 Prepare chart data
+  const labels = Object.keys(ordersByDate);
+  const data = Object.values(ordersByDate);
 
   chartInstance = new Chart(ctx, {
-    type: "bar",
+    type: "line", // ✅ LINE GRAPH
     data: {
       labels,
       datasets: [{
-        label: "Sales (GHS)",
+        label: "Orders per Day",
         data,
-        backgroundColor: "#8B5E3C"
+        borderColor: "#8B5E3C",
+        backgroundColor: "rgba(139,94,60,0.2)",
+        tension: 0.3, // smooth curve
+        fill: true
       }]
     },
     options: {
@@ -192,10 +224,9 @@ function loadOrders() {
         <p><b>Total:</b> GHS ${order.total || 0}</p>
 
         <p>
-          <b>Status:</b>
-          <span class="status ${(order.status || "pending").toLowerCase()}">
-            ${order.status || "Pending"}
-          </span>
+       if ((order.status || "").toLowerCase() !== "delivered") {
+       pending++;
+       }
         </p>
 
         <div class="admin-controls">

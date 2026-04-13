@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login - BILLS MALL</title>
+<title>Create Account - BILLS MALL</title>
 
 <link rel="stylesheet" href="style.css">
 
@@ -58,16 +58,18 @@ a{
 <body>
 
 <div class="container">
-  <h2>Login</h2>
+  <h2>Create Account</h2>
 
+  <input type="text" id="name" placeholder="Full Name">
+   <input type="text" id="address" placeholder="Address">
   <input type="email" id="email" placeholder="Email">
   <input type="password" id="password" placeholder="Password">
 
-  <button onclick="login()">Login</button>
+  <button onclick="signup()">Create Account</button>
 
   <p>
-    Don't have an account?
-    <a href="signup.html">Create Account</a>
+    Already have an account?
+    <a href="login.html">Login</a>
   </p>
 
   <p id="msg"></p>
