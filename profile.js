@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+
 import {
   getFirestore,
   doc,
@@ -13,9 +14,9 @@ import {
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
-// ================= FIREBASE =================
+// 🔥 CONFIG
 const firebaseConfig = {
-  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWvW69BU",
+  apiKey: "YOUR_API_KEY",
   authDomain: "bills-mall.firebaseapp.com",
   projectId: "bills-mall",
   storageBucket: "bills-mall.firebasestorage.app",
@@ -25,74 +26,84 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth();
+const auth = getAuth(app);
 
-// ================= GLOBAL UID =================
 let currentUID = null;
 
 // ================= AUTH =================
-onAuthStateChanged(auth, (user) => {
-  console.log("AUTH USER:", user);
-
-  if (!user) {
-    console.log("No user logged in — showing empty profile");
-
-    // show empty UI instead of redirecting
-    document.getElementById("user-name").innerText = "Guest User";
-    document.getElementById("user-email").innerText = "Not logged in";
-    document.getElementById("user-address").innerText = "No address";
-
-    document.getElementById("total-orders").innerText = "0";
-    document.getElementById("total-spent").innerText = "GHS 0";
-    document.getElementById("cart-items").innerText = "0";
-
-    return;
-  }
-
+onAuthStateChanged(auth, async (user) => {
+if (!user) {
+  document.getElementById("user-name").innerText = "Not logged in";
+  document.getElementById("user-email").innerText = "Please login";
+  return;
+}
   currentUID = user.uid;
 
-  loadProfile(currentUID);
-  loadStats(currentUID);
+  console.log("User UID:", currentUID);
+
+  await loadProfile(currentUID);
+  await loadStats(currentUID);
   loadCart();
 });
+
 // ================= PROFILE =================
 async function loadProfile(uid) {
-  const userRef = doc(db, "users", uid);
-  const snap = await getDoc(userRef);
+  try {
+    const userRef = doc(db, "users", uid);
+    const snap = await getDoc(userRef);
 
-  if (!snap.exists()) {
-    await setDoc(userRef, {
-      name: "Guest User",
-      email: "",
-      address: ""
-    });
+    let data;
+
+    if (!snap.exists()) {
+      data = {
+        name: "Guest User",
+        email: "",
+        address: ""
+      };
+
+      await setDoc(userRef, data);
+    } else {
+      data = snap.data();
+      if (!data.email) data.email = auth.currentUser.email;
+    }
+
+    document.getElementById("user-name").innerText =
+      data.name || "Guest User";
+
+    document.getElementById("user-email").innerText =
+      data.email || "No email";
+
+    document.getElementById("user-address").innerText =
+      data.address || "No address";
+
+  } catch (err) {
+    console.error("Profile error:", err);
   }
-
-  const data = (await getDoc(userRef)).data();
-
-  document.getElementById("user-name").innerText = data.name || "Guest User";
-  document.getElementById("user-email").innerText = data.email || "No email saved";
-  document.getElementById("user-address").innerText = data.address || "No address added";
 }
 
 // ================= STATS =================
 async function loadStats(uid) {
-  const snap = await getDocs(collection(db, "orders"));
+  try {
+    const snapshot = await getDocs(collection(db, "orders"));
 
-  let orders = 0;
-  let spent = 0;
+    let totalOrders = 0;
+    let totalSpent = 0;
 
-  snap.forEach((docSnap) => {
-    const data = docSnap.data();
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
 
-    if (data.userId === uid) {
-      orders++;
-      spent += data.total || 0;
-    }
-  });
+      if (data.userId === uid) {
+        totalOrders++;
+        totalSpent += data.total || 0;
+      }
+    });
 
-  document.getElementById("total-orders").innerText = orders;
-  document.getElementById("total-spent").innerText = "GHS " + spent;
+    document.getElementById("total-orders").innerText = totalOrders;
+    document.getElementById("total-spent").innerText = "GHS " + totalSpent;
+
+  } catch (err) {
+    console.error("Stats error:", err);
+  }
 }
 
 // ================= CART =================
@@ -113,21 +124,27 @@ window.closeModal = function () {
 window.saveAddress = async function () {
   const address = document.getElementById("addressInput").value.trim();
 
-  if (!address) return;
+  if (!address || !currentUID) return;
 
-  const userRef = doc(db, "users", currentUID);
+  try {
+    const userRef = doc(db, "users", currentUID);
 
-  await setDoc(userRef, { address }, { merge: true });
+    await setDoc(userRef, { address }, { merge: true });
 
-  document.getElementById("user-address").innerText = address;
+    document.getElementById("user-address").innerText = address;
 
-  closeModal();
-  showToast("Address saved ✔");
+    closeModal();
+    showToast("Address saved ✔");
+
+  } catch (err) {
+    console.error("Save error:", err);
+  }
 };
 
 // ================= TOAST =================
 function showToast(message) {
   const toast = document.getElementById("toast");
+  if (!toast) return;
 
   toast.innerText = message;
   toast.classList.add("show");
@@ -140,6 +157,5 @@ function showToast(message) {
 // ================= LOGOUT =================
 window.logout = function () {
   auth.signOut();
-  localStorage.clear();
   window.location.href = "login.html";
 };

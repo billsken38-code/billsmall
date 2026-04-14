@@ -32,6 +32,13 @@ window.signup = async function () {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
+    // ✅ SAVE USER DATA
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      name: name,
+      email: email,
+      address: address
+    });
+
     // ✅ send verification email
     await sendEmailVerification(userCredential.user);
 
@@ -65,7 +72,7 @@ window.login = async function () {
 
     msg.style.color = "green";
 msg.innerHTML = `
-    Account created successfully
+    msg.innerText = "Login successful";
   `;
     window.location.href = "index.html";
 
