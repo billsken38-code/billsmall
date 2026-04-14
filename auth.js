@@ -4,6 +4,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendEmailVerification,
+  setPersistence,
+ browserLocalPersistence,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
@@ -49,6 +51,7 @@ window.login = async function () {
   const msg = document.getElementById("msg");
 
   try {
+    await setPersistence(auth, browserLocalPersistence);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
     // ❌ BLOCK UNVERIFIED USERS
@@ -62,12 +65,7 @@ window.login = async function () {
 
     msg.style.color = "green";
 msg.innerHTML = `
-    Account created successfully!<br><br>
-
-  📩 We sent a verification email to your inbox.<br>
-  ⚠️ If you don’t see it, check your <b>Spam / Promotions</b> folder.<br><br>
-  
-  After verifying, return here to login.
+    Account created successfully
   `;
     window.location.href = "index.html";
 
