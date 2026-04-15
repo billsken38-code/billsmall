@@ -1056,9 +1056,9 @@ button:hover {
 }
 .products {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
-  padding: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 12px;
 }
 
 .product-card {
@@ -1454,4 +1454,72 @@ body {
 
 .toast.show {
   opacity: 1;
+}
+/* ================= PROFILE CONTAINER ================= */
+.profile-container {
+  padding: 15px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* ================= PROFILE HEADER ================= */
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap; /* 🔥 allows stacking on small screens */
+}
+
+.avatar {
+  font-size: 40px;
+  flex-shrink: 0;
+}
+
+/* ================= STATS GRID ================= */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.stat-card {
+  padding: 12px;
+  text-align: center;
+  border-radius: 10px;
+  background: #f5f5f5;
+  font-size: 14px;
+}
+
+/* ================= ACTION BUTTONS ================= */
+.profile-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.action-card {
+  text-align: center;
+  padding: 12px;
+  background: #eee;
+  border-radius: 10px;
+  text-decoration: none;
+  color: black;
+}
+
+/* ================= SECTION ================= */
+.section {
+  margin-top: 20px;
+}
+
+/* ================= BUTTON ================= */
+.logout-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 20px;
+  border: none;
+  background: black;
+  color: white;
+  border-radius: 10px;
 }

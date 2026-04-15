@@ -6,7 +6,8 @@ import {
   sendEmailVerification,
   setPersistence,
  browserLocalPersistence,
-  onAuthStateChanged
+  onAuthStateChanged,
+  updateProfile 
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
 // Firebase config
@@ -24,26 +25,32 @@ const auth = getAuth(app);
 
 // ================= SIGN UP =================
 window.signup = async function () {
-  const name = document.getElementById("name").value;
-  const email = document.getElementById("email").value;
+  const name = document.getElementById("name").value.trim();
+  const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
   const msg = document.getElementById("msg");
+
+  if (!name) {
+    msg.style.color = "red";
+    msg.innerText = "Enter your name";
+    return;
+  }
 
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
-    // ✅ SAVE USER DATA
-    await setDoc(doc(db, "users", userCredential.user.uid), {
-      name: name,
-      email: email,
-      address: address
+    // ✅ SAVE NAME
+    await updateProfile(userCredential.user, {
+      displayName: name
     });
 
-    // ✅ send verification email
+    // ✅ DEBUG (IMPORTANT)
+    console.log("Saved name:", name);
+
     await sendEmailVerification(userCredential.user);
 
     msg.style.color = "green";
-    msg.innerText = "Account created! Check your email to verify.";
+    msg.innerText = "Account created. Verify email.";
 
   } catch (err) {
     msg.style.color = "red";

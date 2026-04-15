@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/fireba
 import { getFirestore, collection, getDocs } 
 from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
+
 const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",

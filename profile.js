@@ -1,22 +1,13 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  collection,
-  getDocs
-} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-
 import {
   getAuth,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
-// 🔥 CONFIG
+// 🔥 Firebase config (same as auth.js)
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
   projectId: "bills-mall",
   storageBucket: "bills-mall.firebasestorage.app",
@@ -25,86 +16,22 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 const auth = getAuth(app);
 
-let currentUID = null;
+// ================= AUTH STATE =================
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    document.getElementById("user-name").innerText = "Guest User";
+    document.getElementById("user-email").innerText = "Not logged in";
+    return;
+  }
+const savedName = localStorage.getItem("userName");
+  document.getElementById("user-name").innerText =
+    user.displayName || "User";
 
-// ================= AUTH =================
-onAuthStateChanged(auth, async (user) => {
-if (!user) {
-  document.getElementById("user-name").innerText = "Not logged in";
-  document.getElementById("user-email").innerText = "Please login";
-  return;
-}
-  currentUID = user.uid;
-
-  console.log("User UID:", currentUID);
-
-  await loadProfile(currentUID);
-  await loadStats(currentUID);
-  loadCart();
+  document.getElementById("user-email").innerText =
+    user.email;
 });
-
-// ================= PROFILE =================
-async function loadProfile(uid) {
-  try {
-    const userRef = doc(db, "users", uid);
-    const snap = await getDoc(userRef);
-
-    let data;
-
-    if (!snap.exists()) {
-      data = {
-        name: "Guest User",
-        email: "",
-        address: ""
-      };
-
-      await setDoc(userRef, data);
-    } else {
-      data = snap.data();
-      if (!data.email) data.email = auth.currentUser.email;
-    }
-
-    document.getElementById("user-name").innerText =
-      data.name || "Guest User";
-
-    document.getElementById("user-email").innerText =
-      data.email || "No email";
-
-    document.getElementById("user-address").innerText =
-      data.address || "No address";
-
-  } catch (err) {
-    console.error("Profile error:", err);
-  }
-}
-
-// ================= STATS =================
-async function loadStats(uid) {
-  try {
-    const snapshot = await getDocs(collection(db, "orders"));
-
-    let totalOrders = 0;
-    let totalSpent = 0;
-
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-
-      if (data.userId === uid) {
-        totalOrders++;
-        totalSpent += data.total || 0;
-      }
-    });
-
-    document.getElementById("total-orders").innerText = totalOrders;
-    document.getElementById("total-spent").innerText = "GHS " + totalSpent;
-
-  } catch (err) {
-    console.error("Stats error:", err);
-  }
-}
 
 // ================= CART =================
 function loadCart() {
@@ -112,34 +39,41 @@ function loadCart() {
   document.getElementById("cart-items").innerText = cart.length;
 }
 
-// ================= ADDRESS MODAL =================
+loadCart();
+
+// ================= ADDRESS (LOCAL STORAGE) =================
 window.editAddress = function () {
   document.getElementById("addressModal").style.display = "flex";
+
+  // preload saved address
+  const saved = localStorage.getItem("address") || "";
+  document.getElementById("addressInput").value = saved;
 };
 
 window.closeModal = function () {
   document.getElementById("addressModal").style.display = "none";
 };
 
-window.saveAddress = async function () {
+window.saveAddress = function () {
   const address = document.getElementById("addressInput").value.trim();
 
-  if (!address || !currentUID) return;
+  if (!address) return;
 
-  try {
-    const userRef = doc(db, "users", currentUID);
+  localStorage.setItem("address", address);
 
-    await setDoc(userRef, { address }, { merge: true });
+  document.getElementById("user-address").innerText = address;
 
-    document.getElementById("user-address").innerText = address;
-
-    closeModal();
-    showToast("Address saved ✔");
-
-  } catch (err) {
-    console.error("Save error:", err);
-  }
+  closeModal();
+  showToast("Address saved ✔");
 };
+
+// Load saved address on page load
+(function loadAddress() {
+  const saved = localStorage.getItem("address");
+  if (saved) {
+    document.getElementById("user-address").innerText = saved;
+  }
+})();
 
 // ================= TOAST =================
 function showToast(message) {
@@ -156,6 +90,6 @@ function showToast(message) {
 
 // ================= LOGOUT =================
 window.logout = function () {
-  auth.signOut();
+  signOut(auth);
   window.location.href = "login.html";
 };
