@@ -182,6 +182,12 @@ window.payWithPaystack = function () {
     return;
   }
 
+  if (typeof PaystackPop === "undefined") {
+    console.error("PaystackPop is not available on window.");
+    setPaymentMessage("Paystack failed to load. Refresh the page and try again.", "#b00020");
+    return;
+  }
+
   const amount = (getBaseTotal() + deliveryFee) * 100;
 
   if (amount <= 0) {
@@ -189,35 +195,56 @@ window.payWithPaystack = function () {
     return;
   }
 
+  console.log("Paystack starting", {
+    email: currentUser?.email,
+    amount,
+    deliveryFee,
+    cart
+  });
+
   const handler = PaystackPop.setup({
     key: "pk_live_1593829182b5428b42076c0a6896a88c64e498ba",
     email: currentUser.email,
     amount,
     currency: "GHS",
     callback: async (response) => {
+      console.log("Paystack callback response:", response);
       try {
         await verifyPayment(response.reference);
       } catch (err) {
-        console.error(err);
-        setPaymentMessage("Payment verification failed.", "#b00020");
+        console.error("Verification error:", err);
+        setPaymentMessage(`Payment verification failed: ${err.message}`, "#b00020");
       }
     },
     onClose: () => {
+      console.log("Paystack popup closed by user.");
       setPaymentMessage("Payment cancelled.", "#b00020");
     }
   });
 
+  console.log("Opening Paystack iframe...");
   handler.openIframe();
 };
 
 async function verifyPayment(reference) {
+  console.log("Verifying reference:", reference);
+
   const res = await fetch("https://backend-616b.onrender.com/verify-payment", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reference })
   });
 
+  console.log("Verification HTTP status:", res.status);
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Verification request failed:", errorText);
+    throw new Error(`Verification request failed with status ${res.status}`);
+  }
+
   const data = await res.json();
+  console.log("Verification response data:", data);
 
   if (data.success) {
     await placeOrder("Paid");
