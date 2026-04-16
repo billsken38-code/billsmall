@@ -7,6 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
 import { auth } from "./firebase.js";
+import "./ui.js";
 
 window.signup = async function () {
   const name = document.getElementById("name").value.trim();

@@ -6,6 +6,7 @@ import {
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
 import { auth, db } from "./firebase.js";
+import { redirectWithToast, showToast } from "./ui.js";
 
 let currentUser = null;
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
@@ -57,8 +58,7 @@ function fillCustomerDetails(user) {
 
 onAuthStateChanged(auth, (user) => {
   if (!user || !user.emailVerified) {
-    alert("Please login first");
-    window.location.href = "login.html";
+    redirectWithToast("login.html", "Please login first.", { type: "error" });
     return;
   }
 
@@ -178,7 +178,7 @@ window.togglePaymentMethod = function () {
 
 window.payWithPaystack = function () {
   if (!currentUser) {
-    alert("Login required");
+    showToast("Login required.", { type: "error" });
     return;
   }
 

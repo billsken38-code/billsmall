@@ -13,6 +13,7 @@ const firebaseConfig = {
 };
 
 import { app, auth,db } from "./firebase.js";
+import { showToast } from "./ui.js";
 
 let product = null;
 let selectedVariation = null;
@@ -108,7 +109,7 @@ function addToCart() {
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
   if (product.variations?.length && !selectedVariation) {
-    alert("Select a variation");
+    showToast("Select a variation.", { type: "error" });
     return;
   }
 
@@ -130,7 +131,7 @@ function addToCart() {
   }
 
   localStorage.setItem("cart", JSON.stringify(cart));
-  alert("Added to cart!");
+  showToast("Added to cart!", { type: "success" });
 }
 
 // expose

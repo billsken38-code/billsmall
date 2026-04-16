@@ -9,6 +9,16 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function isVendorProductOwner() {
+      return signedIn() &&
+        resource.data.vendorId == request.auth.uid;
+    }
+
+    function isIncomingVendorProductOwner() {
+      return signedIn() &&
+        request.resource.data.vendorId == request.auth.uid;
+    }
+
     function isAdmin() {
       return signedIn() &&
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
@@ -21,7 +31,8 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create: if isAdmin() || isIncomingVendorProductOwner();
+      allow update, delete: if isAdmin() || isVendorProductOwner();
     }
 
     match /orders/{orderId} {

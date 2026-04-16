@@ -27,7 +27,14 @@
       <option value="sports">Sports</option>
     </select>
 
-    <input type="text" id="images" placeholder="Image paths (comma separated)">
+    <input type="text" id="images" placeholder="Image URLs (comma separated)">
+    <p class="vendor-helper-text">
+      Paste direct image URLs separated by commas, or upload one or more image files below.
+    </p>
+    <input type="file" id="image-files" accept="image/*" multiple>
+    <div class="vendor-image-preview-wrap">
+      <div id="admin-image-preview" class="vendor-image-preview-grid"></div>
+    </div>
     <label>Description:</label>
     <textarea id="product-description" placeholder="Enter product description"></textarea>
     <label>Variations (comma separated):</label>

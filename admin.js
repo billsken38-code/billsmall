@@ -12,6 +12,7 @@ import {
 
 import { app, db } from "./firebase.js";
 import { requireAdmin } from "./admin-auth.js";
+import { showToast } from "./ui.js";
 
 const messaging = getMessaging(app);
 const container = document.getElementById("admin-container");
@@ -73,7 +74,7 @@ async function updateStatus(orderId, newStatus) {
     await updateDoc(ref, { status: newStatus });
   } catch (err) {
     console.error("Status update failed:", err);
-    alert(`Status update failed: ${err.message}`);
+    showToast(`Status update failed: ${err.message}`, { type: "error" });
   }
 }
 

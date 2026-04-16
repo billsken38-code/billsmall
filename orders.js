@@ -7,6 +7,7 @@ import {
 
 import { db } from "./firebase.js";
 import { requireAdmin } from "./admin-auth.js";
+import { showToast } from "./ui.js";
 
 const container = document.getElementById("orders-container");
 
@@ -86,10 +87,10 @@ window.updateStatus = async function (orderId) {
       status: select.value
     });
 
-    alert("Status updated!");
+    showToast("Status updated!", { type: "success" });
   } catch (err) {
     console.error("Status update failed:", err);
-    alert(`Status update failed: ${err.message}`);
+    showToast(`Status update failed: ${err.message}`, { type: "error" });
   }
 };
 
