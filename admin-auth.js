@@ -3,8 +3,6 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase
 
 import { auth, db } from "./firebase.js";
 
-const FALLBACK_ADMIN_EMAILS = ["billsken38@gmail.com"];
-
 function waitForUser() {
   return new Promise((resolve) => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -16,10 +14,6 @@ function waitForUser() {
 
 async function isAdmin(user) {
   if (!user) return false;
-
-  if (FALLBACK_ADMIN_EMAILS.includes((user.email || "").toLowerCase())) {
-    return true;
-  }
 
   try {
     const adminDoc = await getDoc(doc(db, "admins", user.uid));

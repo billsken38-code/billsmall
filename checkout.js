@@ -207,16 +207,14 @@ window.payWithPaystack = function () {
     email: currentUser.email,
     amount,
     currency: "GHS",
-    callback: async (response) => {
+    callback: function (response) {
       console.log("Paystack callback response:", response);
-      try {
-        await verifyPayment(response.reference);
-      } catch (err) {
+      verifyPayment(response.reference).catch((err) => {
         console.error("Verification error:", err);
         setPaymentMessage(`Payment verification failed: ${err.message}`, "#b00020");
-      }
+      });
     },
-    onClose: () => {
+    onClose: function () {
       console.log("Paystack popup closed by user.");
       setPaymentMessage("Payment cancelled.", "#b00020");
     }
