@@ -12,8 +12,7 @@ const firebaseConfig = {
   appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+import { app, auth,db } from "./firebase.js";
 
 let product = null;
 let selectedVariation = null;

@@ -1,6 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import {
-  getFirestore,
   collection,
   addDoc,
   getDocs,
@@ -8,22 +6,11 @@ import {
   doc
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-// 🔥 FIREBASE CONFIG (FIXED)
-const firebaseConfig = {
-  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
-  authDomain: "bills-mall.firebaseapp.com",
-  projectId: "bills-mall",
-  storageBucket: "bills-mall.firebasestorage.app",
-  messagingSenderId: "741823099772",
-  appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+import { db } from "./firebase.js";
+import { requireAdmin } from "./admin-auth.js";
 
 const productList = document.getElementById("product-list");
 
-// ================= DISPLAY PRODUCTS =================
 async function displayProducts() {
   productList.innerHTML = "Loading products...";
 
@@ -32,7 +19,7 @@ async function displayProducts() {
 
     productList.innerHTML = "";
 
-    snapshot.forEach(docSnap => {
+    snapshot.forEach((docSnap) => {
       const product = docSnap.data();
       const id = docSnap.id;
 
@@ -43,27 +30,24 @@ async function displayProducts() {
         <h3>${product.name}</h3>
         <p><b>Price:</b> GHS ${product.price}</p>
         <p><b>Category:</b> ${product.category}</p>
-
-        <img src="${product.images?.[0] || ''}" width="80">
-
-        <button onclick="deleteProduct('${id}')">
-          Delete
-        </button>
-
+        <img src="${product.images?.[0] || ""}" width="80">
+        <button onclick="deleteProduct('${id}')">Delete</button>
         <hr>
       `;
 
       productList.appendChild(div);
     });
 
+    if (snapshot.empty) {
+      productList.innerHTML = "No products yet.";
+    }
   } catch (err) {
     console.error("Error loading products:", err);
-    productList.innerHTML = "❌ Failed to load products";
+    productList.innerHTML = `Failed to load products: ${err.message}`;
   }
 }
 
-// ================= ADD PRODUCT =================
-async function addProduct() {
+window.addProduct = async function () {
   const name = document.getElementById("name").value.trim();
   const price = Number(document.getElementById("price").value);
   const category = document.getElementById("category").value;
@@ -72,14 +56,13 @@ async function addProduct() {
   const variationsInput = document.getElementById("variations").value.trim();
 
   if (!name || !price || !imagesInput || !description) {
-    alert("⚠️ Please fill all required fields");
+    alert("Please fill all required fields");
     return;
   }
 
-  const images = imagesInput.split(",").map(i => i.trim());
-
+  const images = imagesInput.split(",").map((item) => item.trim()).filter(Boolean);
   const variations = variationsInput
-    ? variationsInput.split(",").map(v => v.trim())
+    ? variationsInput.split(",").map((item) => item.trim()).filter(Boolean)
     : [];
 
   try {
@@ -92,38 +75,35 @@ async function addProduct() {
       variations
     });
 
-    alert("✅ Product added successfully!");
-
-    // Clear form
+    alert("Product added successfully!");
     document.getElementById("name").value = "";
     document.getElementById("price").value = "";
     document.getElementById("images").value = "";
     document.getElementById("product-description").value = "";
     document.getElementById("variations").value = "";
 
-    displayProducts();
-
+    await displayProducts();
   } catch (err) {
-    console.error(err);
-    alert("❌ Error adding product");
+    console.error("Error adding product:", err);
+    alert(`Error adding product: ${err.message}`);
   }
-}
+};
 
-// ================= DELETE PRODUCT =================
-async function deleteProduct(id) {
+window.deleteProduct = async function (id) {
   if (!confirm("Delete this product?")) return;
 
   try {
     await deleteDoc(doc(db, "products", id));
-    alert("🗑️ Product deleted");
-    displayProducts();
+    alert("Product deleted");
+    await displayProducts();
   } catch (err) {
-    console.error(err);
+    console.error("Error deleting product:", err);
+    alert(`Error deleting product: ${err.message}`);
   }
-}
+};
 
-// ================= INIT =================
-displayProducts();
-
-window.addProduct = addProduct;
-window.deleteProduct = deleteProduct;
+requireAdmin()
+  .then(() => {
+    displayProducts();
+  })
+  .catch(() => {});

@@ -1,75 +1,47 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import {
-  getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendEmailVerification,
-  setPersistence,
- browserLocalPersistence,
   onAuthStateChanged,
-  updateProfile 
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
-  authDomain: "bills-mall.firebaseapp.com",
-  projectId: "bills-mall",
-  storageBucket: "bills-mall.firebasestorage.app",
-  messagingSenderId: "741823099772",
-  appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
-};
+import { auth } from "./firebase.js";
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-
-// ================= SIGN UP =================
 window.signup = async function () {
   const name = document.getElementById("name").value.trim();
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
   const msg = document.getElementById("msg");
 
-  if (!name) {
-    msg.style.color = "red";
-    msg.innerText = "Enter your name";
-    return;
-  }
-
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
-    // ✅ SAVE NAME
     await updateProfile(userCredential.user, {
       displayName: name
     });
 
-    // ✅ DEBUG (IMPORTANT)
-    console.log("Saved name:", name);
-
     await sendEmailVerification(userCredential.user);
+    localStorage.setItem("userId", userCredential.user.uid);
 
     msg.style.color = "green";
-    msg.innerText = "Account created. Verify email.";
-
+    msg.innerText = "Account created! Check your email to verify.";
   } catch (err) {
     msg.style.color = "red";
     msg.innerText = err.message;
   }
 };
 
-// ================= LOGIN =================
 window.login = async function () {
-  const email = document.getElementById("email").value;
+  const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
   const msg = document.getElementById("msg");
 
   try {
-    await setPersistence(auth, browserLocalPersistence);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-    // ❌ BLOCK UNVERIFIED USERS
     if (!userCredential.user.emailVerified) {
+      await auth.signOut();
       msg.style.color = "red";
       msg.innerText = "Please verify your email before logging in.";
       return;
@@ -78,18 +50,15 @@ window.login = async function () {
     localStorage.setItem("userId", userCredential.user.uid);
 
     msg.style.color = "green";
-msg.innerHTML = `
     msg.innerText = "Login successful";
-  `;
-    window.location.href = "index.html";
 
+    window.location.href = "index.html";
   } catch (err) {
     msg.style.color = "red";
     msg.innerText = err.message;
   }
 };
 
-// ================= AUTH STATE =================
 onAuthStateChanged(auth, (user) => {
   if (user && user.emailVerified) {
     localStorage.setItem("userId", user.uid);

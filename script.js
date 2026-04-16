@@ -18,8 +18,7 @@ const firebaseConfig = {
   appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+import { app, auth,db } from "./firebase.js";
 
 // 🔥 GLOBAL PRODUCTS
 let products = [];
@@ -135,7 +134,7 @@ function updateCartCount() {
 // ================= SEARCH =================
 function searchProducts() {
 document.getElementById("search-input")
-  .addEventListener("input", function () {
+  ?.addEventListener("input", function () {
     const input = this.value.toLowerCase();
 
     const filtered = products.filter(p =>

@@ -8,14 +8,6 @@
 </head>
 <body>
 
-<script>
-  const password = prompt("Enter admin password:");
-  if (password !== "Bilken13245") {
-    alert("Access denied!");
-    window.location.href = "index.html";
-  }
-</script>
-
 <header class="navbar">
   <h1 class="logo">BILLS MALL ADMIN</h1>
   <a href="index.html"><button>Back to Shop</button></a>
@@ -27,7 +19,7 @@
 </div>
 
 <div class="orders-container">
-  <div id="orders-container"></div>
+  <div id="orders-container">Checking admin access...</div>
 </div>
 
 <script type="module" src="orders.js"></script>

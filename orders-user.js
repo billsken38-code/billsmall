@@ -1,26 +1,38 @@
-// 🔥 FIREBASE
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, getDocs } 
-from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import {
+  collection,
+  getDocs,
+  query,
+  where
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
-// 🔥 CONFIG
-const firebaseConfig = {
-  apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
-  authDomain: "bills-mall.firebaseapp.com",
-  projectId: "bills-mall",
-  storageBucket: "bills-mall.firebasestorage.app",
-  messagingSenderId: "741823099772",
-  appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
-};
+import { auth, db } from "./firebase.js";
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+function formatOrderDate(createdAt) {
+  if (!createdAt) return "N/A";
 
-// 🔐 GET CURRENT USER
-const userId = localStorage.getItem("userId");
+  if (createdAt.seconds) {
+    return new Date(createdAt.seconds * 1000).toLocaleString();
+  }
 
-// ================= LOAD ORDERS =================
-async function loadOrders() {
+  const parsed = new Date(createdAt);
+  return Number.isNaN(parsed.getTime()) ? "N/A" : parsed.toLocaleString();
+}
+
+onAuthStateChanged(auth, (user) => {
+  const container = document.getElementById("orders-container");
+
+  if (!user) {
+    if (container) {
+      container.innerHTML = "Please login to view orders";
+    }
+    return;
+  }
+
+  loadOrders(user.uid);
+});
+
+async function loadOrders(userId) {
   const container = document.getElementById("orders-container");
   const empty = document.getElementById("empty-orders");
 
@@ -29,78 +41,64 @@ async function loadOrders() {
   container.innerHTML = "Loading orders...";
 
   try {
-    const snapshot = await getDocs(collection(db, "orders"));
+    const ordersQuery = query(
+      collection(db, "orders"),
+      where("userId", "==", userId)
+    );
 
-    let userOrders = [];
-
-    snapshot.forEach(doc => {
-      const order = doc.data();
-
-      // 🔥 FILTER ONLY CURRENT USER
-      if (order.userId === userId) {
-        userOrders.push({ id: doc.id, ...order });
-      }
-    });
-
-    // 🔥 SORT (LATEST FIRST)
-    userOrders.reverse();
+    const snapshot = await getDocs(ordersQuery);
+    const orders = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }))
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
     container.innerHTML = "";
 
-    if (userOrders.length === 0) {
-      empty.style.display = "block";
+    if (orders.length === 0) {
+      if (empty) empty.style.display = "block";
       return;
     }
 
-    empty.style.display = "none";
+    if (empty) empty.style.display = "none";
 
-    userOrders.forEach(order => {
-      let itemsHTML = "";
-
-      (order.items || []).forEach(item => {
-        itemsHTML += `
-          <div class="order-item">
-            <img src="${item.images ? item.images[0] : item.image}" class="order-img">
-            <div>
-              <p><b>${item.name}</b></p>
-              <p>${item.variation || "No option"}</p>
-              <p>Qty: ${item.quantity}</p>
-            </div>
-          </div>
-        `;
-      });
-
+    orders.forEach((order) => {
       const div = document.createElement("div");
       div.classList.add("order-card");
 
+      const itemsHTML = (order.items || []).map((item) => `
+        <div class="order-item">
+          <img src="${item.images?.[0] || item.image || ""}" class="order-img">
+          <div>
+            <p><b>${item.name || "Item"}</b></p>
+            <p>${item.variation || "No option"}</p>
+            <p>Qty: ${item.quantity || 1}</p>
+          </div>
+        </div>
+      `).join("");
+
       div.innerHTML = `
         <h3>Order #${order.id}</h3>
-
-        <p><b>Date:</b> ${order.date || ""}</p>
-        <p><b>Total:</b> GHS ${order.total}</p>
-
+        <p><b>Date:</b> ${formatOrderDate(order.createdAt)}</p>
+        <p><b>Total:</b> GHS ${order.total || 0}</p>
+        <p><b>Payment:</b> ${order.paymentMethod || "N/A"}</p>
         ${itemsHTML}
-
-        <!-- 🔥 TRACKING -->
         <div class="tracking">
-          <span class="track-step ${order.status === "Pending" ? "active" : ""}">Pending</span> →
-          <span class="track-step ${order.status === "Paid" ? "active" : ""}">Paid</span> →
-          <span class="track-step ${order.status === "Shipped" ? "active" : ""}">Shipped</span> →
+          <span class="track-step ${order.status === "Pending" ? "active" : ""}">Pending</span> ->
+          <span class="track-step ${order.status === "Paid" ? "active" : ""}">Paid</span> ->
+          <span class="track-step ${order.status === "Shipped" ? "active" : ""}">Shipped</span> ->
           <span class="track-step ${order.status === "Delivered" ? "active" : ""}">Delivered</span>
         </div>
-
-        <p class="status ${order.status?.toLowerCase()}">
+        <p class="status ${(order.status || "pending").toLowerCase()}">
           ${order.status || "Pending"}
         </p>
       `;
 
       container.appendChild(div);
     });
-
   } catch (err) {
     console.error("Error loading orders:", err);
+    container.innerHTML = `Failed to load orders: ${err.message}`;
   }
 }
-
-// 🚀 RUN
-loadOrders();
