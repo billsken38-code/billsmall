@@ -5,31 +5,45 @@ import {
 
 import { auth } from "./firebase.js";
 
-onAuthStateChanged(auth, (user) => {
-  const nameEl = document.getElementById("user-name");
-  const emailEl = document.getElementById("user-email");
+const nameEl = document.getElementById("user-name");
+const emailEl = document.getElementById("user-email");
+const avatarEl = document.getElementById("profile-avatar");
+const addressEl = document.getElementById("user-address");
 
+function loadAddress() {
+  const saved = localStorage.getItem("address");
+
+  if (saved) {
+    addressEl.innerText = saved;
+  } else {
+    addressEl.innerText = "No address added";
+  }
+}
+
+onAuthStateChanged(auth, (user) => {
   if (!user) {
     nameEl.innerText = "Guest User";
     emailEl.innerText = "Not logged in";
+    avatarEl.innerText = "👤";
     return;
   }
 
-  nameEl.innerText = user.displayName || "User";
-  emailEl.innerText = user.email || "";
+  const displayName = user.displayName || "User";
+  const email = user.email || "No email saved";
+
+  nameEl.innerText = displayName;
+  emailEl.innerText = email;
+  avatarEl.innerText = displayName.charAt(0).toUpperCase();
 });
 
-function loadCart() {
-  const cart = JSON.parse(localStorage.getItem("cart")) || [];
-  const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  document.getElementById("cart-items").innerText = totalItems;
-}
-
-window.addEventListener("DOMContentLoaded", loadCart);
+window.addEventListener("DOMContentLoaded", () => {
+  loadAddress();
+});
 
 window.editAddress = function () {
   document.getElementById("addressModal").style.display = "flex";
-  document.getElementById("addressInput").value = localStorage.getItem("address") || "";
+  document.getElementById("addressInput").value =
+    localStorage.getItem("address") || "";
 };
 
 window.closeModal = function () {
@@ -39,20 +53,16 @@ window.closeModal = function () {
 window.saveAddress = function () {
   const address = document.getElementById("addressInput").value.trim();
 
-  if (!address) return;
+  if (!address) {
+    showToast("Please enter an address");
+    return;
+  }
 
   localStorage.setItem("address", address);
-  document.getElementById("user-address").innerText = address;
+  loadAddress();
   window.closeModal();
   showToast("Address saved");
 };
-
-(function loadAddress() {
-  const saved = localStorage.getItem("address");
-  if (saved) {
-    document.getElementById("user-address").innerText = saved;
-  }
-})();
 
 function showToast(message) {
   const toast = document.getElementById("toast");
@@ -67,6 +77,12 @@ function showToast(message) {
 }
 
 window.logout = async function () {
-  await signOut(auth);
-  window.location.href = "login.html";
+  try {
+    await signOut(auth);
+    localStorage.removeItem("cart");
+    window.location.href = "login.html";
+  } catch (error) {
+    console.error("Logout failed:", error);
+    showToast("Failed to logout");
+  }
 };

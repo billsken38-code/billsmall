@@ -1,49 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Product Admin - BILLS MALL</title>
-  <link rel="stylesheet" href="style.css">
+ <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="product-admin.css">
 </head>
 <body>
-
   <header class="navbar">
     <h1 class="logo">Product Admin</h1>
-    <a href="index.html"><button>Back to Shop</button></a>
+    <a href="index.html"><button type="button">Back to Shop</button></a>
   </header>
 
-  <div class="admin-container">
-    <h2>Add Product</h2>
+  <main class="product-admin-page">
+    <section class="product-admin-shell">
+      <div class="product-admin-grid">
+        <article class="product-admin-card">
+          <div class="product-admin-head">
+            <div>
+              <p class="product-admin-kicker">Catalog Management</p>
+              <h2>Add Product</h2>
+            </div>
+          </div>
 
-    <input type="text" id="name" placeholder="Product Name">
-    <input type="number" id="price" placeholder="Price">
+          <form id="product-form" class="product-admin-form">
+            <div class="product-admin-row">
+              <label>
+                Product Name
+                <input type="text" id="name" placeholder="Product Name" />
+              </label>
 
-    <select id="category">
-      <option value="electronics">Electronics</option>
-      <option value="fashion">Fashion</option>
-      <option value="home">Home</option>
-      <option value="beauty">Beauty</option>
-      <option value="sports">Sports</option>
-    </select>
+              <label>
+                Price
+                <input type="number" id="price" placeholder="Price" min="0" step="0.01" />
+              </label>
+            </div>
 
-    <input type="text" id="images" placeholder="Image URLs (comma separated)">
-    <p class="vendor-helper-text">
-      Paste direct image URLs separated by commas, or upload one or more image files below.
-    </p>
-    <input type="file" id="image-files" accept="image/*" multiple>
-    <div class="vendor-image-preview-wrap">
-      <div id="admin-image-preview" class="vendor-image-preview-grid"></div>
-    </div>
-    <label>Description:</label>
-    <textarea id="product-description" placeholder="Enter product description"></textarea>
-    <label>Variations (comma separated):</label>
-    <input type="text" id="variations" placeholder="e.g. Size 38, Size 39, Size 40">
-    <button onclick="addProduct()">Add Product</button>
+            <div class="product-admin-row">
+              <label>
+                Category
+                <select id="category">
+                  <option value="electronics">Electronics</option>
+                  <option value="fashion">Fashion</option>
+                  <option value="home">Home</option>
+                  <option value="beauty">Beauty</option>
+                  <option value="sports">Sports</option>
+                </select>
+              </label>
 
-    <h2>All Products</h2>
-    <div id="product-list">Checking admin access...</div>
-  </div>
+              <label>
+                Stock
+                <input type="number" id="stock" placeholder="Stock quantity" min="0" step="1" />
+              </label>
+            </div>
+
+            <div class="product-admin-row">
+              <label>
+                Status
+                <select id="status">
+                  <option value="Active">Active</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
+              </label>
+
+              <label class="product-admin-checkbox">
+                <span>Featured Product</span>
+                <input type="checkbox" id="featured" />
+              </label>
+            </div>
+
+            <label>
+              Image URLs
+              <input type="text" id="images" placeholder="Image URLs (comma separated)" />
+            </label>
+
+            <p class="vendor-helper-text">
+              Paste direct image URLs separated by commas, or upload one or more image files below.
+            </p>
+
+            <label>
+              Upload Images
+              <input type="file" id="image-files" accept="image/*" multiple />
+            </label>
+
+            <div class="vendor-image-preview-wrap">
+              <div id="admin-image-preview" class="vendor-image-preview-grid"></div>
+            </div>
+
+            <label>
+              Description
+              <textarea id="product-description" placeholder="Enter product description" rows="4"></textarea>
+            </label>
+
+            <label>
+              Variations (comma separated)
+              <input type="text" id="variations" placeholder="e.g. Size 38, Size 39, Size 40" />
+            </label>
+
+            <div class="product-admin-actions">
+              <button type="submit">Add Product</button>
+              <button type="button" class="alt-btn" id="reset-product-form">Reset</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="product-admin-card">
+          <div class="product-admin-head">
+            <div>
+              <p class="product-admin-kicker">Inventory</p>
+              <h2>All Products</h2>
+            </div>
+          </div>
+
+          <div id="product-list" class="product-admin-list">Checking admin access...</div>
+        </article>
+      </div>
+    </section>
+  </main>
 
   <script type="module" src="product-admin.js"></script>
 </body>

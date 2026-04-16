@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BILLS MALL</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<!-- 🔒 AUTH CHECK -->
 <script>
   if (!localStorage.getItem("userId")) {
     window.location.href = "login.html";
@@ -18,36 +17,37 @@
 <header class="navbar">
   <h1 class="logo">🛍️ BILLS MALL</h1>
 
-  <input type="text" placeholder="Search for products..." id="search-input">
+  <div class="search-bar">
+    <input type="text" placeholder="Search for products..." id="search-input" />
+  </div>
 
   <div class="nav-actions">
-     <a href="cart.html" class="cart-link">
-  <div class="cart-icon">
-    🛒
-    <span class="cart-count">0</span>
-  </div>
-</a>
-     
-   
+    <a href="cart.html" class="cart-link">
+      <div class="cart-icon">
+        🛒
+        <span class="cart-count">0</span>
+      </div>
+    </a>
   </div>
 
- <!-- HAMBURGER -->
   <div class="hamburger" onclick="toggleMenu()">☰</div>
 
-  <!-- MOBILE MENU -->
   <div class="nav-links" id="navLinks">
     <a href="index.html" onclick="toggleMenu()">Home</a>
     <a href="orders-user.html" onclick="toggleMenu()">My Orders</a>
-    <a href="vendor-dashboard.html" onclick="toggleMenu()">Vendor Dashboard</a>
+    <a href="profile.html" onclick="toggleMenu()">Profile</a>
     <button onclick="logout()">Logout</button>
   </div>
 </header>
-<!-- 🔒 HIDDEN ADMIN LINK -->
+
 <a href="admin.html" id="admin-link" style="display:none;">Admin</a>
 
-<section class="hero">
-  <h2>Welcome to BILLS MALL</h2>
-  <p>Best deals available now!</p>
+<section class="hero hero-upgraded">
+  <div class="hero-content">
+    <p class="hero-kicker"></p>
+    <h2>Welcome to BILLS MALL</h2>
+    <p>Discover trusted products, top deals, and featured picks.</p>
+  </div>
 </section>
 
 <div class="category-bar">
@@ -60,26 +60,37 @@
   <div class="category-card" onclick="filterCategory('accessories')">Accessories</div>
 </div>
 
-<section class="products" id="products-container"></section>
+<section class="featured-section">
+  <div class="section-head">
+    <div>
+      <p class="section-kicker">
+      
+      </p>
+      <h2>Featured Products</h2>
+    </div>
+  </div>
+  <div class="products" id="featured-products-container"></div>
+</section>
 
-<!-- LIGHTBOX -->
+<section class="all-products-section">
+  <div class="section-head">
+    <div>
+      <p class="section-kicker">Marketplace Catalog</p>
+      <h2>All Products</h2>
+    </div>
+  </div>
+  <section class="products" id="products-container"></section>
+</section>
+
 <div id="lightbox" class="lightbox">
   <span class="close" onclick="closeLightbox()">&times;</span>
-  <img class="lightbox-img" src="">
+  <img class="lightbox-img" src="" alt="Preview" />
   <button class="prev" onclick="prevImage()">&#10094;</button>
   <button class="next" onclick="nextImage()">&#10095;</button>
 </div>
 
-<script>
-function toggleMenu() {
-  document.getElementById("navLinks").classList.toggle("active");
-}
-</script>
-
-<script type="module" src="script.js"></script>
-
 <div class="bottom-nav">
-  <a href="index.html" class="nav-item">
+  <a href="index.html" class="nav-item active">
     <span>🏠</span>
     <p>Home</p>
   </a>
@@ -99,6 +110,15 @@ function toggleMenu() {
     <p>Profile</p>
   </a>
 </div>
+
 <div id="toast" class="toast">Added to cart ✅</div>
+
+<script>
+  function toggleMenu() {
+    document.getElementById("navLinks").classList.toggle("active");
+  }
+</script>
+
+<script type="module" src="script.js"></script>
 </body>
 </html>

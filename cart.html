@@ -1,42 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cart - BILLS MALL</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="cart.css" />
 </head>
 <body>
 
 <header class="navbar">
   <h1 class="logo">BILLS MALL</h1>
-  <a href="index.html"><button>⬅ Back to Shop</button></a>
+  <a href="index.html"><button type="button">⬅ Back to Shop</button></a>
 </header>
-<section class="cart-page">
 
-  <div class="cart-left">
+<section class="hero cart-hero">
+  <div class="cart-hero-content">
+    <p class="cart-kicker">Shopping Cart</p>
     <h2>Your Cart</h2>
-    <div id="cart-items"></div>
+    <p>Review your items before checkout.</p>
   </div>
-
-  <div class="cart-right">
-    <h3 id="cart-total"></h3>
-
-    <a href="checkout.html">
-      <button id="checkout-btn">Proceed to Checkout</button>
-    </a>
-  </div>
-
 </section>
 
-<script src="cart.js"></script>
+<main class="cart-page-shell">
+  <section class="cart-summary-top">
+    <div class="cart-summary-card">
+      <span>Items</span>
+      <strong id="cart-summary-items">0</strong>
+    </div>
+    <div class="cart-summary-card">
+      <span>Unique Products</span>
+      <strong id="cart-summary-products">0</strong>
+    </div>
+    <div class="cart-summary-card">
+      <span>Total</span>
+      <strong id="cart-summary-total">GHS 0.00</strong>
+    </div>
+  </section>
+
+  <section class="cart-page">
+    <div class="cart-left">
+      <div id="cart-items" class="cart-items-list"></div>
+    </div>
+
+    <aside class="cart-right">
+      <div class="cart-checkout-card">
+        <h3>Order Summary</h3>
+        <div class="cart-summary-lines">
+          <div>
+            <span>Items total</span>
+            <strong id="cart-total">GHS 0.00</strong>
+          </div>
+          <div>
+            <span>Delivery</span>
+            <strong>Calculated at checkout</strong>
+          </div>
+        </div>
+
+        <a href="checkout.html" id="checkout-link">
+          <button id="checkout-btn" type="button">Proceed to Checkout</button>
+        </a>
+      </div>
+    </aside>
+  </section>
+</main>
+
 <div class="bottom-nav">
   <a href="index.html" class="nav-item">
     <span>🏠</span>
     <p>Home</p>
   </a>
 
-  <a href="cart.html" class="nav-item">
+  <a href="cart.html" class="nav-item active">
     <span>🛒</span>
     <p>Cart</p>
   </a>
@@ -51,5 +86,7 @@
     <p>Profile</p>
   </a>
 </div>
+
+<script src="cart.js"></script>
 </body>
 </html>

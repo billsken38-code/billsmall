@@ -1,55 +1,312 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel - BILLS MALL</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - Bills Mall</title>
+  <link rel="stylesheet" href="admin.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">BM</div>
+        <div>
+          <h1>Bills Mall Admin</h1>
+          <p>Marketplace Control Center</p>
+        </div>
+      </div>
 
-<header class="navbar">
-  <h1 class="logo">BILLS MALL ADMIN</h1>
-  <a href="index.html"><button>Back to Shop</button></a>
-</header>
+      <div class="nav-group">
+        <p class="nav-group-title">Overview</p>
+        <button class="nav-btn active" data-section="dashboard">Dashboard</button>
+        <button class="nav-btn" data-section="analytics">Analytics & Reports</button>
+      </div>
 
-<div class="hero">
-  <h2>Admin Dashboard</h2>
-  <p>Manage orders, revenue, and customers</p>
-</div>
+      <div class="nav-group">
+        <p class="nav-group-title">Management</p>
+        <button class="nav-btn" data-section="vendors">Vendor Management</button>
+        <button class="nav-btn" data-section="products">Product Management</button>
+        <button class="nav-btn" data-section="orders">Order Management</button>
+        <button class="nav-btn" data-section="customers">Customer Management</button>
+      </div>
 
-<div class="stats">
-  <div class="stat-card">
-    <h3 id="total-orders">0</h3>
-    <p>Total Orders</p>
+      <div class="nav-group">
+        <p class="nav-group-title">Finance</p>
+        <button class="nav-btn" data-section="payments">Commission & Payments</button>
+      </div>
+
+      <div class="nav-group">
+        <p class="nav-group-title">Platform</p>
+        <button class="nav-btn" data-section="settings">System Settings</button>
+      </div>
+
+      <div class="sidebar-footer">
+        <strong id="adminName">Admin User</strong>
+        <span id="adminRole">Role: platform_admin</span>
+        <span id="adminHint">Marketplace-wide access enabled</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Multi-vendor e-commerce administration</p>
+          <h2 id="pageTitle">Dashboard</h2>
+        </div>
+        <div class="topbar-actions">
+          <span class="chip" id="rbacStatus">RBAC: Admin</span>
+          <button class="btn-outline" id="seedDataBtn">Reset Demo Data</button>
+          <button class="btn" id="exportBtn">Export Report</button>
+        </div>
+      </div>
+
+      <section class="section active" id="section-dashboard">
+        <div class="grid-stats" id="statsGrid"></div>
+
+        <div class="content-grid">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Sales analytics</p>
+                <h3>Daily / Weekly / Monthly Performance</h3>
+              </div>
+              <div class="actions-inline">
+                <select id="chartRangeSelect">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly" selected>Monthly</option>
+                </select>
+              </div>
+            </div>
+            <canvas id="salesChart"></canvas>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Platform alerts</p>
+                <h3>Approvals, disputes, and stock warnings</h3>
+              </div>
+            </div>
+            <div class="alert-list" id="alertList"></div>
+          </article>
+        </div>
+
+        <div class="content-grid">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Top vendors</p>
+                <h3>Best performers by sales</h3>
+              </div>
+            </div>
+            <div class="mini-list" id="topVendorsList"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Top products</p>
+                <h3>Best sellers across the platform</h3>
+              </div>
+            </div>
+            <div class="mini-list" id="topProductsList"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="section-vendors">
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Vendor management</p>
+              <h3>Approve, reject, suspend, or review vendors</h3>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input id="vendorSearch" type="text" placeholder="Search vendor name" />
+            <select id="vendorStatusFilter">
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="suspended">Suspended</option>
+              <option value="banned">Banned</option>
+            </select>
+          </div>
+          <div class="stack" id="vendorList"></div>
+        </article>
+      </section>
+
+      <section class="section" id="section-products">
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Global product control</p>
+              <h3>Manage all vendor products</h3>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input id="productSearch" type="text" placeholder="Search product" />
+            <select id="productVendorFilter"></select>
+            <select id="productStatusFilter">
+              <option value="all">All statuses</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <select id="productCategoryFilter"></select>
+          </div>
+          <div class="stack" id="productList"></div>
+        </article>
+      </section>
+
+      <section class="section" id="section-orders">
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Order management</p>
+              <h3>Track, update, refund, and resolve disputes</h3>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input id="orderSearch" type="text" placeholder="Search order or customer" />
+            <select id="orderStatusFilter">
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="refunded">Refunded</option>
+              <option value="dispute">Dispute</option>
+            </select>
+          </div>
+          <div class="stack" id="orderList"></div>
+        </article>
+      </section>
+
+      <section class="section" id="section-customers">
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Customer management</p>
+              <h3>Customers, complaints, and order history</h3>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input id="customerSearch" type="text" placeholder="Search customer" />
+          </div>
+          <div class="stack" id="customerList"></div>
+        </article>
+      </section>
+
+      <section class="section" id="section-payments">
+        <div class="content-grid">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Commission setup</p>
+                <h3>Platform commission and rules</h3>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>
+                Commission Rate (%)
+                <input type="number" id="commissionRateInput" min="0" max="100" step="0.1" />
+                <small>Applied to completed and paid orders for vendor earnings calculation.</small>
+              </label>
+              <button class="btn" id="saveCommissionBtn">Save Commission</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Payout overview</p>
+                <h3>Pending and paid vendor payouts</h3>
+              </div>
+            </div>
+            <div class="stack" id="payoutList"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="section-analytics">
+        <div class="content-grid">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Reports</p>
+                <h3>Platform summary</h3>
+              </div>
+            </div>
+            <div class="stack" id="reportSummary"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Revenue insights</p>
+                <h3>Performance metrics</h3>
+              </div>
+            </div>
+            <div class="stack" id="insightList"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="section-settings">
+        <div class="settings-grid">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Categories</p>
+                <h3>Manage platform categories</h3>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>
+                Add Category
+                <input type="text" id="newCategoryInput" placeholder="e.g. Electronics" />
+              </label>
+              <button class="btn" id="addCategoryBtn">Add Category</button>
+              <div class="stack" id="categoryList"></div>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Admin profile</p>
+                <h3>Security and control</h3>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>
+                Admin Name
+                <input type="text" id="adminNameInput" />
+              </label>
+              <label>
+                Email
+                <input type="email" id="adminEmailInput" />
+              </label>
+              <label>
+                Access Role
+                <select id="adminRoleInput">
+                  <option value="platform_admin">platform_admin</option>
+                  <option value="super_admin">super_admin</option>
+                  <option value="support_admin">support_admin</option>
+                </select>
+              </label>
+              <button class="btn" id="saveAdminSettingsBtn">Save Admin Settings</button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <div class="stat-card">
-    <h3 id="total-revenue">0</h3>
-    <p>Total Revenue</p>
-  </div>
-
-  <div class="stat-card">
-    <h3 id="pending-orders">0</h3>
-    <p>Pending Orders</p>
-  </div>
-</div>
-
-<div class="admin-container">
-  <canvas id="salesChart"></canvas>
-</div>
-
-<div class="admin-container" id="admin-container">Checking admin access...</div>
-
-<div id="order-popup" class="order-popup">
-  <div class="popup-content">
-    <h3>New Order Received!</h3>
-    <p id="popup-text"></p>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script type="module" src="admin.js"></script>
-
+  <script src="admin.js"></script>
 </body>
 </html>

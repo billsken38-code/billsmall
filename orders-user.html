@@ -1,34 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My Orders - BILLS MALL</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="orders-user.css" />
 </head>
 <body>
 
 <header class="navbar">
   <h1 class="logo">BILLS MALL</h1>
-  <a href="index.html"><button>⬅ Back to Shop</button></a>
+  <a href="index.html"><button type="button">⬅ Back to Shop</button></a>
 </header>
 
-<div class="hero">
-  <h2>My Orders</h2>
-  <p>Track your purchases and delivery status</p>
-</div>
-
-<div class="orders-container">
-
-  <div id="orders-container"></div>
-
-  <div class="empty-orders" id="empty-orders" style="display:none;">
-    You have no orders yet 🛒
+<section class="hero orders-hero">
+  <div class="orders-hero-content">
+    <p class="orders-kicker">Order History</p>
+    <h2>My Orders</h2>
+    <p>Track your purchases, payments, and delivery progress.</p>
   </div>
+</section>
 
-</div>
+<main class="orders-page-shell">
+  <section class="orders-summary" id="orders-summary">
+    <div class="orders-summary-card">
+      <span>Total Orders</span>
+      <strong id="summary-total-orders">0</strong>
+    </div>
+    <div class="orders-summary-card">
+      <span>Pending</span>
+      <strong id="summary-pending-orders">0</strong>
+    </div>
+    <div class="orders-summary-card">
+      <span>Delivered</span>
+      <strong id="summary-delivered-orders">0</strong>
+    </div>
+    <div class="orders-summary-card">
+      <span>Total Spent</span>
+      <strong id="summary-total-spent">GHS 0.00</strong>
+    </div>
+  </section>
 
-<script type="module" src="orders-user.js"></script>
+  <section class="orders-container">
+    <div id="orders-container" class="orders-list">
+      <div class="orders-page-empty">Loading orders...</div>
+    </div>
+
+    <div class="empty-orders" id="empty-orders" style="display:none;">
+      <div class="orders-page-empty">
+        <h3>No orders yet</h3>
+        <p>You have not placed any orders yet.</p>
+        <a href="index.html" class="orders-shop-link">Start shopping</a>
+      </div>
+    </div>
+  </section>
+</main>
+
 <div class="bottom-nav">
   <a href="index.html" class="nav-item">
     <span>🏠</span>
@@ -40,7 +68,7 @@
     <p>Cart</p>
   </a>
 
-  <a href="orders-user.html" class="nav-item">
+  <a href="orders-user.html" class="nav-item active">
     <span>📦</span>
     <p>Orders</p>
   </a>
@@ -50,5 +78,7 @@
     <p>Profile</p>
   </a>
 </div>
+
+<script type="module" src="orders-user.js"></script>
 </body>
 </html>

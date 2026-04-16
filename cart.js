@@ -3,48 +3,75 @@ let cart = JSON.parse(localStorage.getItem("cart")) || [];
 const cartContainer = document.getElementById("cart-items");
 const totalDisplay = document.getElementById("cart-total");
 const checkoutBtn = document.getElementById("checkout-btn");
+const checkoutLink = document.getElementById("checkout-link");
 
-// ================= DISPLAY CART =================
+const summaryItems = document.getElementById("cart-summary-items");
+const summaryProducts = document.getElementById("cart-summary-products");
+const summaryTotal = document.getElementById("cart-summary-total");
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-GH", {
+    style: "currency",
+    currency: "GHS",
+    maximumFractionDigits: 2
+  }).format(Number(value || 0));
+}
+
 function displayCart() {
+  if (!cartContainer) return;
+
   cartContainer.innerHTML = "";
 
   if (cart.length === 0) {
-    cartContainer.innerHTML = "<p>Your cart is empty 🛒</p>";
-    totalDisplay.innerText = "";
+    cartContainer.innerHTML = `
+      <div class="cart-empty-state">
+        <h3>Your cart is empty 🛒</h3>
+        <p>Add some products to continue shopping.</p>
+        <a href="index.html" class="cart-shop-link">Go to Shop</a>
+      </div>
+    `;
+
+    totalDisplay.innerText = formatCurrency(0);
+    summaryItems.innerText = "0";
+    summaryProducts.innerText = "0";
+    summaryTotal.innerText = formatCurrency(0);
+
     checkoutBtn.disabled = true;
+    checkoutLink.removeAttribute("href");
     return;
   }
 
   let total = 0;
+  let totalItems = 0;
 
   cart.forEach((item, index) => {
-    let qty = item.quantity || 1;
-    let subtotal = item.price * qty;
+    const qty = Number(item.quantity || 1);
+    const subtotal = Number(item.price || 0) * qty;
     total += subtotal;
+    totalItems += qty;
 
-    const div = document.createElement("div");
+    const div = document.createElement("article");
     div.classList.add("cart-item");
 
     div.innerHTML = `
-      <img src="${item.images ? item.images[0] : item.image}" width="80">
+      <img src="${item.images?.[0] || item.image || ""}" alt="${item.name || "Product"}">
 
       <div class="cart-details">
-        <h4>${item.name}</h4>
+        <h3>${item.name || "Unnamed Product"}</h3>
 
         ${item.variation ? `<p><strong>Option:</strong> ${item.variation}</p>` : ""}
-
         <p>${item.description || "No description available"}</p>
-        <p><b>Price:</b> GHS ${item.price}</p>
+        <p class="cart-price">${formatCurrency(item.price)}</p>
 
         <div class="quantity-controls">
-          <button onclick="decrease(${index})">-</button>
+          <button type="button" data-action="decrease" data-index="${index}">-</button>
           <span>${qty}</span>
-          <button onclick="increase(${index})">+</button>
+          <button type="button" data-action="increase" data-index="${index}">+</button>
         </div>
 
-        <p><b>Subtotal:</b> GHS ${subtotal}</p>
+        <p><strong>Subtotal:</strong> ${formatCurrency(subtotal)}</p>
 
-        <button class="remove-btn" onclick="removeItem(${index})">
+        <button type="button" class="remove-btn" data-action="remove" data-index="${index}">
           Remove
         </button>
       </div>
@@ -53,19 +80,23 @@ function displayCart() {
     cartContainer.appendChild(div);
   });
 
-  totalDisplay.innerText = "Total: GHS " + total;
+  totalDisplay.innerText = formatCurrency(total);
+  summaryItems.innerText = totalItems;
+  summaryProducts.innerText = cart.length;
+  summaryTotal.innerText = formatCurrency(total);
+
   checkoutBtn.disabled = false;
+  checkoutLink.setAttribute("href", "checkout.html");
 }
 
-// ================= ACTIONS =================
 function increase(index) {
-  cart[index].quantity = (cart[index].quantity || 1) + 1;
+  cart[index].quantity = Number(cart[index].quantity || 1) + 1;
   saveAndRefresh();
 }
 
 function decrease(index) {
-  if ((cart[index].quantity || 1) > 1) {
-    cart[index].quantity--;
+  if (Number(cart[index].quantity || 1) > 1) {
+    cart[index].quantity -= 1;
   } else {
     cart.splice(index, 1);
   }
@@ -77,25 +108,31 @@ function removeItem(index) {
   saveAndRefresh();
 }
 
-// ================= SAVE =================
 function saveAndRefresh() {
   localStorage.setItem("cart", JSON.stringify(cart));
   displayCart();
+  updateCartCount();
 }
 
-// ================= CART COUNT =================
 function updateCartCount() {
-  const cartBtn = document.querySelector(".cart-btn");
+  const countElement = document.querySelector(".cart-count");
+  const totalItems = cart.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
 
-  let totalItems = cart.reduce((sum, item) => {
-    return sum + (item.quantity || 1);
-  }, 0);
-
-  if (cartBtn) {
-    cartBtn.innerText = `Cart 🛒 (${totalItems})`;
+  if (countElement) {
+    countElement.innerText = totalItems;
   }
 }
 
-// ================= INIT =================
+cartContainer?.addEventListener("click", (event) => {
+  const action = event.target.getAttribute("data-action");
+  const index = Number(event.target.getAttribute("data-index"));
+
+  if (!action || Number.isNaN(index)) return;
+
+  if (action === "increase") increase(index);
+  if (action === "decrease") decrease(index);
+  if (action === "remove") removeItem(index);
+});
+
 displayCart();
 updateCartCount();

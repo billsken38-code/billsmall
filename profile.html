@@ -1,75 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Profile - BILLS MALL</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="profile-page.css" />
 </head>
-
 <body>
 
 <header class="navbar">
-  <h1>👤 My Profile</h1>
+  <h1 class="logo">👤 My Profile</h1>
+  <a href="index.html"><button type="button">⬅ Back to Shop</button></a>
 </header>
 
-<div class="profile-container">
+<section class="hero profile-hero">
+  <div class="profile-hero-content">
+    <p class="profile-kicker">Account Center</p>
+    <h2>Your Profile</h2>
+    <p>Manage your personal information and saved address.</p>
+  </div>
+</section>
 
-  <div class="profile-header">
-    <div class="avatar">👤</div>
-    <div>
-      <h2 id="user-name">Guest User</h2>
-      <p id="user-email">No email saved</p>
+<main class="profile-page-shell">
+  <div class="profile-container">
+    <div class="profile-header upgraded-profile-header">
+      <div class="avatar" id="profile-avatar">👤</div>
+      <div class="profile-header-text">
+        <h2 id="user-name">Guest User</h2>
+        <p id="user-email">No email saved</p>
+        <span class="profile-badge">Customer</span>
+      </div>
     </div>
-  </div>
 
-  <div class="stats-grid">
-  
-    <div class="stat-card">
-      <h3 id="cart-items">0</h3>
-      <p>Cart Items</p>
+    <div class="profile-grid">
+      <section class="section profile-panel">
+        <div class="section-top">
+          <div>
+            <p class="panel-kicker">Delivery</p>
+            <h3>Saved Address</h3>
+          </div>
+        </div>
+
+        <p id="user-address">No address added</p>
+        <button type="button" onclick="editAddress()">Edit Address</button>
+      </section>
+
+      <section class="section profile-panel">
+        <div class="section-top">
+          <div>
+            <p class="panel-kicker">Quick Access</p>
+            <h3>Your Actions</h3>
+          </div>
+        </div>
+
+        <div class="profile-actions">
+          <a href="orders-user.html" class="action-card">📦 <p>Orders</p></a>
+          <a href="cart.html" class="action-card">🛒 <p>Cart</p></a>
+        </div>
+      </section>
     </div>
 
-  
+    <button class="logout-btn" onclick="logout()">🚪 Logout</button>
   </div>
+</main>
 
-  <div class="section">
-    <h3>📍 Saved Address</h3>
-    <p id="user-address">No address added</p>
-   <button onclick="editAddress()">Edit Address</button>
-  </div>
-
-  <div class="profile-actions">
-    <a href="orders-user.html" class="action-card">📦 Orders</a>
-    <a href="cart.html" class="action-card">🛒 Cart</a>
-  </div>
-
-  <button class="logout-btn" onclick="logout()">🚪 Logout</button>
-
-</div>
-<!-- ADDRESS MODAL -->
 <div id="addressModal" class="modal">
   <div class="modal-box">
-
     <h3>📍 Edit Address</h3>
-
-    <input type="text" id="addressInput" placeholder="Enter your address">
+    <input type="text" id="addressInput" placeholder="Enter your address" />
 
     <div class="modal-actions">
-      <button onclick="saveAddress()">Save</button>
-      <button onclick="closeModal()" class="cancel">Cancel</button>
+      <button type="button" onclick="saveAddress()">Save</button>
+      <button type="button" onclick="closeModal()" class="cancel">Cancel</button>
     </div>
-
   </div>
 </div>
 
-<!-- TOAST -->
 <div id="toast" class="toast">Saved ✔</div>
+
 <div class="bottom-nav">
-  <a href="index.html" class="nav-item">🏠<p>Home</p></a>
-  <a href="cart.html" class="nav-item">🛒<p>Cart</p></a>
-  <a href="orders-user.html" class="nav-item">📦<p>Orders</p></a>
-  <a href="profile.html" class="nav-item">👤<p>Profile</p></a>
+  <a href="index.html" class="nav-item">
+    <span>🏠</span>
+    <p>Home</p>
+  </a>
+  <a href="cart.html" class="nav-item">
+    <span>🛒</span>
+    <p>Cart</p>
+  </a>
+  <a href="orders-user.html" class="nav-item">
+    <span>📦</span>
+    <p>Orders</p>
+  </a>
+  <a href="profile.html" class="nav-item active">
+    <span>👤</span>
+    <p>Profile</p>
+  </a>
 </div>
 
 <script type="module" src="profile.js"></script>

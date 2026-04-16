@@ -4,15 +4,19 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  doc
+  doc,
+  getDoc,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import { showToast } from "./ui.js";
 
-const STORAGE_KEY = "vendor_dashboard_data_v1";
+const STORAGE_KEY = "vendor_dashboard_data_v2";
 const COMMISSION_RATE = 0.05;
-const DEFAULT_VENDOR_ID = localStorage.getItem("userId") || auth.currentUser?.uid || "vendor_demo_001";
+const DEFAULT_VENDOR_ID =
+  localStorage.getItem("userId") || auth.currentUser?.uid || "vendor_demo_001";
 
 const state = {
   vendorId: DEFAULT_VENDOR_ID,
@@ -61,6 +65,7 @@ let uploadedProductImages = [];
 
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
+
   if (raw) {
     try {
       return JSON.parse(raw);
@@ -79,139 +84,23 @@ function saveData() {
 }
 
 function createSeedData(vendorId) {
-  const secondaryVendorId = "vendor_demo_other";
-
   return {
     vendors: [
       {
         id: vendorId,
         storeName: "Vendor Studio",
-        logoUrl: "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=300&q=80",
-        contactEmail: "vendorstudio@billsmall.com",
-        contactPhone: "+233 24 555 0101",
-        description: "Curated premium fashion and accessories with fast delivery and modern packaging."
-      },
-      {
-        id: secondaryVendorId,
-        storeName: "Urban Cartel",
-        logoUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80",
-        contactEmail: "hello@urbancartel.com",
-        contactPhone: "+233 20 111 4400",
-        description: "Street-ready pieces and limited capsule drops."
+        logoUrl: "",
+        contactEmail: "",
+        contactPhone: "",
+        description: "Professional marketplace dashboard for your store."
       }
     ],
     products: [],
-    orders: [
-      {
-        id: "ORD-2041",
-        vendorId,
-        productId: "prod_1",
-        productName: "Monogram Weekender Bag",
-        customerName: "Maame Serwaa",
-        customerEmail: "maame@example.com",
-        customerPhone: "+233 24 200 1111",
-        date: "2026-04-15",
-        quantity: 2,
-        total: 840,
-        status: "Pending"
-      },
-      {
-        id: "ORD-2042",
-        vendorId,
-        productId: "prod_2",
-        productName: "Cloud Runner Sneakers",
-        customerName: "Kwame Mensah",
-        customerEmail: "kwame@example.com",
-        customerPhone: "+233 20 333 9999",
-        date: "2026-04-14",
-        quantity: 1,
-        total: 315,
-        status: "Shipped"
-      },
-      {
-        id: "ORD-2043",
-        vendorId,
-        productId: "prod_3",
-        productName: "Gold Accent Wristwatch",
-        customerName: "Efua Owusu",
-        customerEmail: "efua@example.com",
-        customerPhone: "+233 50 404 1200",
-        date: "2026-04-12",
-        quantity: 1,
-        total: 510,
-        status: "Delivered"
-      },
-      {
-        id: "ORD-2044",
-        vendorId: secondaryVendorId,
-        productId: "prod_4",
-        productName: "Street Layer Hoodie",
-        customerName: "Other Buyer",
-        customerEmail: "otherbuyer@example.com",
-        customerPhone: "+233 55 202 2020",
-        date: "2026-04-11",
-        quantity: 3,
-        total: 660,
-        status: "Pending"
-      }
-    ],
-    reviews: [
-      {
-        id: "REV-01",
-        vendorId,
-        productId: "prod_1",
-        productName: "Monogram Weekender Bag",
-        customerName: "Maame Serwaa",
-        rating: 5,
-        comment: "Packaging was premium and the bag looks even better in person."
-      },
-      {
-        id: "REV-02",
-        vendorId,
-        productId: "prod_2",
-        productName: "Cloud Runner Sneakers",
-        customerName: "Kwame Mensah",
-        rating: 4,
-        comment: "Comfortable fit and delivered fast. Would love more colorways."
-      },
-      {
-        id: "REV-03",
-        vendorId,
-        productId: "prod_3",
-        productName: "Gold Accent Wristwatch",
-        customerName: "Efua Owusu",
-        rating: 5,
-        comment: "Perfect gift item. The finish feels very expensive."
-      }
-    ],
-    payouts: [
-      {
-        id: "PAY-1001",
-        vendorId,
-        date: "2026-04-10",
-        amount: 420,
-        method: "Mobile Money",
-        status: "Completed"
-      },
-      {
-        id: "PAY-1002",
-        vendorId,
-        date: "2026-04-15",
-        amount: 270,
-        method: "Bank Transfer",
-        status: "Processing"
-      }
-    ],
+    orders: [],
+    reviews: [],
+    payouts: [],
     analytics: {
-      salesHistory: [
-        { label: "Mon", sales: 180 },
-        { label: "Tue", sales: 240 },
-        { label: "Wed", sales: 205 },
-        { label: "Thu", sales: 315 },
-        { label: "Fri", sales: 420 },
-        { label: "Sat", sales: 390 },
-        { label: "Sun", sales: 275 }
-      ]
+      salesHistory: []
     }
   };
 }
@@ -219,10 +108,13 @@ function createSeedData(vendorId) {
 async function loadProductsFromFirebase() {
   try {
     const snapshot = await getDocs(collection(db, "products"));
-    state.data.products = snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    }));
+    state.data.products = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }))
+      .filter((product) => product.vendorId === state.vendorId);
+
     saveData();
   } catch (err) {
     console.error("Failed to load vendor products from Firebase:", err);
@@ -230,23 +122,44 @@ async function loadProductsFromFirebase() {
   }
 }
 
+function getAuthVendorDefaults() {
+  const user = auth.currentUser;
+
+  return {
+    id: user?.uid || state.vendorId,
+    storeName: user?.displayName || "Vendor Studio",
+    logoUrl: user?.photoURL || "",
+    contactEmail: user?.email || "",
+    contactPhone: user?.phoneNumber || "",
+    description: "Professional marketplace dashboard for your store."
+  };
+}
+
 function getVendorProfile() {
+  const authDefaults = getAuthVendorDefaults();
   let vendor = state.data.vendors.find((item) => item.id === state.vendorId);
 
   if (!vendor) {
-    vendor = {
-      id: state.vendorId,
-      storeName: "New Vendor Store",
-      logoUrl: "",
-      contactEmail: "vendor@billsmall.com",
-      contactPhone: "+233 00 000 0000",
-      description: "Set up your store profile to start selling."
-    };
+    vendor = { ...authDefaults };
     state.data.vendors.push(vendor);
     saveData();
+    return vendor;
   }
 
-  return vendor;
+  const mergedVendor = {
+    ...vendor,
+    storeName: authDefaults.storeName || vendor.storeName,
+    logoUrl: authDefaults.logoUrl || vendor.logoUrl,
+    contactEmail: authDefaults.contactEmail || vendor.contactEmail,
+    contactPhone: authDefaults.contactPhone || vendor.contactPhone,
+    description: vendor.description || authDefaults.description
+  };
+
+  const index = state.data.vendors.findIndex((item) => item.id === state.vendorId);
+  state.data.vendors[index] = mergedVendor;
+  saveData();
+
+  return mergedVendor;
 }
 
 function getVendorProducts() {
@@ -277,14 +190,27 @@ function calculateOverview() {
   const products = getVendorProducts();
   const orders = getVendorOrders();
   const reviews = getVendorReviews();
-  const grossSales = orders.reduce((sum, order) => sum + order.total, 0);
-  const totalSalesCount = orders.reduce((sum, order) => sum + order.quantity, 0);
-  const earnings = grossSales * (1 - COMMISSION_RATE);
-  const deliveredRevenue = orders.filter((order) => order.status === "Delivered").reduce((sum, order) => sum + order.total * (1 - COMMISSION_RATE), 0);
-  const processingRevenue = orders.filter((order) => order.status !== "Delivered").reduce((sum, order) => sum + order.total * (1 - COMMISSION_RATE), 0);
   const payouts = getVendorPayouts();
-  const paidOut = payouts.filter((payout) => payout.status === "Completed").reduce((sum, payout) => sum + payout.amount, 0);
-  const averageRating = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
+
+  const grossSales = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const totalSalesCount = orders.reduce((sum, order) => sum + Number(order.quantity || 0), 0);
+  const earnings = grossSales * (1 - COMMISSION_RATE);
+
+  const deliveredRevenue = orders
+    .filter((order) => order.status === "Delivered")
+    .reduce((sum, order) => sum + Number(order.total || 0) * (1 - COMMISSION_RATE), 0);
+
+  const processingRevenue = orders
+    .filter((order) => order.status !== "Delivered")
+    .reduce((sum, order) => sum + Number(order.total || 0) * (1 - COMMISSION_RATE), 0);
+
+  const paidOut = payouts
+    .filter((payout) => payout.status === "Completed")
+    .reduce((sum, payout) => sum + Number(payout.amount || 0), 0);
+
+  const averageRating = reviews.length
+    ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length
+    : 0;
 
   return {
     grossSales,
@@ -301,13 +227,20 @@ function calculateOverview() {
 
 function renderStats() {
   const overview = calculateOverview();
+
   const cards = [
     { label: "Total Sales", value: formatCurrency(overview.grossSales), note: "Gross marketplace value" },
     { label: "Orders", value: overview.orderCount, note: "Vendor orders received" },
     { label: "Products Sold", value: overview.totalSalesCount, note: "Units sold" },
     { label: "Earnings", value: formatCurrency(overview.earnings), note: "After commission" }
   ];
-  elements.statsGrid.innerHTML = cards.map((card) => `<div class="stat-card-vendor"><span>${card.label}</span><strong>${card.value}</strong><small>${card.note}</small></div>`).join("");
+
+  elements.statsGrid.innerHTML = cards
+    .map(
+      (card) =>
+        `<div class="stat-card-vendor"><span>${card.label}</span><strong>${card.value}</strong><small>${card.note}</small></div>`
+    )
+    .join("");
 
   const earningsCards = [
     { label: "Total Earnings", value: formatCurrency(overview.earnings), note: "Net sales after commission" },
@@ -315,12 +248,18 @@ function renderStats() {
     { label: "Withdrawable", value: formatCurrency(overview.withdrawable), note: "Ready for payout" },
     { label: "Commission Rate", value: `${Math.round(COMMISSION_RATE * 100)}%`, note: "Marketplace fee" }
   ];
-  elements.earningsStatsGrid.innerHTML = earningsCards.map((card) => `<div class="stat-card-vendor"><span>${card.label}</span><strong>${card.value}</strong><small>${card.note}</small></div>`).join("");
+
+  elements.earningsStatsGrid.innerHTML = earningsCards
+    .map(
+      (card) =>
+        `<div class="stat-card-vendor"><span>${card.label}</span><strong>${card.value}</strong><small>${card.note}</small></div>`
+    )
+    .join("");
 
   const vendor = getVendorProfile();
   elements.vendorStoreNameTop.textContent = vendor.storeName;
   elements.vendorUserIdTop.textContent = state.vendorId;
-  elements.vendorUserAvatar.textContent = vendor.storeName.slice(0, 1).toUpperCase();
+  elements.vendorUserAvatar.textContent = (vendor.storeName || "V").slice(0, 1).toUpperCase();
   elements.spotlightStoreName.textContent = vendor.storeName;
   elements.spotlightStoreDescription.textContent = vendor.description;
   elements.spotlightProducts.textContent = overview.activeProducts;
@@ -329,12 +268,29 @@ function renderStats() {
 }
 
 function renderSalesChart() {
-  const history = state.data.analytics.salesHistory || [];
+  const history = state.data.analytics?.salesHistory || [];
+
+  if (!history.length) {
+    elements.salesChart.innerHTML = `
+      <div class="empty-state">No sales chart data yet. Your chart will appear when new sales are recorded.</div>
+    `;
+    return;
+  }
+
   const max = Math.max(...history.map((item) => item.sales), 1);
-  elements.salesChart.innerHTML = history.map((item) => {
-    const height = Math.max((item.sales / max) * 170, 20);
-    return `<div class="sales-bar"><span class="sales-bar-value">${formatCurrency(item.sales)}</span><div class="sales-bar-visual" style="height:${height}px"></div><span class="sales-bar-label">${item.label}</span></div>`;
-  }).join("");
+
+  elements.salesChart.innerHTML = history
+    .map((item) => {
+      const height = Math.max((item.sales / max) * 170, 20);
+      return `
+        <div class="sales-bar">
+          <span class="sales-bar-value">${formatCurrency(item.sales)}</span>
+          <div class="sales-bar-visual" style="height:${height}px"></div>
+          <span class="sales-bar-label">${item.label}</span>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 function getStatusClass(status) {
@@ -343,145 +299,250 @@ function getStatusClass(status) {
 
 function renderProducts() {
   const products = getVendorProducts();
+
   if (!products.length) {
     elements.productList.innerHTML = `<div class="empty-state">No products yet. Add your first product to start selling.</div>`;
     return;
   }
 
-  elements.productList.innerHTML = products.map((product) => `
-    <article class="vendor-table-card">
-      <div class="vendor-table-top">
-        <div class="vendor-table-title">
-          <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}">
-          <div><h4>${product.name}</h4><p class="vendor-table-meta">${product.category}</p></div>
-        </div>
-        <span class="status-pill ${getStatusClass(product.status)}">${product.status}</span>
-      </div>
-      <div class="vendor-table-details">
-        <div><span>Price</span><strong>${formatCurrency(product.price)}</strong></div>
-        <div><span>Stock</span><strong>${product.stock}</strong></div>
-        <div><span>Views</span><strong>${product.views || 0}</strong></div>
-        <div><span>Sold</span><strong>${product.sold || 0}</strong></div>
-      </div>
-      <div class="vendor-table-actions">
-        <button class="table-action-btn edit" data-edit-product="${product.id}">Edit</button>
-        <button class="table-action-btn delete" data-delete-product="${product.id}">Delete</button>
-      </div>
-    </article>
-  `).join("");
+  elements.productList.innerHTML = products
+    .map(
+      (product) => `
+        <article class="vendor-table-card">
+          <div class="vendor-table-top">
+            <div class="vendor-table-title">
+              <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}">
+              <div><h4>${product.name}</h4><p class="vendor-table-meta">${product.category}</p></div>
+            </div>
+            <span class="status-pill ${getStatusClass(product.status || "Draft")}">${product.status || "Draft"}</span>
+          </div>
+          <div class="vendor-table-details">
+            <div><span>Price</span><strong>${formatCurrency(product.price)}</strong></div>
+            <div><span>Stock</span><strong>${product.stock ?? 0}</strong></div>
+            <div><span>Views</span><strong>${product.views || 0}</strong></div>
+            <div><span>Sold</span><strong>${product.sold || 0}</strong></div>
+          </div>
+          <div class="vendor-table-actions">
+            <button class="table-action-btn edit" data-edit-product="${product.id}">Edit</button>
+            <button class="table-action-btn delete" data-delete-product="${product.id}">Delete</button>
+          </div>
+        </article>
+      `
+    )
+    .join("");
 }
 
 function renderOrders() {
   const orders = getVendorOrders();
+
   if (!orders.length) {
-    elements.orderList.innerHTML = `<div class="empty-state">No vendor orders yet. Orders will appear here as soon as buyers purchase your products.</div>`;
+    elements.orderList.innerHTML = `<div class="empty-state">No vendor orders yet. New orders will appear here.</div>`;
     return;
   }
 
-  elements.orderList.innerHTML = orders.map((order) => `
-    <article class="vendor-table-card">
-      <div class="vendor-table-top">
-        <div><h4>${order.id}</h4><p class="vendor-table-meta">${order.productName}</p></div>
-        <span class="status-pill ${getStatusClass(order.status)}">${order.status}</span>
-      </div>
-      <div class="vendor-table-details">
-        <div><span>Customer</span><strong>${order.customerName}</strong></div>
-        <div><span>Email</span><strong>${order.customerEmail}</strong></div>
-        <div><span>Phone</span><strong>${order.customerPhone}</strong></div>
-        <div><span>Date</span><strong>${order.date}</strong></div>
-        <div><span>Quantity</span><strong>${order.quantity}</strong></div>
-        <div><span>Total</span><strong>${formatCurrency(order.total)}</strong></div>
-      </div>
-      <div class="vendor-table-actions">
-        <select class="table-select" data-order-status="${order.id}">
-          ${["Pending", "Shipped", "Delivered"].map((status) => `<option value="${status}" ${status === order.status ? "selected" : ""}>${status}</option>`).join("")}
-        </select>
-      </div>
-    </article>
-  `).join("");
+  elements.orderList.innerHTML = orders
+    .map(
+      (order) => `
+        <article class="vendor-table-card">
+          <div class="vendor-table-top">
+            <div><h4>${order.id}</h4><p class="vendor-table-meta">${order.productName}</p></div>
+            <span class="status-pill ${getStatusClass(order.status)}">${order.status}</span>
+          </div>
+          <div class="vendor-table-details">
+            <div><span>Customer</span><strong>${order.customerName}</strong></div>
+            <div><span>Email</span><strong>${order.customerEmail}</strong></div>
+            <div><span>Phone</span><strong>${order.customerPhone}</strong></div>
+            <div><span>Date</span><strong>${order.date}</strong></div>
+            <div><span>Quantity</span><strong>${order.quantity}</strong></div>
+            <div><span>Total</span><strong>${formatCurrency(order.total)}</strong></div>
+          </div>
+          <div class="vendor-table-actions">
+            <select class="table-select" data-order-status="${order.id}">
+              ${["Pending", "Shipped", "Delivered"]
+                .map(
+                  (status) =>
+                    `<option value="${status}" ${status === order.status ? "selected" : ""}>${status}</option>`
+                )
+                .join("")}
+            </select>
+          </div>
+        </article>
+      `
+    )
+    .join("");
 }
 
 function renderEarningsHistory() {
   const payouts = getVendorPayouts();
+
   if (!payouts.length) {
     elements.paymentHistory.innerHTML = `<div class="empty-state">No payout history yet.</div>`;
     return;
   }
-  elements.paymentHistory.innerHTML = payouts.map((payout) => `
-    <article class="vendor-table-card">
-      <div class="vendor-table-top">
-        <div><h4>${payout.id}</h4><p class="vendor-table-meta">${payout.method}</p></div>
-        <span class="status-pill ${getStatusClass(payout.status)}">${payout.status}</span>
-      </div>
-      <div class="vendor-table-details">
-        <div><span>Date</span><strong>${payout.date}</strong></div>
-        <div><span>Amount</span><strong>${formatCurrency(payout.amount)}</strong></div>
-      </div>
-    </article>
-  `).join("");
+
+  elements.paymentHistory.innerHTML = payouts
+    .map(
+      (payout) => `
+        <article class="vendor-table-card">
+          <div class="vendor-table-top">
+            <div><h4>${payout.id}</h4><p class="vendor-table-meta">${payout.method}</p></div>
+            <span class="status-pill ${getStatusClass(payout.status)}">${payout.status}</span>
+          </div>
+          <div class="vendor-table-details">
+            <div><span>Date</span><strong>${payout.date}</strong></div>
+            <div><span>Amount</span><strong>${formatCurrency(payout.amount)}</strong></div>
+          </div>
+        </article>
+      `
+    )
+    .join("");
 }
 
 function renderAnalytics() {
   const products = getVendorProducts();
+
   if (!products.length) {
     elements.analyticsList.innerHTML = `<div class="empty-state">Add products to start tracking analytics.</div>`;
     return;
   }
-  elements.analyticsList.innerHTML = products.map((product) => {
-    const views = product.views || 0;
-    const sold = product.sold || 0;
-    const conversion = views ? ((sold / views) * 100).toFixed(2) : "0.00";
-    return `
-      <article class="vendor-table-card">
-        <div class="vendor-table-top">
-          <div class="vendor-table-title">
-            <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}">
-            <div><h4>${product.name}</h4><p class="vendor-table-meta">${product.category}</p></div>
+
+  elements.analyticsList.innerHTML = products
+    .map((product) => {
+      const views = Number(product.views || 0);
+      const sold = Number(product.sold || 0);
+      const conversion = views ? ((sold / views) * 100).toFixed(2) : "0.00";
+
+      return `
+        <article class="vendor-table-card">
+          <div class="vendor-table-top">
+            <div class="vendor-table-title">
+              <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}">
+              <div><h4>${product.name}</h4><p class="vendor-table-meta">${product.category}</p></div>
+            </div>
+            <span class="status-pill ${getStatusClass(product.status || "Draft")}">${product.status || "Draft"}</span>
           </div>
-          <span class="status-pill ${getStatusClass(product.status)}">${product.status}</span>
-        </div>
-        <div class="vendor-table-details">
-          <div><span>Views</span><strong>${views}</strong></div>
-          <div><span>Units Sold</span><strong>${sold}</strong></div>
-          <div><span>Conversion</span><strong>${conversion}%</strong></div>
-          <div><span>Revenue</span><strong>${formatCurrency(sold * product.price)}</strong></div>
-        </div>
-      </article>
-    `;
-  }).join("");
+          <div class="vendor-table-details">
+            <div><span>Views</span><strong>${views}</strong></div>
+            <div><span>Units Sold</span><strong>${sold}</strong></div>
+            <div><span>Conversion</span><strong>${conversion}%</strong></div>
+            <div><span>Revenue</span><strong>${formatCurrency(sold * Number(product.price || 0))}</strong></div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 function renderReviews() {
   const reviews = getVendorReviews();
+
   if (!reviews.length) {
     elements.reviewList.innerHTML = `<div class="empty-state">No reviews yet. Customer feedback will appear here.</div>`;
     return;
   }
-  elements.reviewList.innerHTML = reviews.map((review) => `
-    <article class="review-card">
-      <div class="review-stars">${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</div>
-      <h4>${review.productName}</h4>
-      <p><strong>${review.customerName}</strong></p>
-      <p>${review.comment}</p>
-    </article>
-  `).join("");
+
+  elements.reviewList.innerHTML = reviews
+    .map(
+      (review) => `
+        <article class="review-card">
+          <div class="review-stars">${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</div>
+          <h4>${review.productName}</h4>
+          <p><strong>${review.customerName}</strong></p>
+          <p>${review.comment}</p>
+        </article>
+      `
+    )
+    .join("");
 }
 
 function populateSettings() {
   const vendor = getVendorProfile();
-  document.getElementById("settings-store-name").value = vendor.storeName;
-  document.getElementById("settings-logo-url").value = vendor.logoUrl;
-  document.getElementById("settings-contact-email").value = vendor.contactEmail;
-  document.getElementById("settings-contact-phone").value = vendor.contactPhone;
-  document.getElementById("settings-description").value = vendor.description;
+  const user = auth.currentUser;
 
-  elements.settingsStoreNamePreview.textContent = vendor.storeName;
-  elements.settingsDescriptionPreview.textContent = vendor.description;
-  elements.settingsEmailPreview.textContent = vendor.contactEmail;
-  elements.settingsPhonePreview.textContent = vendor.contactPhone;
+  document.getElementById("settings-store-name").value = vendor.storeName || "";
+  document.getElementById("settings-logo-url").value = vendor.logoUrl || "";
+  document.getElementById("settings-contact-email").value = vendor.contactEmail || "";
+  document.getElementById("settings-contact-phone").value = vendor.contactPhone || "";
+  document.getElementById("settings-description").value = vendor.description || "";
+
+  document.getElementById("settings-store-name").readOnly = !!user?.displayName;
+  document.getElementById("settings-logo-url").readOnly = !!user?.photoURL;
+  document.getElementById("settings-contact-email").readOnly = !!user?.email;
+  document.getElementById("settings-contact-phone").readOnly = !!user?.phoneNumber;
+
+  elements.settingsStoreNamePreview.textContent = vendor.storeName || "Vendor Studio";
+  elements.settingsDescriptionPreview.textContent =
+    vendor.description || "Professional marketplace dashboard for your store.";
+  elements.settingsEmailPreview.textContent = vendor.contactEmail || "No email found";
+  elements.settingsPhonePreview.textContent = vendor.contactPhone || "No phone found";
   elements.settingsVendorIdPreview.textContent = state.vendorId;
-  elements.settingsLogoPreview.src = vendor.logoUrl || "";
-  elements.settingsLogoPreview.style.visibility = vendor.logoUrl ? "visible" : "hidden";
+
+  if (vendor.logoUrl) {
+    elements.settingsLogoPreview.src = vendor.logoUrl;
+    elements.settingsLogoPreview.style.display = "block";
+  } else {
+    elements.settingsLogoPreview.removeAttribute("src");
+    elements.settingsLogoPreview.style.display = "none";
+  }
+}
+
+async function syncVendorProfileFromFirebaseLogin() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  state.vendorId = user.uid;
+
+  const loginProfile = {
+    id: user.uid,
+    storeName: user.displayName || "Vendor Studio",
+    logoUrl: user.photoURL || "",
+    contactEmail: user.email || "",
+    contactPhone: user.phoneNumber || "",
+    description: "Professional marketplace dashboard for your store."
+  };
+
+  try {
+    const vendorRef = doc(db, "vendors", user.uid);
+    const vendorSnap = await getDoc(vendorRef);
+
+    let mergedProfile = loginProfile;
+
+    if (vendorSnap.exists()) {
+      const vendorData = vendorSnap.data();
+      mergedProfile = {
+        ...vendorData,
+        id: user.uid,
+        storeName: user.displayName || vendorData.storeName || "Vendor Studio",
+        logoUrl: user.photoURL || vendorData.logoUrl || "",
+        contactEmail: user.email || vendorData.contactEmail || "",
+        contactPhone: user.phoneNumber || vendorData.contactPhone || "",
+        description:
+          vendorData.description || "Professional marketplace dashboard for your store."
+      };
+    } else {
+      await setDoc(vendorRef, loginProfile, { merge: true });
+    }
+
+    const existingIndex = state.data.vendors.findIndex((vendor) => vendor.id === user.uid);
+
+    if (existingIndex >= 0) {
+      state.data.vendors[existingIndex] = mergedProfile;
+    } else {
+      state.data.vendors.push(mergedProfile);
+    }
+
+    saveData();
+  } catch (err) {
+    console.error("Failed to sync vendor profile from Firebase login:", err);
+
+    const existingIndex = state.data.vendors.findIndex((vendor) => vendor.id === user.uid);
+    if (existingIndex >= 0) {
+      state.data.vendors[existingIndex] = loginProfile;
+    } else {
+      state.data.vendors.push(loginProfile);
+    }
+    saveData();
+  }
 }
 
 function resetProductForm() {
@@ -496,20 +557,29 @@ function resetProductForm() {
 function fillProductForm(productId) {
   const product = getVendorProducts().find((item) => item.id === productId);
   if (!product) return;
+
   document.getElementById("product-id").value = product.id;
-  document.getElementById("product-name").value = product.name;
-  document.getElementById("product-category").value = product.category;
-  document.getElementById("product-price").value = product.price;
-  document.getElementById("product-stock").value = product.stock;
-  const productImages = product.images?.length ? product.images : (product.image ? [product.image] : []);
+  document.getElementById("product-name").value = product.name || "";
+  document.getElementById("product-category").value = product.category || "";
+  document.getElementById("product-price").value = product.price ?? "";
+  document.getElementById("product-stock").value = product.stock ?? "";
+
+  const productImages = product.images?.length
+    ? product.images
+    : product.image
+      ? [product.image]
+      : [];
+
   document.getElementById("product-image").value = productImages.join(", ");
   uploadedProductImages = [...productImages];
+
   if (elements.productImageFileInput) {
     elements.productImageFileInput.value = "";
   }
+
   updateProductImagePreview(productImages);
-  document.getElementById("product-status").value = product.status;
-  document.getElementById("product-description").value = product.description;
+  document.getElementById("product-status").value = product.status || "Active";
+  document.getElementById("product-description").value = product.description || "";
   elements.productFormTitle.textContent = "Edit Product";
   setSection("products");
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -520,7 +590,10 @@ function updateProductImagePreview(images) {
 
   if (images.length) {
     elements.productImagePreview.innerHTML = images
-      .map((src, index) => `<img src="${src}" alt="Product preview ${index + 1}" class="vendor-image-thumb">`)
+      .map(
+        (src, index) =>
+          `<img src="${src}" alt="Product preview ${index + 1}" class="vendor-image-thumb">`
+      )
       .join("");
     elements.productImagePreview.classList.add("has-images");
   } else {
@@ -587,14 +660,30 @@ async function deleteProduct(productId) {
 }
 
 function updateOrderStatus(orderId, status) {
-  state.data.orders = state.data.orders.map((order) => order.id === orderId ? { ...order, status } : order);
+  state.data.orders = state.data.orders.map((order) =>
+    order.id === orderId ? { ...order, status } : order
+  );
   saveData();
   renderAll();
   showToast(`Order ${orderId} marked ${status}.`, { type: "success" });
 }
 
 function saveSettings(payload) {
-  state.data.vendors = state.data.vendors.map((vendor) => vendor.id === state.vendorId ? { ...vendor, ...payload } : vendor);
+  const authDefaults = getAuthVendorDefaults();
+
+  state.data.vendors = state.data.vendors.map((vendor) =>
+    vendor.id === state.vendorId
+      ? {
+          ...vendor,
+          ...payload,
+          storeName: authDefaults.storeName || payload.storeName || vendor.storeName,
+          contactEmail: authDefaults.contactEmail || payload.contactEmail || vendor.contactEmail,
+          contactPhone: authDefaults.contactPhone || payload.contactPhone || vendor.contactPhone,
+          logoUrl: authDefaults.logoUrl || payload.logoUrl || vendor.logoUrl
+        }
+      : vendor
+  );
+
   saveData();
   renderAll();
   showToast("Vendor profile updated.", { type: "success" });
@@ -614,8 +703,15 @@ function renderAll() {
 function setSection(section) {
   state.currentSection = section;
   elements.pageTitle.textContent = section.charAt(0).toUpperCase() + section.slice(1);
-  elements.navLinks.forEach((button) => button.classList.toggle("active", button.dataset.section === section));
-  elements.sections.forEach((sectionEl) => sectionEl.classList.toggle("active", sectionEl.id === `section-${section}`));
+
+  elements.navLinks.forEach((button) => {
+    button.classList.toggle("active", button.dataset.section === section);
+  });
+
+  elements.sections.forEach((sectionEl) => {
+    sectionEl.classList.toggle("active", sectionEl.id === `section-${section}`);
+  });
+
   elements.sidebar.classList.remove("open");
 }
 
@@ -630,6 +726,7 @@ function bindEvents() {
 
   elements.productForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
     const name = document.getElementById("product-name").value.trim();
     const category = document.getElementById("product-category").value.trim();
     const price = Number(document.getElementById("product-price").value);
@@ -644,7 +741,7 @@ function bindEvents() {
     const id = document.getElementById("product-id").value;
     const existing = id ? getVendorProducts().find((product) => product.id === id) : null;
 
-    if (!name || !category || !price || Number.isNaN(stock)) {
+    if (!name || !category || Number.isNaN(price) || Number.isNaN(stock)) {
       showToast("Name, category, price, and stock are required.", { type: "error" });
       return;
     }
@@ -701,7 +798,10 @@ function bindEvents() {
       uploadedProductImages = await Promise.all(files.map((file) => readImageFile(file)));
       elements.productImageInput.value = "";
       updateProductImagePreview(uploadedProductImages);
-      showToast(`${uploadedProductImages.length} image${uploadedProductImages.length > 1 ? "s" : ""} uploaded for this product.`, { type: "success" });
+      showToast(
+        `${uploadedProductImages.length} image${uploadedProductImages.length > 1 ? "s" : ""} uploaded for this product.`,
+        { type: "success" }
+      );
     } catch (err) {
       console.error(err);
       showToast(err.message, { type: "error" });
@@ -711,6 +811,7 @@ function bindEvents() {
   elements.productList.addEventListener("click", async (event) => {
     const editId = event.target.getAttribute("data-edit-product");
     const deleteId = event.target.getAttribute("data-delete-product");
+
     if (editId) fillProductForm(editId);
     if (deleteId) await deleteProduct(deleteId);
   });
@@ -721,23 +822,46 @@ function bindEvents() {
     updateOrderStatus(orderId, event.target.value);
   });
 
-  elements.settingsForm.addEventListener("submit", (event) => {
+  elements.settingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    saveSettings({
-      storeName: document.getElementById("settings-store-name").value.trim() || "Vendor Store",
-      logoUrl: document.getElementById("settings-logo-url").value.trim(),
-      contactEmail: document.getElementById("settings-contact-email").value.trim(),
-      contactPhone: document.getElementById("settings-contact-phone").value.trim(),
-      description: document.getElementById("settings-description").value.trim()
-    });
+
+    const user = auth.currentUser;
+    const payload = {
+      storeName: user?.displayName || document.getElementById("settings-store-name").value.trim() || "Vendor Studio",
+      logoUrl: user?.photoURL || document.getElementById("settings-logo-url").value.trim(),
+      contactEmail: user?.email || document.getElementById("settings-contact-email").value.trim(),
+      contactPhone: user?.phoneNumber || document.getElementById("settings-contact-phone").value.trim(),
+      description:
+        document.getElementById("settings-description").value.trim() ||
+        "Professional marketplace dashboard for your store."
+    };
+
+    saveSettings(payload);
+
+    if (user) {
+      try {
+        await setDoc(doc(db, "vendors", user.uid), payload, { merge: true });
+      } catch (err) {
+        console.error("Failed to save vendor settings to Firebase:", err);
+        showToast(`Failed to sync settings: ${err.message}`, { type: "error" });
+      }
+    }
   });
 }
 
 async function init() {
   bindEvents();
+  await syncVendorProfileFromFirebaseLogin();
   await loadProductsFromFirebase();
   renderAll();
   resetProductForm();
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return;
+    await syncVendorProfileFromFirebaseLogin();
+    await loadProductsFromFirebase();
+    renderAll();
+  });
 }
 
 init();

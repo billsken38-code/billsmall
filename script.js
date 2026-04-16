@@ -4,11 +4,12 @@ if (!localStorage.getItem("userId")) {
 }
 
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-
 import { db } from "./firebase.js";
 import { redirectWithToast, showToast } from "./ui.js";
 
 let products = [];
+let filteredProducts = [];
+let currentCategory = "all";
 
 async function loadProducts() {
   try {
@@ -19,46 +20,94 @@ async function loadProducts() {
       ...docSnap.data()
     }));
 
-    displayProducts(products);
+    filteredProducts = [...products];
+    renderFeaturedProducts(products.filter((product) => product.featured));
+    displayProducts(filteredProducts);
   } catch (err) {
     console.error("Error loading products:", err);
+    const container = document.getElementById("products-container");
+    if (container) {
+      container.innerHTML = `<div class="product-empty-state">Failed to load products.</div>`;
+    }
   }
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-GH", {
+    style: "currency",
+    currency: "GHS",
+    maximumFractionDigits: 2
+  }).format(Number(value || 0));
+}
+
+function getProductCard(product) {
+  const isFeatured = !!product.featured;
+  const stock = Number(product.stock || 0);
+  const image = product.images?.[0] || product.image || "";
+  const outOfStock = stock <= 0 || product.status === "Out of Stock";
+
+  return `
+    <article class="product-card upgraded-product-card">
+      <div class="product-image" onclick="goToDetails('${product.id}')">
+        ${isFeatured ? `<span class="featured-chip">Featured</span>` : ""}
+        <img src="${image}" alt="${product.name}" />
+      </div>
+
+      <div class="product-info">
+        <h3>${product.name}</h3>
+        <p class="product-category-label">${product.category || "General"}</p>
+        <p class="price">${formatCurrency(product.price)}</p>
+        <p class="product-stock-label ${outOfStock ? "out" : ""}">
+          ${outOfStock ? "Out of stock" : `${stock} in stock`}
+        </p>
+
+        <div class="product-card-actions">
+          <button class="add-btn" onclick="addToCart('${product.id}')"
+            ${outOfStock ? "disabled" : ""}>
+            Add to Cart
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderFeaturedProducts(featured) {
+  const container = document.getElementById("featured-products-container");
+  if (!container) return;
+
+  if (!featured.length) {
+    container.innerHTML = `<div class="product-empty-state">No featured products yet.</div>`;
+    return;
+  }
+
+  container.innerHTML = featured.map(getProductCard).join("");
 }
 
 function displayProducts(list) {
   const container = document.getElementById("products-container");
   if (!container) return;
 
-  container.innerHTML = "";
+  if (!list.length) {
+    container.innerHTML = `<div class="product-empty-state">No products found.</div>`;
+    return;
+  }
 
-  list.forEach((product) => {
-    const div = document.createElement("div");
-    div.classList.add("product");
-    div.innerHTML = `
-      <div class="product-card">
-        <div class="product-image" onclick="goToDetails('${product.id}')">
-          <img src="${product.images?.[0] || product.image || ""}" />
-        </div>
-        <div class="product-info">
-          <h3>${product.name}</h3>
-          <p class="price">GHS ${product.price}</p>
-          <button class="add-btn" onclick="addToCart('${product.id}')">
-            Add to Cart
-          </button>
-        </div>
-      </div>
-    `;
-
-    container.appendChild(div);
-  });
+  container.innerHTML = list.map(getProductCard).join("");
 }
 
 function addToCart(productId) {
   const product = products.find((item) => item.id === productId);
   if (!product) return;
 
+  const stock = Number(product.stock || 0);
+  if (stock <= 0 || product.status === "Out of Stock") {
+    showToast("This product is out of stock.", { type: "error" });
+    return;
+  }
+
   const cart = JSON.parse(localStorage.getItem("cart")) || [];
-  const existing = cart.find((item) => item.id === productId);
+  const existing = cart.find((item) => item.id === productId && !item.variation);
 
   if (existing) {
     existing.quantity += 1;
@@ -67,9 +116,12 @@ function addToCart(productId) {
       id: product.id,
       name: product.name,
       price: product.price,
-      images: product.images || [product.image],
+      image: product.images?.[0] || product.image || "",
+      images: product.images || (product.image ? [product.image] : []),
       description: product.description || "",
-      quantity: 1
+      variation: null,
+      quantity: 1,
+      vendorId: product.vendorId || null
     });
   }
 
@@ -88,23 +140,31 @@ function updateCartCount() {
   }
 }
 
-function searchProducts() {
-  document.getElementById("search-input")?.addEventListener("input", function () {
-    const input = this.value.toLowerCase();
-    const filtered = products.filter((product) =>
-      product.name.toLowerCase().includes(input)
-    );
+function applyFilters() {
+  const searchValue = document.getElementById("search-input")?.value.toLowerCase().trim() || "";
 
-    displayProducts(filtered);
+  filteredProducts = products.filter((product) => {
+    const matchesCategory =
+      currentCategory === "all" || (product.category || "").toLowerCase() === currentCategory;
+
+    const matchesSearch =
+      !searchValue ||
+      (product.name || "").toLowerCase().includes(searchValue) ||
+      (product.category || "").toLowerCase().includes(searchValue);
+
+    return matchesCategory && matchesSearch;
   });
+
+  displayProducts(filteredProducts);
+}
+
+function searchProducts() {
+  document.getElementById("search-input")?.addEventListener("input", applyFilters);
 }
 
 function filterCategory(category) {
-  if (category === "all") {
-    displayProducts(products);
-  } else {
-    displayProducts(products.filter((product) => product.category === category));
-  }
+  currentCategory = category.toLowerCase();
+  applyFilters();
 }
 
 let currentProduct = null;
@@ -113,7 +173,13 @@ let currentImageIndex = 0;
 function openLightbox(productId) {
   currentProduct = products.find((product) => product.id === productId);
 
-  if (!currentProduct || !currentProduct.images) return;
+  if (!currentProduct) return;
+
+  const images = currentProduct.images?.length
+    ? currentProduct.images
+    : (currentProduct.image ? [currentProduct.image] : []);
+
+  if (!images.length) return;
 
   currentImageIndex = 0;
 
@@ -123,7 +189,7 @@ function openLightbox(productId) {
   if (!lightbox || !img) return;
 
   lightbox.style.display = "flex";
-  img.src = currentProduct.images[0];
+  img.src = images[0];
 }
 
 function closeLightbox() {
@@ -132,24 +198,34 @@ function closeLightbox() {
 }
 
 function nextImage() {
-  if (!currentProduct?.images) return;
+  if (!currentProduct) return;
 
-  currentImageIndex = (currentImageIndex + 1) % currentProduct.images.length;
-  document.querySelector(".lightbox-img").src = currentProduct.images[currentImageIndex];
+  const images = currentProduct.images?.length
+    ? currentProduct.images
+    : (currentProduct.image ? [currentProduct.image] : []);
+
+  if (!images.length) return;
+
+  currentImageIndex = (currentImageIndex + 1) % images.length;
+  document.querySelector(".lightbox-img").src = images[currentImageIndex];
 }
 
 function prevImage() {
-  if (!currentProduct?.images) return;
+  if (!currentProduct) return;
 
-  currentImageIndex =
-    (currentImageIndex - 1 + currentProduct.images.length) % currentProduct.images.length;
+  const images = currentProduct.images?.length
+    ? currentProduct.images
+    : (currentProduct.image ? [currentProduct.image] : []);
 
-  document.querySelector(".lightbox-img").src = currentProduct.images[currentImageIndex];
+  if (!images.length) return;
+
+  currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
+  document.querySelector(".lightbox-img").src = images[currentImageIndex];
 }
 
 function goToDetails(productId) {
   localStorage.setItem("selectedProductId", productId);
-  window.location.href = "product.html";
+  window.location.href = `product.html?id=${productId}`;
 }
 
 document.addEventListener("keydown", (e) => {
@@ -173,7 +249,6 @@ searchProducts();
 
 window.addToCart = addToCart;
 window.goToDetails = goToDetails;
-window.searchProducts = searchProducts;
 window.filterCategory = filterCategory;
 window.closeLightbox = closeLightbox;
 window.nextImage = nextImage;
