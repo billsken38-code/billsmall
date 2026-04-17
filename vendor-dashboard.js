@@ -9,9 +9,18 @@ import {
   setDoc
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
+
+import { app, auth, db } from "./firebase.js";
 import { showToast } from "./ui.js";
+
+const storage = getStorage(app);
 
 const STORAGE_KEY = "vendor_dashboard_data_v2";
 const COMMISSION_RATE = 0.05;
@@ -62,6 +71,7 @@ const elements = {
 };
 
 let uploadedProductImages = [];
+let isSavingProduct = false;
 
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -105,23 +115,6 @@ function createSeedData(vendorId) {
   };
 }
 
-async function loadProductsFromFirebase() {
-  try {
-    const snapshot = await getDocs(collection(db, "products"));
-    state.data.products = snapshot.docs
-      .map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      }))
-      .filter((product) => product.vendorId === state.vendorId);
-
-    saveData();
-  } catch (err) {
-    console.error("Failed to load vendor products from Firebase:", err);
-    showToast(`Failed to load products: ${err.message}`, { type: "error" });
-  }
-}
-
 function getAuthVendorDefaults() {
   const user = auth.currentUser;
 
@@ -160,6 +153,74 @@ function getVendorProfile() {
   saveData();
 
   return mergedVendor;
+}
+
+async function syncVendorProfileFromFirebaseLogin() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  state.vendorId = user.uid;
+
+  const loginProfile = {
+    id: user.uid,
+    storeName: user.displayName || "Vendor Studio",
+    logoUrl: user.photoURL || "",
+    contactEmail: user.email || "",
+    contactPhone: user.phoneNumber || "",
+    description: "Professional marketplace dashboard for your store."
+  };
+
+  try {
+    const vendorRef = doc(db, "vendors", user.uid);
+    const vendorSnap = await getDoc(vendorRef);
+
+    let mergedProfile = loginProfile;
+
+    if (vendorSnap.exists()) {
+      const vendorData = vendorSnap.data();
+      mergedProfile = {
+        ...vendorData,
+        id: user.uid,
+        storeName: user.displayName || vendorData.storeName || "Vendor Studio",
+        logoUrl: user.photoURL || vendorData.logoUrl || "",
+        contactEmail: user.email || vendorData.contactEmail || "",
+        contactPhone: user.phoneNumber || vendorData.contactPhone || "",
+        description:
+          vendorData.description || "Professional marketplace dashboard for your store."
+      };
+    } else {
+      await setDoc(vendorRef, loginProfile, { merge: true });
+    }
+
+    const existingIndex = state.data.vendors.findIndex((vendor) => vendor.id === user.uid);
+
+    if (existingIndex >= 0) {
+      state.data.vendors[existingIndex] = mergedProfile;
+    } else {
+      state.data.vendors.push(mergedProfile);
+    }
+
+    saveData();
+  } catch (err) {
+    console.error("Failed to sync vendor profile from Firebase login:", err);
+  }
+}
+
+async function loadProductsFromFirebase() {
+  try {
+    const snapshot = await getDocs(collection(db, "products"));
+    state.data.products = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }))
+      .filter((product) => product.vendorId === state.vendorId);
+
+    saveData();
+  } catch (err) {
+    console.error("Failed to load vendor products from Firebase:", err);
+    showToast(`Failed to load products: ${err.message}`, { type: "error" });
+  }
 }
 
 function getVendorProducts() {
@@ -486,65 +547,6 @@ function populateSettings() {
   }
 }
 
-async function syncVendorProfileFromFirebaseLogin() {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  state.vendorId = user.uid;
-
-  const loginProfile = {
-    id: user.uid,
-    storeName: user.displayName || "Vendor Studio",
-    logoUrl: user.photoURL || "",
-    contactEmail: user.email || "",
-    contactPhone: user.phoneNumber || "",
-    description: "Professional marketplace dashboard for your store."
-  };
-
-  try {
-    const vendorRef = doc(db, "vendors", user.uid);
-    const vendorSnap = await getDoc(vendorRef);
-
-    let mergedProfile = loginProfile;
-
-    if (vendorSnap.exists()) {
-      const vendorData = vendorSnap.data();
-      mergedProfile = {
-        ...vendorData,
-        id: user.uid,
-        storeName: user.displayName || vendorData.storeName || "Vendor Studio",
-        logoUrl: user.photoURL || vendorData.logoUrl || "",
-        contactEmail: user.email || vendorData.contactEmail || "",
-        contactPhone: user.phoneNumber || vendorData.contactPhone || "",
-        description:
-          vendorData.description || "Professional marketplace dashboard for your store."
-      };
-    } else {
-      await setDoc(vendorRef, loginProfile, { merge: true });
-    }
-
-    const existingIndex = state.data.vendors.findIndex((vendor) => vendor.id === user.uid);
-
-    if (existingIndex >= 0) {
-      state.data.vendors[existingIndex] = mergedProfile;
-    } else {
-      state.data.vendors.push(mergedProfile);
-    }
-
-    saveData();
-  } catch (err) {
-    console.error("Failed to sync vendor profile from Firebase login:", err);
-
-    const existingIndex = state.data.vendors.findIndex((vendor) => vendor.id === user.uid);
-    if (existingIndex >= 0) {
-      state.data.vendors[existingIndex] = loginProfile;
-    } else {
-      state.data.vendors.push(loginProfile);
-    }
-    saveData();
-  }
-}
-
 function resetProductForm() {
   elements.productForm.reset();
   document.getElementById("product-id").value = "";
@@ -602,16 +604,19 @@ function updateProductImagePreview(images) {
   }
 }
 
-function readImageFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Failed to read image file."));
-    reader.readAsDataURL(file);
-  });
+async function uploadVendorImageFile(file) {
+  const safeName = `${Date.now()}-${file.name}`.replace(/\s+/g, "-");
+  const folder = auth.currentUser?.uid || "vendor";
+  const storageRef = ref(storage, `vendor-products/${folder}/${safeName}`);
+
+  await uploadBytes(storageRef, file);
+  return await getDownloadURL(storageRef);
 }
 
 async function upsertProduct(formData) {
+  if (isSavingProduct) return;
+  isSavingProduct = true;
+
   const payload = {
     vendorId: state.vendorId,
     name: formData.name,
@@ -641,6 +646,8 @@ async function upsertProduct(formData) {
   } catch (err) {
     console.error("Failed to save product:", err);
     showToast(`Failed to save product: ${err.message}`, { type: "error" });
+  } finally {
+    isSavingProduct = false;
   }
 }
 
@@ -746,6 +753,11 @@ function bindEvents() {
       return;
     }
 
+    if (!images.length) {
+      showToast("Please add at least one product image.", { type: "error" });
+      return;
+    }
+
     await upsertProduct({
       id,
       name,
@@ -795,16 +807,22 @@ function bindEvents() {
     }
 
     try {
-      uploadedProductImages = await Promise.all(files.map((file) => readImageFile(file)));
+      showToast("Uploading images...", { type: "info" });
+
+      uploadedProductImages = await Promise.all(
+        files.map((file) => uploadVendorImageFile(file))
+      );
+
       elements.productImageInput.value = "";
       updateProductImagePreview(uploadedProductImages);
+
       showToast(
-        `${uploadedProductImages.length} image${uploadedProductImages.length > 1 ? "s" : ""} uploaded for this product.`,
+        `${uploadedProductImages.length} image${uploadedProductImages.length > 1 ? "s" : ""} uploaded successfully.`,
         { type: "success" }
       );
     } catch (err) {
       console.error(err);
-      showToast(err.message, { type: "error" });
+      showToast(`Image upload failed: ${err.message}`, { type: "error" });
     }
   });
 

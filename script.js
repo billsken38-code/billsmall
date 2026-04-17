@@ -3,32 +3,48 @@ if (!localStorage.getItem("userId")) {
   localStorage.setItem("userId", uniqueId);
 }
 
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import {
+  collection,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
 import { db } from "./firebase.js";
 import { redirectWithToast, showToast } from "./ui.js";
 
 let products = [];
 let filteredProducts = [];
 let currentCategory = "all";
+let unsubscribeProducts = null;
 
 async function loadProducts() {
   try {
-    const snapshot = await getDocs(collection(db, "products"));
-
-    products = snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    }));
-
-    filteredProducts = [...products];
-    renderFeaturedProducts(products.filter((product) => product.featured));
-    displayProducts(filteredProducts);
-  } catch (err) {
-    console.error("Error loading products:", err);
-    const container = document.getElementById("products-container");
-    if (container) {
-      container.innerHTML = `<div class="product-empty-state">Failed to load products.</div>`;
+    if (unsubscribeProducts) {
+      unsubscribeProducts();
     }
+
+    unsubscribeProducts = onSnapshot(
+      collection(db, "products"),
+      (snapshot) => {
+        products = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+
+        filteredProducts = [...products];
+        renderFeaturedProducts(products.filter((product) => product.featured));
+        applyFilters();
+        updateCartCount();
+      },
+      (err) => {
+        console.error("Error loading products:", err);
+        const container = document.getElementById("products-container");
+        if (container) {
+          container.innerHTML = `<div class="product-empty-state">Failed to load products.</div>`;
+        }
+      }
+    );
+  } catch (err) {
+    console.error("Error setting up realtime products:", err);
   }
 }
 
@@ -50,11 +66,11 @@ function getProductCard(product) {
     <article class="product-card upgraded-product-card">
       <div class="product-image" onclick="goToDetails('${product.id}')">
         ${isFeatured ? `<span class="featured-chip">Featured</span>` : ""}
-        <img src="${image}" alt="${product.name}" />
+        <img src="${image}" alt="${product.name || "Product"}" />
       </div>
 
       <div class="product-info">
-        <h3>${product.name}</h3>
+        <h3>${product.name || "Unnamed Product"}</h3>
         <p class="product-category-label">${product.category || "General"}</p>
         <p class="price">${formatCurrency(product.price)}</p>
         <p class="product-stock-label ${outOfStock ? "out" : ""}">
@@ -62,9 +78,11 @@ function getProductCard(product) {
         </p>
 
         <div class="product-card-actions">
-          <button class="add-btn" onclick="addToCart('${product.id}')"
-            ${outOfStock ? "disabled" : ""}>
+          <button class="add-btn" onclick="addToCart('${product.id}')" ${outOfStock ? "disabled" : ""}>
             Add to Cart
+          </button>
+          <button class="quick-view-btn" onclick="goToDetails('${product.id}')">
+            View
           </button>
         </div>
       </div>
@@ -133,7 +151,7 @@ function addToCart(productId) {
 function updateCartCount() {
   const cart = JSON.parse(localStorage.getItem("cart")) || [];
   const countElement = document.querySelector(".cart-count");
-  const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const totalItems = cart.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
 
   if (countElement) {
     countElement.innerText = totalItems;
@@ -141,11 +159,13 @@ function updateCartCount() {
 }
 
 function applyFilters() {
-  const searchValue = document.getElementById("search-input")?.value.toLowerCase().trim() || "";
+  const searchValue =
+    document.getElementById("search-input")?.value.toLowerCase().trim() || "";
 
   filteredProducts = products.filter((product) => {
     const matchesCategory =
-      currentCategory === "all" || (product.category || "").toLowerCase() === currentCategory;
+      currentCategory === "all" ||
+      (product.category || "").toLowerCase() === currentCategory;
 
     const matchesSearch =
       !searchValue ||
@@ -163,7 +183,7 @@ function searchProducts() {
 }
 
 function filterCategory(category) {
-  currentCategory = category.toLowerCase();
+  currentCategory = String(category || "all").toLowerCase();
   applyFilters();
 }
 
@@ -177,7 +197,9 @@ function openLightbox(productId) {
 
   const images = currentProduct.images?.length
     ? currentProduct.images
-    : (currentProduct.image ? [currentProduct.image] : []);
+    : currentProduct.image
+      ? [currentProduct.image]
+      : [];
 
   if (!images.length) return;
 
@@ -202,7 +224,9 @@ function nextImage() {
 
   const images = currentProduct.images?.length
     ? currentProduct.images
-    : (currentProduct.image ? [currentProduct.image] : []);
+    : currentProduct.image
+      ? [currentProduct.image]
+      : [];
 
   if (!images.length) return;
 
@@ -215,7 +239,9 @@ function prevImage() {
 
   const images = currentProduct.images?.length
     ? currentProduct.images
-    : (currentProduct.image ? [currentProduct.image] : []);
+    : currentProduct.image
+      ? [currentProduct.image]
+      : [];
 
   if (!images.length) return;
 
