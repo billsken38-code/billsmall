@@ -3,7 +3,9 @@ import {
   addDoc,
   onSnapshot,
   deleteDoc,
-  doc
+  doc,
+  query,
+  orderBy
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 import {
@@ -19,16 +21,47 @@ import { showToast } from "./ui.js";
 
 const storage = getStorage(app);
 
-const productForm = document.getElementById("product-form");
-const productList = document.getElementById("product-list");
-const imageInput = document.getElementById("images");
-const imageFilesInput = document.getElementById("image-files");
-const imagePreview = document.getElementById("admin-image-preview");
-const resetFormBtn = document.getElementById("reset-product-form");
+const CATEGORY_OPTIONS = [
+  "Fashion",
+  "Electronics",
+  "Beauty",
+  "Home & Kitchen",
+  "Health",
+  "Shoes",
+  "Bags",
+  "Accessories",
+  "Books",
+  "Baby Products",
+  "Groceries",
+  "Sports",
+  "Office Supplies",
+  "Jewelry",
+  "Other"
+];
 
-let uploadedImages = [];
-let unsubscribeProducts = null;
-let isSaving = false;
+const elements = {
+  productForm: document.getElementById("product-form"),
+  productList: document.getElementById("product-list"),
+  nameInput: document.getElementById("name"),
+  priceInput: document.getElementById("price"),
+  categoryInput: document.getElementById("category"),
+  stockInput: document.getElementById("stock"),
+  statusInput: document.getElementById("status"),
+  featuredInput: document.getElementById("featured"),
+  imageInput: document.getElementById("images"),
+  imageFilesInput: document.getElementById("image-files"),
+  imagePreview: document.getElementById("admin-image-preview"),
+  descriptionInput: document.getElementById("product-description"),
+  variationsInput: document.getElementById("variations"),
+  resetFormBtn: document.getElementById("reset-product-form")
+};
+
+const state = {
+  uploadedImages: [],
+  unsubscribeProducts: null,
+  isSaving: false,
+  isReady: false
+};
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-GH", {
@@ -47,41 +80,87 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function updateImagePreview(images) {
-  if (!imagePreview) return;
+function isAbsoluteUrl(value) {
+  return /^https?:\/\//i.test(String(value || "").trim());
+}
 
-  if (!images.length) {
-    imagePreview.innerHTML = "";
-    imagePreview.classList.remove("has-images");
+function normalizeTypedImages(rawValue) {
+  return String(rawValue || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => isAbsoluteUrl(item));
+}
+
+function sanitizeFileName(fileName = "") {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+function initializeCategoryDropdown() {
+  const select = elements.categoryInput;
+  if (!select) return;
+
+  if (select.tagName !== "SELECT") {
+    console.warn("#category should be a <select> element.");
     return;
   }
 
-  imagePreview.innerHTML = images
+  select.innerHTML = [
+    '<option value="">Select category</option>',
+    ...CATEGORY_OPTIONS.map(
+      (category) => `<option value="${category}">${category}</option>`
+    )
+  ].join("");
+}
+
+function updateImagePreview(images) {
+  if (!elements.imagePreview) return;
+
+  if (!images.length) {
+    elements.imagePreview.innerHTML = "";
+    elements.imagePreview.classList.remove("has-images");
+    return;
+  }
+
+  elements.imagePreview.innerHTML = images
     .map(
       (src, index) =>
         `<img src="${src}" alt="Preview ${index + 1}" class="vendor-image-thumb">`
     )
     .join("");
 
-  imagePreview.classList.add("has-images");
+  elements.imagePreview.classList.add("has-images");
 }
 
 async function uploadImageFile(file) {
-  const safeName = `${Date.now()}-${file.name}`.replace(/\s+/g, "-");
-  const folder = auth.currentUser?.uid || "admin";
-  const storageRef = ref(storage, `products/${folder}/${safeName}`);
+  const currentUserId = auth.currentUser?.uid;
 
-  await uploadBytes(storageRef, file);
+  if (!currentUserId) {
+    throw new Error("You must be logged in as admin to upload images.");
+  }
+
+  const safeName = `${Date.now()}-${sanitizeFileName(file.name)}`;
+  const storageRef = ref(storage, `products/${currentUserId}/${safeName}`);
+
+  await uploadBytes(storageRef, file, {
+    contentType: file.type
+  });
+
   return await getDownloadURL(storageRef);
 }
 
 function resetForm() {
-  if (productForm) {
-    productForm.reset();
+  elements.productForm?.reset();
+  state.uploadedImages = [];
+  updateImagePreview([]);
+
+  if (elements.categoryInput?.tagName === "SELECT") {
+    elements.categoryInput.value = "";
   }
 
-  uploadedImages = [];
-  updateImagePreview([]);
+  if (elements.statusInput) {
+    elements.statusInput.value = "Active";
+  }
 }
 
 function productCardTemplate(id, product) {
@@ -131,92 +210,130 @@ function productCardTemplate(id, product) {
   `;
 }
 
-function displayProducts() {
-  if (!productList) return;
+function renderProducts(products) {
+  if (!elements.productList) return;
 
-  productList.innerHTML = `<div class="product-admin-empty">Loading products...</div>`;
-
-  if (unsubscribeProducts) {
-    unsubscribeProducts();
+  if (!products.length) {
+    elements.productList.innerHTML = `<div class="product-admin-empty">No products yet.</div>`;
+    return;
   }
 
-  unsubscribeProducts = onSnapshot(
-    collection(db, "products"),
+  elements.productList.innerHTML = products
+    .map((item) => productCardTemplate(item.id, item.data))
+    .join("");
+}
+
+function subscribeProducts() {
+  if (!elements.productList) return;
+
+  elements.productList.innerHTML = `<div class="product-admin-empty">Loading products...</div>`;
+
+  if (state.unsubscribeProducts) {
+    state.unsubscribeProducts();
+  }
+
+  const productsQuery = query(collection(db, "products"), orderBy("createdAt", "desc"));
+
+  state.unsubscribeProducts = onSnapshot(
+    productsQuery,
     (snapshot) => {
-      if (snapshot.empty) {
-        productList.innerHTML = `<div class="product-admin-empty">No products yet.</div>`;
-        return;
-      }
+      const products = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        data: docSnap.data()
+      }));
 
-      const items = [];
-      snapshot.forEach((docSnap) => {
-        items.push(productCardTemplate(docSnap.id, docSnap.data()));
-      });
-
-      productList.innerHTML = items.join("");
+      renderProducts(products);
     },
     (err) => {
       console.error("Error loading products:", err);
-      productList.innerHTML = `<div class="product-admin-empty">Failed to load products: ${err.message}</div>`;
+      elements.productList.innerHTML = `<div class="product-admin-empty">Failed to load products: ${err.message}</div>`;
     }
   );
 }
 
-async function addProduct() {
-  if (isSaving) return;
-  isSaving = true;
-
-  const submitButton = productForm?.querySelector('button[type="submit"]');
-  if (submitButton) submitButton.disabled = true;
-
-  const name = document.getElementById("name").value.trim();
-  const price = Number(document.getElementById("price").value);
-  const category = document.getElementById("category").value;
-  const stock = Number(document.getElementById("stock")?.value || 0);
-  const status = document.getElementById("status")?.value || "Active";
-  const featured = document.getElementById("featured")?.checked || false;
-
-  const typedImages = imageInput.value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  const images = typedImages.length ? typedImages : uploadedImages;
-  const description = document.getElementById("product-description").value.trim();
-  const variationsInput = document.getElementById("variations").value.trim();
-
-  if (!name || Number.isNaN(price) || !description || !images.length) {
-    showToast("Please fill all required fields and add at least one image.", {
-      type: "error"
-    });
-    isSaving = false;
-    if (submitButton) submitButton.disabled = false;
-    return;
-  }
-
-  if (Number.isNaN(stock) || stock < 0) {
-    showToast("Stock must be 0 or more.", { type: "error" });
-    isSaving = false;
-    if (submitButton) submitButton.disabled = false;
-    return;
-  }
-
+function getFormData() {
+  const name = elements.nameInput?.value.trim() || "";
+  const price = Number(elements.priceInput?.value);
+  const category = elements.categoryInput?.value || "";
+  const stock = Number(elements.stockInput?.value || 0);
+  const status = elements.statusInput?.value || "Active";
+  const featured = elements.featuredInput?.checked || false;
+  const typedImages = normalizeTypedImages(elements.imageInput?.value || "");
+  const images = typedImages.length ? typedImages : state.uploadedImages;
+  const description = elements.descriptionInput?.value.trim() || "";
+  const variationsInput = elements.variationsInput?.value.trim() || "";
   const variations = variationsInput
-    ? variations.split(",").map((item) => item.trim()).filter(Boolean)
+    ? variationsInput.split(",").map((item) => item.trim()).filter(Boolean)
     : [];
 
+  return {
+    name,
+    price,
+    category,
+    stock,
+    status,
+    featured,
+    images,
+    description,
+    variations
+  };
+}
+
+function validateFormData(data) {
+  if (!data.name) {
+    return "Product name is required.";
+  }
+
+  if (Number.isNaN(data.price) || data.price <= 0) {
+    return "Enter a valid product price.";
+  }
+
+  if (!data.category) {
+    return "Please select a category.";
+  }
+
+  if (Number.isNaN(data.stock) || data.stock < 0) {
+    return "Stock must be 0 or more.";
+  }
+
+  if (!data.description) {
+    return "Product description is required.";
+  }
+
+  if (!data.images.length) {
+    return "Add at least one product image.";
+  }
+
+  return "";
+}
+
+async function addProduct() {
+  if (state.isSaving) return;
+  state.isSaving = true;
+
+  const submitButton = elements.productForm?.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
+
   try {
+    const formData = getFormData();
+    const validationMessage = validateFormData(formData);
+
+    if (validationMessage) {
+      showToast(validationMessage, { type: "error" });
+      return;
+    }
+
     await addDoc(collection(db, "products"), {
-      name,
-      price,
-      category,
-      stock,
-      status,
-      featured,
-      image: images[0],
-      images,
-      description,
-      variations,
+      name: formData.name,
+      price: formData.price,
+      category: formData.category,
+      stock: formData.stock,
+      status: formData.status,
+      featured: formData.featured,
+      image: formData.images[0],
+      images: formData.images,
+      description: formData.description,
+      variations: formData.variations,
       vendorId: auth.currentUser?.uid || "admin",
       createdAt: new Date().toISOString(),
       sold: 0,
@@ -229,7 +346,7 @@ async function addProduct() {
     console.error("Error adding product:", err);
     showToast(`Error adding product: ${err.message}`, { type: "error" });
   } finally {
-    isSaving = false;
+    state.isSaving = false;
     if (submitButton) submitButton.disabled = false;
   }
 }
@@ -246,70 +363,80 @@ async function deleteProduct(id) {
   }
 }
 
-productForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await addProduct();
-});
+function bindEvents() {
+  elements.productForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await addProduct();
+  });
 
-resetFormBtn?.addEventListener("click", resetForm);
+  elements.resetFormBtn?.addEventListener("click", resetForm);
 
-productList?.addEventListener("click", async (event) => {
-  const productId = event.target.getAttribute("data-delete-product");
-  if (!productId) return;
-  await deleteProduct(productId);
-});
+  elements.productList?.addEventListener("click", async (event) => {
+    const productId = event.target.getAttribute("data-delete-product");
+    if (!productId) return;
+    await deleteProduct(productId);
+  });
 
-imageInput?.addEventListener("input", (event) => {
-  const typedImages = event.target.value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  elements.imageInput?.addEventListener("input", (event) => {
+    const typedImages = normalizeTypedImages(event.target.value);
 
-  if (typedImages.length) {
-    uploadedImages = typedImages;
-    updateImagePreview(typedImages);
-  } else if (!imageFilesInput.files.length) {
-    uploadedImages = [];
-    updateImagePreview([]);
-  }
-});
-
-imageFilesInput?.addEventListener("change", async (event) => {
-  const files = Array.from(event.target.files || []);
-
-  if (!files.length) {
-    if (!imageInput.value.trim()) {
-      uploadedImages = [];
+    if (typedImages.length) {
+      state.uploadedImages = typedImages;
+      updateImagePreview(typedImages);
+    } else if (!elements.imageFilesInput?.files.length) {
+      state.uploadedImages = [];
       updateImagePreview([]);
     }
-    return;
-  }
+  });
 
-  if (files.some((file) => !file.type.startsWith("image/"))) {
-    showToast("Please choose image files only.", { type: "error" });
-    event.target.value = "";
-    return;
-  }
+  elements.imageFilesInput?.addEventListener("change", async (event) => {
+    const files = Array.from(event.target.files || []);
+
+    if (!files.length) {
+      if (!elements.imageInput?.value.trim()) {
+        state.uploadedImages = [];
+        updateImagePreview([]);
+      }
+      return;
+    }
+
+    if (files.some((file) => !file.type.startsWith("image/"))) {
+      showToast("Please choose image files only.", { type: "error" });
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      showToast("Uploading images...", { type: "info" });
+
+      state.uploadedImages = await Promise.all(files.map((file) => uploadImageFile(file)));
+      if (elements.imageInput) {
+        elements.imageInput.value = "";
+      }
+      updateImagePreview(state.uploadedImages);
+
+      showToast(
+        `${state.uploadedImages.length} image${state.uploadedImages.length > 1 ? "s" : ""} uploaded successfully.`,
+        { type: "success" }
+      );
+    } catch (err) {
+      console.error(err);
+      showToast(`Image upload failed: ${err.message}`, { type: "error" });
+    }
+  });
+}
+
+async function init() {
+  initializeCategoryDropdown();
+  bindEvents();
 
   try {
-    showToast("Uploading images...", { type: "info" });
-
-    uploadedImages = await Promise.all(files.map((file) => uploadImageFile(file)));
-    imageInput.value = "";
-    updateImagePreview(uploadedImages);
-
-    showToast(
-      `${uploadedImages.length} image${uploadedImages.length > 1 ? "s" : ""} uploaded successfully.`,
-      { type: "success" }
-    );
-  } catch (err) {
-    console.error(err);
-    showToast(`Image upload failed: ${err.message}`, { type: "error" });
+    await requireAdmin();
+    state.isReady = true;
+    subscribeProducts();
+  } catch {
+    state.isReady = false;
   }
-});
+}
 
-requireAdmin()
-  .then(() => {
-    displayProducts();
-  })
-  .catch(() => {});
+init();

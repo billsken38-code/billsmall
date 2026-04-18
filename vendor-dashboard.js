@@ -6,36 +6,59 @@ import {
   doc,
   getDoc,
   setDoc,
-  onSnapshot
+  onSnapshot,
+  query,
+  where
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-import { auth, db } from "./firebase.js";
-import { showToast } from "./ui.js";
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
 
-/* =========================
-   CLOUDINARY CONFIG
-========================= */
-const CLOUDINARY_CLOUD_NAME = "dcsm57pxq";
-const CLOUDINARY_UPLOAD_PRESET = "billsmall_upload"; // replace if your preset name is different
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import { auth, db, storage } from "./firebase.js";
+import { showToast } from "./ui.js";
 
 /* =========================
    APP CONFIG
 ========================= */
-const STORAGE_KEY = "vendor_dashboard_data_v4";
+const STORAGE_KEY = "vendor_dashboard_data_v5";
 const COMMISSION_RATE = 0.05;
-const DEFAULT_VENDOR_ID =
-  localStorage.getItem("userId") || auth.currentUser?.uid || "vendor_demo_001";
+const GITHUB_RAW_BASE_URL = "";
+// Example:
+// const GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/assets/products";
 
 /* =========================
    STATE
 ========================= */
 const state = {
-  vendorId: DEFAULT_VENDOR_ID,
+  vendorId: null,
   data: loadData(),
   currentSection: "dashboard",
-  unsubscribeProducts: null
+  unsubscribeProducts: null,
+  authReady: false,
+  eventsBound: false
 };
+
+const CATEGORY_OPTIONS = [
+  "Fashion",
+  "Electronics",
+  "Beauty",
+  "Home & Kitchen",
+  "Health",
+  "Shoes",
+  "Bags",
+  "Accessories",
+  "Books",
+  "Baby Products",
+  "Groceries",
+  "Sports",
+  "Office Supplies",
+  "Jewelry",
+  "Other"
+];
 
 const elements = {
   pageTitle: document.getElementById("page-title"),
@@ -78,7 +101,7 @@ let uploadedProductImages = [];
 let isSavingProduct = false;
 
 /* =========================
-   LOCAL STORAGE SEED
+   LOCAL STORAGE
 ========================= */
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -91,27 +114,8 @@ function loadData() {
     }
   }
 
-  const seeded = createSeedData(DEFAULT_VENDOR_ID);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-  return seeded;
-}
-
-function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
-}
-
-function createSeedData(vendorId) {
   return {
-    vendors: [
-      {
-        id: vendorId,
-        storeName: "Vendor Studio",
-        logoUrl: "",
-        contactEmail: "",
-        contactPhone: "",
-        description: "Professional marketplace dashboard for your store."
-      }
-    ],
+    vendors: [],
     products: [],
     orders: [],
     reviews: [],
@@ -120,6 +124,30 @@ function createSeedData(vendorId) {
       salesHistory: []
     }
   };
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+}
+
+function clearVendorState() {
+  state.vendorId = null;
+  state.data = {
+    vendors: [],
+    products: [],
+    orders: [],
+    reviews: [],
+    payouts: [],
+    analytics: {
+      salesHistory: []
+    }
+  };
+  saveData();
+
+  if (state.unsubscribeProducts) {
+    state.unsubscribeProducts();
+    state.unsubscribeProducts = null;
+  }
 }
 
 /* =========================
@@ -137,16 +165,71 @@ function getStatusClass(status) {
   return `status-${String(status || "").toLowerCase().replace(/\s+/g, "-")}`;
 }
 
-function optimizeCloudinaryUrl(url) {
-  if (!url || !url.includes("/upload/")) return url;
-  return url.replace("/upload/", "/upload/w_700,q_auto,f_auto/");
+function isAbsoluteUrl(value) {
+  return /^https?:\/\//i.test(value);
+}
+
+function normalizeGitHubImageUrl(value) {
+  const cleaned = String(value || "").trim();
+  if (!cleaned) return "";
+
+  if (isAbsoluteUrl(cleaned)) {
+    return cleaned;
+  }
+
+  if (!GITHUB_RAW_BASE_URL) {
+    return cleaned;
+  }
+
+  return `${GITHUB_RAW_BASE_URL.replace(/\/$/, "")}/${cleaned.replace(/^\//, "")}`;
+}
+
+function normalizeImageList(values = []) {
+  return values
+    .map((value) => normalizeGitHubImageUrl(value))
+    .filter(Boolean);
+}
+
+function sanitizeFileName(name = "") {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+async function uploadToFirebaseStorage(file) {
+  const userId = auth.currentUser?.uid;
+
+  if (!userId) {
+    throw new Error("You must be logged in to upload images.");
+  }
+
+  const fileName = `${Date.now()}-${sanitizeFileName(file.name)}`;
+  const storageRef = ref(storage, `products/${userId}/${fileName}`);
+
+  await uploadBytes(storageRef, file, {
+    contentType: file.type
+  });
+
+  return await getDownloadURL(storageRef);
+}
+
+function redirectToLogin() {
+  window.location.href = "./login.html";
+}
+
+function requireAuth() {
+  if (!auth.currentUser) {
+    showToast("Please log in to access the vendor dashboard.", { type: "error" });
+    redirectToLogin();
+    return false;
+  }
+
+  return true;
 }
 
 function getAuthVendorDefaults() {
   const user = auth.currentUser;
 
   return {
-    id: user?.uid || state.vendorId,
+    id: user?.uid || "",
     storeName: user?.displayName || "Vendor Studio",
     logoUrl: user?.photoURL || "",
     contactEmail: user?.email || "",
@@ -156,6 +239,17 @@ function getAuthVendorDefaults() {
 }
 
 function getVendorProfile() {
+  if (!state.vendorId) {
+    return {
+      id: "",
+      storeName: "Vendor Studio",
+      logoUrl: "",
+      contactEmail: "",
+      contactPhone: "",
+      description: "Professional marketplace dashboard for your store."
+    };
+  }
+
   const authDefaults = getAuthVendorDefaults();
   let vendor = state.data.vendors.find((item) => item.id === state.vendorId);
 
@@ -253,19 +347,24 @@ async function syncVendorProfileFromFirebaseLogin() {
 }
 
 function subscribeProductsFromFirebase() {
+  if (!state.vendorId) return;
+
   if (state.unsubscribeProducts) {
     state.unsubscribeProducts();
   }
 
-  state.unsubscribeProducts = onSnapshot(
+  const productsQuery = query(
     collection(db, "products"),
+    where("vendorId", "==", state.vendorId)
+  );
+
+  state.unsubscribeProducts = onSnapshot(
+    productsQuery,
     (snapshot) => {
-      state.data.products = snapshot.docs
-        .map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data()
-        }))
-        .filter((product) => product.vendorId === state.vendorId);
+      state.data.products = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
 
       saveData();
       renderAll();
@@ -275,30 +374,6 @@ function subscribeProductsFromFirebase() {
       showToast(`Failed to load products: ${err.message}`, { type: "error" });
     }
   );
-}
-
-/* =========================
-   CLOUDINARY
-========================= */
-async function uploadToCloudinary(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    {
-      method: "POST",
-      body: formData
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Cloudinary upload failed.");
-  }
-
-  const data = await response.json();
-  return optimizeCloudinaryUrl(data.secure_url);
 }
 
 /* =========================
@@ -379,7 +454,7 @@ function renderStats() {
 
   const vendor = getVendorProfile();
   elements.vendorStoreNameTop.textContent = vendor.storeName;
-  elements.vendorUserIdTop.textContent = state.vendorId;
+  elements.vendorUserIdTop.textContent = state.vendorId || "";
   elements.vendorUserAvatar.textContent = (vendor.storeName || "V").slice(0, 1).toUpperCase();
   elements.spotlightStoreName.textContent = vendor.storeName;
   elements.spotlightStoreDescription.textContent = vendor.description;
@@ -583,6 +658,25 @@ function renderReviews() {
     .join("");
 }
 
+function initializeCategoryDropdown() {
+  const categorySelect = document.getElementById("product-category");
+  if (!categorySelect) return;
+
+  const isSelect = categorySelect.tagName === "SELECT";
+
+  if (!isSelect) {
+    console.warn("#product-category is not a <select>. Change it in your HTML to use a dropdown list.");
+    return;
+  }
+
+  categorySelect.innerHTML = [
+    '<option value="">Select a category</option>',
+    ...CATEGORY_OPTIONS.map(
+      (category) => `<option value="${category}">${category}</option>`
+    )
+  ].join("");
+}
+
 function populateSettings() {
   const vendor = getVendorProfile();
   const user = auth.currentUser;
@@ -603,7 +697,7 @@ function populateSettings() {
     vendor.description || "Professional marketplace dashboard for your store.";
   elements.settingsEmailPreview.textContent = vendor.contactEmail || "No email found";
   elements.settingsPhonePreview.textContent = vendor.contactPhone || "No phone found";
-  elements.settingsVendorIdPreview.textContent = state.vendorId;
+  elements.settingsVendorIdPreview.textContent = state.vendorId || "";
 
   if (vendor.logoUrl) {
     elements.settingsLogoPreview.src = vendor.logoUrl;
@@ -618,6 +712,8 @@ function populateSettings() {
    PRODUCT FORM
 ========================= */
 function resetProductForm() {
+  if (!elements.productForm) return;
+
   elements.productForm.reset();
   document.getElementById("product-id").value = "";
   document.getElementById("product-status").value = "Active";
@@ -679,7 +775,9 @@ function updateProductImagePreview(images) {
 }
 
 async function upsertProduct(formData) {
+  if (!requireAuth()) return;
   if (isSavingProduct) return;
+
   isSavingProduct = true;
 
   const submitButton = elements.productForm.querySelector('button[type="submit"]');
@@ -702,6 +800,12 @@ async function upsertProduct(formData) {
 
   try {
     if (formData.id) {
+      const existingProduct = getVendorProducts().find((item) => item.id === formData.id);
+
+      if (!existingProduct) {
+        throw new Error("You can only edit your own products.");
+      }
+
       await updateDoc(doc(db, "products", formData.id), payload);
       showToast("Product updated successfully.", { type: "success" });
     } else {
@@ -720,8 +824,13 @@ async function upsertProduct(formData) {
 }
 
 async function deleteProduct(productId) {
+  if (!requireAuth()) return;
+
   const target = getVendorProducts().find((product) => product.id === productId);
-  if (!target) return;
+  if (!target) {
+    showToast("You can only delete your own products.", { type: "error" });
+    return;
+  }
 
   try {
     await deleteDoc(doc(db, "products", productId));
@@ -736,6 +845,13 @@ async function deleteProduct(productId) {
    SETTINGS / ORDERS
 ========================= */
 function updateOrderStatus(orderId, status) {
+  const targetOrder = getVendorOrders().find((order) => order.id === orderId);
+
+  if (!targetOrder) {
+    showToast("You can only update your own orders.", { type: "error" });
+    return;
+  }
+
   state.data.orders = state.data.orders.map((order) =>
     order.id === orderId ? { ...order, status } : order
   );
@@ -759,6 +875,13 @@ function saveSettings(payload) {
         }
       : vendor
   );
+
+  if (!state.data.vendors.some((vendor) => vendor.id === state.vendorId)) {
+    state.data.vendors.push({
+      id: state.vendorId,
+      ...payload
+    });
+  }
 
   saveData();
   renderAll();
@@ -798,25 +921,32 @@ function setSection(section) {
    EVENTS
 ========================= */
 function bindEvents() {
+  if (state.eventsBound) return;
+  state.eventsBound = true;
+
   elements.navLinks.forEach((button) => {
     button.addEventListener("click", () => setSection(button.dataset.section));
   });
 
-  elements.menuBtn.addEventListener("click", () => {
+  elements.menuBtn?.addEventListener("click", () => {
     elements.sidebar.classList.toggle("open");
   });
 
-  elements.productForm.addEventListener("submit", async (event) => {
+  elements.productForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (!requireAuth()) return;
 
     const name = document.getElementById("product-name").value.trim();
     const category = document.getElementById("product-category").value.trim();
     const price = Number(document.getElementById("product-price").value);
     const stock = Number(document.getElementById("product-stock").value);
-    const typedImages = elements.productImageInput.value
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
+    const typedImages = normalizeImageList(
+      elements.productImageInput.value
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
     const images = typedImages.length ? typedImages : uploadedProductImages;
     const status = document.getElementById("product-status").value;
     const description = document.getElementById("product-description").value.trim();
@@ -852,24 +982,28 @@ function bindEvents() {
     });
   });
 
-  elements.resetProductFormBtn.addEventListener("click", resetProductForm);
+  elements.resetProductFormBtn?.addEventListener("click", resetProductForm);
 
-  elements.productImageInput.addEventListener("input", (event) => {
-    const values = event.target.value
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
+  elements.productImageInput?.addEventListener("input", (event) => {
+    const values = normalizeImageList(
+      event.target.value
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
 
     if (values.length) {
       uploadedProductImages = values;
       updateProductImagePreview(values);
-    } else if (!elements.productImageFileInput.files.length) {
+    } else if (!elements.productImageFileInput?.files.length) {
       uploadedProductImages = [];
       updateProductImagePreview([]);
     }
   });
 
-  elements.productImageFileInput.addEventListener("change", async (event) => {
+  elements.productImageFileInput?.addEventListener("change", async (event) => {
+    if (!requireAuth()) return;
+
     const files = Array.from(event.target.files || []);
 
     if (!files.length) {
@@ -887,10 +1021,10 @@ function bindEvents() {
     }
 
     try {
-      showToast("Uploading images...", { type: "info" });
+      showToast("Uploading images to Firebase Storage...", { type: "info" });
 
       uploadedProductImages = await Promise.all(
-        files.map((file) => uploadToCloudinary(file))
+        files.map((file) => uploadToFirebaseStorage(file))
       );
 
       elements.productImageInput.value = "";
@@ -906,7 +1040,7 @@ function bindEvents() {
     }
   });
 
-  elements.productList.addEventListener("click", async (event) => {
+  elements.productList?.addEventListener("click", async (event) => {
     const editId = event.target.getAttribute("data-edit-product");
     const deleteId = event.target.getAttribute("data-delete-product");
 
@@ -914,14 +1048,16 @@ function bindEvents() {
     if (deleteId) await deleteProduct(deleteId);
   });
 
-  elements.orderList.addEventListener("change", (event) => {
+  elements.orderList?.addEventListener("change", (event) => {
     const orderId = event.target.getAttribute("data-order-status");
     if (!orderId) return;
     updateOrderStatus(orderId, event.target.value);
   });
 
-  elements.settingsForm.addEventListener("submit", async (event) => {
+  elements.settingsForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (!requireAuth()) return;
 
     const user = auth.currentUser;
     const payload = {
@@ -948,21 +1084,28 @@ function bindEvents() {
 }
 
 /* =========================
-   INIT
+   AUTH INIT
 ========================= */
-async function init() {
+function init() {
+  initializeCategoryDropdown();
   bindEvents();
-  await syncVendorProfileFromFirebaseLogin();
-  subscribeProductsFromFirebase();
-  renderAll();
-  resetProductForm();
 
   onAuthStateChanged(auth, async (user) => {
-    if (!user) return;
+    state.authReady = true;
+
+    if (!user) {
+      clearVendorState();
+      redirectToLogin();
+      return;
+    }
+
+    state.vendorId = user.uid;
     await syncVendorProfileFromFirebaseLogin();
     subscribeProductsFromFirebase();
     renderAll();
+    resetProductForm();
   });
 }
 
 init();
+

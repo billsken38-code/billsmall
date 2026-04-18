@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Product Admin - BILLS MALL</title>
- <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="product-admin.css">
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="product-admin.css" />
 </head>
 <body>
   <header class="navbar">
@@ -28,25 +28,19 @@
             <div class="product-admin-row">
               <label>
                 Product Name
-                <input type="text" id="name" placeholder="Product Name" />
+                <input type="text" id="name" placeholder="Product Name" required />
               </label>
 
               <label>
                 Price
-                <input type="number" id="price" placeholder="Price" min="0" step="0.01" />
+                <input type="number" id="price" placeholder="Price" min="0" step="0.01" required />
               </label>
             </div>
 
             <div class="product-admin-row">
               <label>
                 Category
-                <select id="category">
-                  <option value="electronics">Electronics</option>
-                  <option value="fashion">Fashion</option>
-                  <option value="home">Home</option>
-                  <option value="beauty">Beauty</option>
-                  <option value="sports">Sports</option>
-                </select>
+                <select id="category" required></select>
               </label>
 
               <label>
@@ -73,7 +67,7 @@
 
             <label>
               Image URLs
-              <input type="text" id="images" placeholder="Image URLs (comma separated)" />
+              <input type="text" id="images" placeholder="Paste direct image URLs separated by commas" />
             </label>
 
             <p class="vendor-helper-text">
@@ -91,7 +85,7 @@
 
             <label>
               Description
-              <textarea id="product-description" placeholder="Enter product description" rows="4"></textarea>
+              <textarea id="product-description" placeholder="Enter product description" rows="4" required></textarea>
             </label>
 
             <label>
