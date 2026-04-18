@@ -1,36 +1,40 @@
 import {
   collection,
-  getDocs,
   addDoc,
   updateDoc,
   deleteDoc,
   doc,
   getDoc,
-  setDoc
+  setDoc,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
-
-import { app, auth, db } from "./firebase.js";
+import { auth, db } from "./firebase.js";
 import { showToast } from "./ui.js";
 
-const storage = getStorage(app);
+/* =========================
+   CLOUDINARY CONFIG
+========================= */
+const CLOUDINARY_CLOUD_NAME = "dcsm57pxq";
+const CLOUDINARY_UPLOAD_PRESET = "billsmall_upload"; // replace if your preset name is different
 
-const STORAGE_KEY = "vendor_dashboard_data_v2";
+/* =========================
+   APP CONFIG
+========================= */
+const STORAGE_KEY = "vendor_dashboard_data_v4";
 const COMMISSION_RATE = 0.05;
 const DEFAULT_VENDOR_ID =
   localStorage.getItem("userId") || auth.currentUser?.uid || "vendor_demo_001";
 
+/* =========================
+   STATE
+========================= */
 const state = {
   vendorId: DEFAULT_VENDOR_ID,
   data: loadData(),
-  currentSection: "dashboard"
+  currentSection: "dashboard",
+  unsubscribeProducts: null
 };
 
 const elements = {
@@ -73,6 +77,9 @@ const elements = {
 let uploadedProductImages = [];
 let isSavingProduct = false;
 
+/* =========================
+   LOCAL STORAGE SEED
+========================= */
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
 
@@ -115,6 +122,26 @@ function createSeedData(vendorId) {
   };
 }
 
+/* =========================
+   HELPERS
+========================= */
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-GH", {
+    style: "currency",
+    currency: "GHS",
+    maximumFractionDigits: 2
+  }).format(Number(value || 0));
+}
+
+function getStatusClass(status) {
+  return `status-${String(status || "").toLowerCase().replace(/\s+/g, "-")}`;
+}
+
+function optimizeCloudinaryUrl(url) {
+  if (!url || !url.includes("/upload/")) return url;
+  return url.replace("/upload/", "/upload/w_700,q_auto,f_auto/");
+}
+
 function getAuthVendorDefaults() {
   const user = auth.currentUser;
 
@@ -155,6 +182,25 @@ function getVendorProfile() {
   return mergedVendor;
 }
 
+function getVendorProducts() {
+  return state.data.products.filter((item) => item.vendorId === state.vendorId);
+}
+
+function getVendorOrders() {
+  return state.data.orders.filter((item) => item.vendorId === state.vendorId);
+}
+
+function getVendorReviews() {
+  return state.data.reviews.filter((item) => item.vendorId === state.vendorId);
+}
+
+function getVendorPayouts() {
+  return state.data.payouts.filter((item) => item.vendorId === state.vendorId);
+}
+
+/* =========================
+   FIREBASE SYNC
+========================= */
 async function syncVendorProfileFromFirebaseLogin() {
   const user = auth.currentUser;
   if (!user) return;
@@ -206,47 +252,58 @@ async function syncVendorProfileFromFirebaseLogin() {
   }
 }
 
-async function loadProductsFromFirebase() {
-  try {
-    const snapshot = await getDocs(collection(db, "products"));
-    state.data.products = snapshot.docs
-      .map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      }))
-      .filter((product) => product.vendorId === state.vendorId);
-
-    saveData();
-  } catch (err) {
-    console.error("Failed to load vendor products from Firebase:", err);
-    showToast(`Failed to load products: ${err.message}`, { type: "error" });
+function subscribeProductsFromFirebase() {
+  if (state.unsubscribeProducts) {
+    state.unsubscribeProducts();
   }
+
+  state.unsubscribeProducts = onSnapshot(
+    collection(db, "products"),
+    (snapshot) => {
+      state.data.products = snapshot.docs
+        .map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }))
+        .filter((product) => product.vendorId === state.vendorId);
+
+      saveData();
+      renderAll();
+    },
+    (err) => {
+      console.error("Failed to subscribe to vendor products:", err);
+      showToast(`Failed to load products: ${err.message}`, { type: "error" });
+    }
+  );
 }
 
-function getVendorProducts() {
-  return state.data.products.filter((item) => item.vendorId === state.vendorId);
+/* =========================
+   CLOUDINARY
+========================= */
+async function uploadToCloudinary(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+    {
+      method: "POST",
+      body: formData
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Cloudinary upload failed.");
+  }
+
+  const data = await response.json();
+  return optimizeCloudinaryUrl(data.secure_url);
 }
 
-function getVendorOrders() {
-  return state.data.orders.filter((item) => item.vendorId === state.vendorId);
-}
-
-function getVendorReviews() {
-  return state.data.reviews.filter((item) => item.vendorId === state.vendorId);
-}
-
-function getVendorPayouts() {
-  return state.data.payouts.filter((item) => item.vendorId === state.vendorId);
-}
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat("en-GH", {
-    style: "currency",
-    currency: "GHS",
-    maximumFractionDigits: 2
-  }).format(value || 0);
-}
-
+/* =========================
+   CALCULATIONS
+========================= */
 function calculateOverview() {
   const products = getVendorProducts();
   const orders = getVendorOrders();
@@ -286,6 +343,9 @@ function calculateOverview() {
   };
 }
 
+/* =========================
+   RENDER
+========================= */
 function renderStats() {
   const overview = calculateOverview();
 
@@ -354,10 +414,6 @@ function renderSalesChart() {
     .join("");
 }
 
-function getStatusClass(status) {
-  return `status-${String(status).toLowerCase().replace(/\s+/g, "-")}`;
-}
-
 function renderProducts() {
   const products = getVendorProducts();
 
@@ -373,16 +429,27 @@ function renderProducts() {
           <div class="vendor-table-top">
             <div class="vendor-table-title">
               <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}">
-              <div><h4>${product.name}</h4><p class="vendor-table-meta">${product.category}</p></div>
+              <div>
+                <h4>${product.name}</h4>
+                <p class="vendor-table-meta">${product.category}</p>
+              </div>
             </div>
             <span class="status-pill ${getStatusClass(product.status || "Draft")}">${product.status || "Draft"}</span>
           </div>
+
           <div class="vendor-table-details">
             <div><span>Price</span><strong>${formatCurrency(product.price)}</strong></div>
             <div><span>Stock</span><strong>${product.stock ?? 0}</strong></div>
             <div><span>Views</span><strong>${product.views || 0}</strong></div>
             <div><span>Sold</span><strong>${product.sold || 0}</strong></div>
           </div>
+
+          ${
+            Array.isArray(product.variations) && product.variations.length
+              ? `<div class="vendor-table-meta">Variations: ${product.variations.join(", ")}</div>`
+              : ""
+          }
+
           <div class="vendor-table-actions">
             <button class="table-action-btn edit" data-edit-product="${product.id}">Edit</button>
             <button class="table-action-btn delete" data-delete-product="${product.id}">Delete</button>
@@ -406,15 +473,15 @@ function renderOrders() {
       (order) => `
         <article class="vendor-table-card">
           <div class="vendor-table-top">
-            <div><h4>${order.id}</h4><p class="vendor-table-meta">${order.productName}</p></div>
+            <div><h4>${order.id}</h4><p class="vendor-table-meta">${order.productName || "Order"}</p></div>
             <span class="status-pill ${getStatusClass(order.status)}">${order.status}</span>
           </div>
           <div class="vendor-table-details">
-            <div><span>Customer</span><strong>${order.customerName}</strong></div>
-            <div><span>Email</span><strong>${order.customerEmail}</strong></div>
-            <div><span>Phone</span><strong>${order.customerPhone}</strong></div>
-            <div><span>Date</span><strong>${order.date}</strong></div>
-            <div><span>Quantity</span><strong>${order.quantity}</strong></div>
+            <div><span>Customer</span><strong>${order.customerName || "N/A"}</strong></div>
+            <div><span>Email</span><strong>${order.customerEmail || "N/A"}</strong></div>
+            <div><span>Phone</span><strong>${order.customerPhone || "N/A"}</strong></div>
+            <div><span>Date</span><strong>${order.date || "N/A"}</strong></div>
+            <div><span>Quantity</span><strong>${order.quantity || 0}</strong></div>
             <div><span>Total</span><strong>${formatCurrency(order.total)}</strong></div>
           </div>
           <div class="vendor-table-actions">
@@ -547,10 +614,14 @@ function populateSettings() {
   }
 }
 
+/* =========================
+   PRODUCT FORM
+========================= */
 function resetProductForm() {
   elements.productForm.reset();
   document.getElementById("product-id").value = "";
   document.getElementById("product-status").value = "Active";
+  document.getElementById("product-variations").value = "";
   elements.productFormTitle.textContent = "Add Product";
   uploadedProductImages = [];
   updateProductImagePreview([]);
@@ -582,6 +653,9 @@ function fillProductForm(productId) {
   updateProductImagePreview(productImages);
   document.getElementById("product-status").value = product.status || "Active";
   document.getElementById("product-description").value = product.description || "";
+  document.getElementById("product-variations").value = Array.isArray(product.variations)
+    ? product.variations.join(", ")
+    : "";
   elements.productFormTitle.textContent = "Edit Product";
   setSection("products");
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -604,18 +678,12 @@ function updateProductImagePreview(images) {
   }
 }
 
-async function uploadVendorImageFile(file) {
-  const safeName = `${Date.now()}-${file.name}`.replace(/\s+/g, "-");
-  const folder = auth.currentUser?.uid || "vendor";
-  const storageRef = ref(storage, `vendor-products/${folder}/${safeName}`);
-
-  await uploadBytes(storageRef, file);
-  return await getDownloadURL(storageRef);
-}
-
 async function upsertProduct(formData) {
   if (isSavingProduct) return;
   isSavingProduct = true;
+
+  const submitButton = elements.productForm.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
 
   const payload = {
     vendorId: state.vendorId,
@@ -627,6 +695,7 @@ async function upsertProduct(formData) {
     images: formData.images,
     status: formData.status,
     description: formData.description,
+    variations: formData.variations,
     views: formData.views || 0,
     sold: formData.sold || 0
   };
@@ -640,14 +709,13 @@ async function upsertProduct(formData) {
       showToast("Product added successfully.", { type: "success" });
     }
 
-    await loadProductsFromFirebase();
     resetProductForm();
-    renderAll();
   } catch (err) {
     console.error("Failed to save product:", err);
     showToast(`Failed to save product: ${err.message}`, { type: "error" });
   } finally {
     isSavingProduct = false;
+    if (submitButton) submitButton.disabled = false;
   }
 }
 
@@ -657,8 +725,6 @@ async function deleteProduct(productId) {
 
   try {
     await deleteDoc(doc(db, "products", productId));
-    await loadProductsFromFirebase();
-    renderAll();
     showToast(`Removed ${target.name}.`, { type: "success" });
   } catch (err) {
     console.error("Failed to delete product:", err);
@@ -666,6 +732,9 @@ async function deleteProduct(productId) {
   }
 }
 
+/* =========================
+   SETTINGS / ORDERS
+========================= */
 function updateOrderStatus(orderId, status) {
   state.data.orders = state.data.orders.map((order) =>
     order.id === orderId ? { ...order, status } : order
@@ -696,6 +765,9 @@ function saveSettings(payload) {
   showToast("Vendor profile updated.", { type: "success" });
 }
 
+/* =========================
+   UI SECTION SWITCH
+========================= */
 function renderAll() {
   renderStats();
   renderSalesChart();
@@ -722,6 +794,9 @@ function setSection(section) {
   elements.sidebar.classList.remove("open");
 }
 
+/* =========================
+   EVENTS
+========================= */
 function bindEvents() {
   elements.navLinks.forEach((button) => {
     button.addEventListener("click", () => setSection(button.dataset.section));
@@ -745,6 +820,10 @@ function bindEvents() {
     const images = typedImages.length ? typedImages : uploadedProductImages;
     const status = document.getElementById("product-status").value;
     const description = document.getElementById("product-description").value.trim();
+    const variationsInput = document.getElementById("product-variations").value.trim();
+    const variations = variationsInput
+      ? variationsInput.split(",").map((item) => item.trim()).filter(Boolean)
+      : [];
     const id = document.getElementById("product-id").value;
     const existing = id ? getVendorProducts().find((product) => product.id === id) : null;
 
@@ -767,6 +846,7 @@ function bindEvents() {
       images,
       status,
       description,
+      variations,
       views: existing?.views || 0,
       sold: existing?.sold || 0
     });
@@ -810,7 +890,7 @@ function bindEvents() {
       showToast("Uploading images...", { type: "info" });
 
       uploadedProductImages = await Promise.all(
-        files.map((file) => uploadVendorImageFile(file))
+        files.map((file) => uploadToCloudinary(file))
       );
 
       elements.productImageInput.value = "";
@@ -867,17 +947,20 @@ function bindEvents() {
   });
 }
 
+/* =========================
+   INIT
+========================= */
 async function init() {
   bindEvents();
   await syncVendorProfileFromFirebaseLogin();
-  await loadProductsFromFirebase();
+  subscribeProductsFromFirebase();
   renderAll();
   resetProductForm();
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) return;
     await syncVendorProfileFromFirebaseLogin();
-    await loadProductsFromFirebase();
+    subscribeProductsFromFirebase();
     renderAll();
   });
 }

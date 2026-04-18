@@ -6,7 +6,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAnV7iMKmdg_wFV21jy6Iv5TxRsWzW69BU",
   authDomain: "bills-mall.firebaseapp.com",
   projectId: "bills-mall",
-  storageBucket: "bills-mall.firebasestorage.app",
+  storageBucket: "bills-mall.appspot.com", // ✅ FIXED
   messagingSenderId: "741823099772",
   appId: "1:741823099772:web:f152557c54cfc14e8caaf9"
 };
