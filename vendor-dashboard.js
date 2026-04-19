@@ -8,7 +8,8 @@ import {
   setDoc,
   onSnapshot,
   query,
-  where
+  where,
+  orderBy
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 import {
@@ -17,30 +18,17 @@ import {
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
 
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+
 import { auth, db, storage } from "./firebase.js";
 import { showToast } from "./ui.js";
 
 /* =========================
-   APP CONFIG
+   CONFIG
 ========================= */
-const STORAGE_KEY = "vendor_dashboard_data_v5";
 const COMMISSION_RATE = 0.05;
-const GITHUB_RAW_BASE_URL = "";
-// Example:
-// const GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/assets/products";
-
-/* =========================
-   STATE
-========================= */
-const state = {
-  vendorId: null,
-  data: loadData(),
-  currentSection: "dashboard",
-  unsubscribeProducts: null,
-  authReady: false,
-  eventsBound: false
-};
 
 const CATEGORY_OPTIONS = [
   "Fashion",
@@ -60,26 +48,47 @@ const CATEGORY_OPTIONS = [
   "Other"
 ];
 
+/* =========================
+   STATE
+========================= */
+const state = {
+  vendorId: null,
+  currentSection: "dashboard",
+  vendorProfile: null,
+  vendorProducts: [],
+  vendorOrders: [],
+  vendorReviews: [],
+  vendorPayouts: [],
+  unsubscribeProducts: null,
+  unsubscribeOrders: null,
+  authReady: false,
+  eventsBound: false
+};
+
 const elements = {
   pageTitle: document.getElementById("page-title"),
   sidebar: document.getElementById("vendor-sidebar"),
   menuBtn: document.getElementById("vendor-menu-btn"),
   navLinks: Array.from(document.querySelectorAll(".vendor-nav-link")),
   sections: Array.from(document.querySelectorAll(".vendor-section")),
+
   statsGrid: document.getElementById("stats-grid"),
   earningsStatsGrid: document.getElementById("earnings-stats-grid"),
   salesChart: document.getElementById("sales-chart"),
+
   productList: document.getElementById("product-list"),
   orderList: document.getElementById("order-list"),
   analyticsList: document.getElementById("analytics-list"),
   reviewList: document.getElementById("review-list"),
   paymentHistory: document.getElementById("payment-history"),
+
   productForm: document.getElementById("product-form"),
   resetProductFormBtn: document.getElementById("reset-product-form"),
   productFormTitle: document.getElementById("product-form-title"),
   productImageInput: document.getElementById("product-image"),
   productImageFileInput: document.getElementById("product-image-file"),
   productImagePreview: document.getElementById("product-image-preview"),
+
   settingsForm: document.getElementById("settings-form"),
   vendorStoreNameTop: document.getElementById("vendor-store-name-top"),
   vendorUserIdTop: document.getElementById("vendor-user-id-top"),
@@ -89,6 +98,7 @@ const elements = {
   spotlightProducts: document.getElementById("spotlight-products"),
   spotlightOrders: document.getElementById("spotlight-orders"),
   spotlightRating: document.getElementById("spotlight-rating"),
+
   settingsStoreNamePreview: document.getElementById("settings-store-name-preview"),
   settingsDescriptionPreview: document.getElementById("settings-description-preview"),
   settingsEmailPreview: document.getElementById("settings-email-preview"),
@@ -99,56 +109,6 @@ const elements = {
 
 let uploadedProductImages = [];
 let isSavingProduct = false;
-
-/* =========================
-   LOCAL STORAGE
-========================= */
-function loadData() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-
-  if (raw) {
-    try {
-      return JSON.parse(raw);
-    } catch (err) {
-      console.error("Failed to parse vendor dashboard data:", err);
-    }
-  }
-
-  return {
-    vendors: [],
-    products: [],
-    orders: [],
-    reviews: [],
-    payouts: [],
-    analytics: {
-      salesHistory: []
-    }
-  };
-}
-
-function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
-}
-
-function clearVendorState() {
-  state.vendorId = null;
-  state.data = {
-    vendors: [],
-    products: [],
-    orders: [],
-    reviews: [],
-    payouts: [],
-    analytics: {
-      salesHistory: []
-    }
-  };
-  saveData();
-
-  if (state.unsubscribeProducts) {
-    state.unsubscribeProducts();
-    state.unsubscribeProducts = null;
-  }
-}
 
 /* =========================
    HELPERS
@@ -166,32 +126,63 @@ function getStatusClass(status) {
 }
 
 function isAbsoluteUrl(value) {
-  return /^https?:\/\//i.test(value);
-}
-
-function normalizeGitHubImageUrl(value) {
-  const cleaned = String(value || "").trim();
-  if (!cleaned) return "";
-
-  if (isAbsoluteUrl(cleaned)) {
-    return cleaned;
-  }
-
-  if (!GITHUB_RAW_BASE_URL) {
-    return cleaned;
-  }
-
-  return `${GITHUB_RAW_BASE_URL.replace(/\/$/, "")}/${cleaned.replace(/^\//, "")}`;
+  return /^https?:\/\//i.test(String(value || "").trim());
 }
 
 function normalizeImageList(values = []) {
   return values
-    .map((value) => normalizeGitHubImageUrl(value))
-    .filter(Boolean);
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value) => isAbsoluteUrl(value));
 }
 
 function sanitizeFileName(name = "") {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return String(name).replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+function redirectToLogin() {
+  window.location.href = "./login.html";
+}
+
+function requireAuth() {
+  if (!auth.currentUser) {
+    showToast("Please log in to access the vendor dashboard.", { type: "error" });
+    redirectToLogin();
+    return false;
+  }
+  return true;
+}
+
+function getVendorProducts() {
+  return state.vendorProducts;
+}
+
+function getVendorOrders() {
+  return state.vendorOrders;
+}
+
+function getVendorReviews() {
+  return state.vendorReviews;
+}
+
+function getVendorPayouts() {
+  return state.vendorPayouts;
+}
+
+function getVendorProfileDefaults() {
+  const user = auth.currentUser;
+  return {
+    id: user?.uid || "",
+    storeName: user?.displayName || "Vendor Studio",
+    logoUrl: user?.photoURL || "",
+    contactEmail: user?.email || "",
+    contactPhone: user?.phoneNumber || "",
+    description: "Professional marketplace dashboard for your store."
+  };
+}
+
+function getVendorProfile() {
+  return state.vendorProfile || getVendorProfileDefaults();
 }
 
 async function uploadToFirebaseStorage(file) {
@@ -211,89 +202,42 @@ async function uploadToFirebaseStorage(file) {
   return await getDownloadURL(storageRef);
 }
 
-function redirectToLogin() {
-  window.location.href = "./login.html";
-}
+function clearVendorState() {
+  state.vendorId = null;
+  state.vendorProfile = null;
+  state.vendorProducts = [];
+  state.vendorOrders = [];
+  state.vendorReviews = [];
+  state.vendorPayouts = [];
 
-function requireAuth() {
-  if (!auth.currentUser) {
-    showToast("Please log in to access the vendor dashboard.", { type: "error" });
-    redirectToLogin();
-    return false;
+  if (state.unsubscribeProducts) {
+    state.unsubscribeProducts();
+    state.unsubscribeProducts = null;
   }
 
-  return true;
-}
-
-function getAuthVendorDefaults() {
-  const user = auth.currentUser;
-
-  return {
-    id: user?.uid || "",
-    storeName: user?.displayName || "Vendor Studio",
-    logoUrl: user?.photoURL || "",
-    contactEmail: user?.email || "",
-    contactPhone: user?.phoneNumber || "",
-    description: "Professional marketplace dashboard for your store."
-  };
-}
-
-function getVendorProfile() {
-  if (!state.vendorId) {
-    return {
-      id: "",
-      storeName: "Vendor Studio",
-      logoUrl: "",
-      contactEmail: "",
-      contactPhone: "",
-      description: "Professional marketplace dashboard for your store."
-    };
+  if (state.unsubscribeOrders) {
+    state.unsubscribeOrders();
+    state.unsubscribeOrders = null;
   }
-
-  const authDefaults = getAuthVendorDefaults();
-  let vendor = state.data.vendors.find((item) => item.id === state.vendorId);
-
-  if (!vendor) {
-    vendor = { ...authDefaults };
-    state.data.vendors.push(vendor);
-    saveData();
-    return vendor;
-  }
-
-  const mergedVendor = {
-    ...vendor,
-    storeName: authDefaults.storeName || vendor.storeName,
-    logoUrl: authDefaults.logoUrl || vendor.logoUrl,
-    contactEmail: authDefaults.contactEmail || vendor.contactEmail,
-    contactPhone: authDefaults.contactPhone || vendor.contactPhone,
-    description: vendor.description || authDefaults.description
-  };
-
-  const index = state.data.vendors.findIndex((item) => item.id === state.vendorId);
-  state.data.vendors[index] = mergedVendor;
-  saveData();
-
-  return mergedVendor;
-}
-
-function getVendorProducts() {
-  return state.data.products.filter((item) => item.vendorId === state.vendorId);
-}
-
-function getVendorOrders() {
-  return state.data.orders.filter((item) => item.vendorId === state.vendorId);
-}
-
-function getVendorReviews() {
-  return state.data.reviews.filter((item) => item.vendorId === state.vendorId);
-}
-
-function getVendorPayouts() {
-  return state.data.payouts.filter((item) => item.vendorId === state.vendorId);
 }
 
 /* =========================
-   FIREBASE SYNC
+   CATEGORY DROPDOWN
+========================= */
+function initializeCategoryDropdown() {
+  const categorySelect = document.getElementById("product-category");
+  if (!categorySelect) return;
+
+  categorySelect.innerHTML = [
+    '<option value="">Select a category</option>',
+    ...CATEGORY_OPTIONS.map(
+      (category) => `<option value="${category}">${category}</option>`
+    )
+  ].join("");
+}
+
+/* =========================
+   FIREBASE PROFILE
 ========================= */
 async function syncVendorProfileFromFirebaseLogin() {
   const user = auth.currentUser;
@@ -325,27 +269,22 @@ async function syncVendorProfileFromFirebaseLogin() {
         logoUrl: user.photoURL || vendorData.logoUrl || "",
         contactEmail: user.email || vendorData.contactEmail || "",
         contactPhone: user.phoneNumber || vendorData.contactPhone || "",
-        description:
-          vendorData.description || "Professional marketplace dashboard for your store."
+        description: vendorData.description || "Professional marketplace dashboard for your store."
       };
     } else {
       await setDoc(vendorRef, loginProfile, { merge: true });
     }
 
-    const existingIndex = state.data.vendors.findIndex((vendor) => vendor.id === user.uid);
-
-    if (existingIndex >= 0) {
-      state.data.vendors[existingIndex] = mergedProfile;
-    } else {
-      state.data.vendors.push(mergedProfile);
-    }
-
-    saveData();
+    state.vendorProfile = mergedProfile;
   } catch (err) {
-    console.error("Failed to sync vendor profile from Firebase login:", err);
+    console.error("Failed to sync vendor profile:", err);
+    showToast(`Failed to load vendor profile: ${err.message}`, { type: "error" });
   }
 }
 
+/* =========================
+   FIREBASE SUBSCRIPTIONS
+========================= */
 function subscribeProductsFromFirebase() {
   if (!state.vendorId) return;
 
@@ -361,17 +300,55 @@ function subscribeProductsFromFirebase() {
   state.unsubscribeProducts = onSnapshot(
     productsQuery,
     (snapshot) => {
-      state.data.products = snapshot.docs.map((docSnap) => ({
+      state.vendorProducts = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data()
       }));
 
-      saveData();
       renderAll();
     },
     (err) => {
       console.error("Failed to subscribe to vendor products:", err);
       showToast(`Failed to load products: ${err.message}`, { type: "error" });
+    }
+  );
+}
+
+function subscribeOrdersFromFirebase() {
+  if (!state.vendorId) return;
+
+  if (state.unsubscribeOrders) {
+    state.unsubscribeOrders();
+  }
+
+  let ordersQuery;
+
+  try {
+    ordersQuery = query(
+      collection(db, "orders"),
+      where("vendorId", "==", state.vendorId),
+      orderBy("createdAt", "desc")
+    );
+  } catch {
+    ordersQuery = query(
+      collection(db, "orders"),
+      where("vendorId", "==", state.vendorId)
+    );
+  }
+
+  state.unsubscribeOrders = onSnapshot(
+    ordersQuery,
+    (snapshot) => {
+      state.vendorOrders = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+
+      renderAll();
+    },
+    (err) => {
+      console.error("Failed to subscribe to vendor orders:", err);
+      showToast(`Failed to load orders: ${err.message}`, { type: "error" });
     }
   );
 }
@@ -424,65 +401,91 @@ function calculateOverview() {
 function renderStats() {
   const overview = calculateOverview();
 
-  const cards = [
-    { label: "Total Sales", value: formatCurrency(overview.grossSales), note: "Gross marketplace value" },
-    { label: "Orders", value: overview.orderCount, note: "Vendor orders received" },
-    { label: "Products Sold", value: overview.totalSalesCount, note: "Units sold" },
-    { label: "Earnings", value: formatCurrency(overview.earnings), note: "After commission" }
-  ];
+  if (elements.statsGrid) {
+    const cards = [
+      { label: "Total Sales", value: formatCurrency(overview.grossSales), note: "Gross marketplace value" },
+      { label: "Orders", value: overview.orderCount, note: "Vendor orders received" },
+      { label: "Products Sold", value: overview.totalSalesCount, note: "Units sold" },
+      { label: "Earnings", value: formatCurrency(overview.earnings), note: "After commission" }
+    ];
 
-  elements.statsGrid.innerHTML = cards
-    .map(
-      (card) =>
-        `<div class="stat-card-vendor"><span>${card.label}</span><strong>${card.value}</strong><small>${card.note}</small></div>`
-    )
-    .join("");
+    elements.statsGrid.innerHTML = cards
+      .map(
+        (card) =>
+          `<div class="stat-card-vendor"><span>${card.label}</span><strong>${card.value}</strong><small>${card.note}</small></div>`
+      )
+      .join("");
+  }
 
-  const earningsCards = [
-    { label: "Total Earnings", value: formatCurrency(overview.earnings), note: "Net sales after commission" },
-    { label: "Pending Balance", value: formatCurrency(overview.pendingBalance), note: "Orders not yet delivered" },
-    { label: "Withdrawable", value: formatCurrency(overview.withdrawable), note: "Ready for payout" },
-    { label: "Commission Rate", value: `${Math.round(COMMISSION_RATE * 100)}%`, note: "Marketplace fee" }
-  ];
+  if (elements.earningsStatsGrid) {
+    const earningsCards = [
+      { label: "Total Earnings", value: formatCurrency(overview.earnings), note: "Net sales after commission" },
+      { label: "Pending Balance", value: formatCurrency(overview.pendingBalance), note: "Orders not yet delivered" },
+      { label: "Withdrawable", value: formatCurrency(overview.withdrawable), note: "Ready for payout" },
+      { label: "Commission Rate", value: `${Math.round(COMMISSION_RATE * 100)}%`, note: "Marketplace fee" }
+    ];
 
-  elements.earningsStatsGrid.innerHTML = earningsCards
-    .map(
-      (card) =>
-        `<div class="stat-card-vendor"><span>${card.label}</span><strong>${card.value}</strong><small>${card.note}</small></div>`
-    )
-    .join("");
+    elements.earningsStatsGrid.innerHTML = earningsCards
+      .map(
+        (card) =>
+          `<div class="stat-card-vendor"><span>${card.label}</span><strong>${card.value}</strong><small>${card.note}</small></div>`
+      )
+      .join("");
+  }
 
   const vendor = getVendorProfile();
-  elements.vendorStoreNameTop.textContent = vendor.storeName;
-  elements.vendorUserIdTop.textContent = state.vendorId || "";
-  elements.vendorUserAvatar.textContent = (vendor.storeName || "V").slice(0, 1).toUpperCase();
-  elements.spotlightStoreName.textContent = vendor.storeName;
-  elements.spotlightStoreDescription.textContent = vendor.description;
-  elements.spotlightProducts.textContent = overview.activeProducts;
-  elements.spotlightOrders.textContent = overview.openOrders;
-  elements.spotlightRating.textContent = overview.averageRating.toFixed(1);
+
+  if (elements.vendorStoreNameTop) elements.vendorStoreNameTop.textContent = vendor.storeName;
+  if (elements.vendorUserIdTop) elements.vendorUserIdTop.textContent = state.vendorId || "";
+  if (elements.vendorUserAvatar) {
+    elements.vendorUserAvatar.textContent = (vendor.storeName || "V").slice(0, 1).toUpperCase();
+  }
+  if (elements.spotlightStoreName) elements.spotlightStoreName.textContent = vendor.storeName;
+  if (elements.spotlightStoreDescription) elements.spotlightStoreDescription.textContent = vendor.description;
+  if (elements.spotlightProducts) elements.spotlightProducts.textContent = overview.activeProducts;
+  if (elements.spotlightOrders) elements.spotlightOrders.textContent = overview.openOrders;
+  if (elements.spotlightRating) elements.spotlightRating.textContent = overview.averageRating.toFixed(1);
 }
 
 function renderSalesChart() {
-  const history = state.data.analytics?.salesHistory || [];
+  if (!elements.salesChart) return;
 
-  if (!history.length) {
+  const orders = getVendorOrders();
+  if (!orders.length) {
     elements.salesChart.innerHTML = `
-      <div class="empty-state">No sales chart data yet. Your chart will appear when new sales are recorded.</div>
+      <div class="empty-state">No sales chart data yet. Your chart will appear when orders are recorded.</div>
     `;
     return;
   }
 
-  const max = Math.max(...history.map((item) => item.sales), 1);
+  const monthMap = {};
+  orders.forEach((order) => {
+    let key = "Unknown";
+    const rawDate = order.createdAt?.seconds
+      ? new Date(order.createdAt.seconds * 1000)
+      : order.createdAt
+        ? new Date(order.createdAt)
+        : null;
 
-  elements.salesChart.innerHTML = history
-    .map((item) => {
-      const height = Math.max((item.sales / max) * 170, 20);
+    if (rawDate && !Number.isNaN(rawDate.getTime())) {
+      key = rawDate.toLocaleString("en-US", { month: "short" });
+    }
+
+    if (!monthMap[key]) monthMap[key] = 0;
+    monthMap[key] += Number(order.total || 0);
+  });
+
+  const entries = Object.entries(monthMap);
+  const max = Math.max(...entries.map(([, sales]) => sales), 1);
+
+  elements.salesChart.innerHTML = entries
+    .map(([label, sales]) => {
+      const height = Math.max((sales / max) * 170, 20);
       return `
         <div class="sales-bar">
-          <span class="sales-bar-value">${formatCurrency(item.sales)}</span>
+          <span class="sales-bar-value">${formatCurrency(sales)}</span>
           <div class="sales-bar-visual" style="height:${height}px"></div>
-          <span class="sales-bar-label">${item.label}</span>
+          <span class="sales-bar-label">${label}</span>
         </div>
       `;
     })
@@ -490,10 +493,14 @@ function renderSalesChart() {
 }
 
 function renderProducts() {
+  if (!elements.productList) return;
+
   const products = getVendorProducts();
 
   if (!products.length) {
-    elements.productList.innerHTML = `<div class="empty-state">No products yet. Add your first product to start selling.</div>`;
+    elements.productList.innerHTML = `
+      <div class="empty-state">No products yet. Add your first product to start selling.</div>
+    `;
     return;
   }
 
@@ -506,7 +513,7 @@ function renderProducts() {
               <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}">
               <div>
                 <h4>${product.name}</h4>
-                <p class="vendor-table-meta">${product.category}</p>
+                <p class="vendor-table-meta">${product.category || "General"}</p>
               </div>
             </div>
             <span class="status-pill ${getStatusClass(product.status || "Draft")}">${product.status || "Draft"}</span>
@@ -536,46 +543,50 @@ function renderProducts() {
 }
 
 function renderOrders() {
+  if (!elements.orderList) return;
+
   const orders = getVendorOrders();
 
   if (!orders.length) {
-    elements.orderList.innerHTML = `<div class="empty-state">No vendor orders yet. New orders will appear here.</div>`;
+    elements.orderList.innerHTML = `
+      <div class="empty-state">No vendor orders yet. New orders will appear here.</div>
+    `;
     return;
   }
 
   elements.orderList.innerHTML = orders
-    .map(
-      (order) => `
+    .map((order) => {
+      const itemNames = Array.isArray(order.items)
+        ? order.items.map((item) => item.name).filter(Boolean).join(", ")
+        : (order.productName || "Order");
+
+      return `
         <article class="vendor-table-card">
           <div class="vendor-table-top">
-            <div><h4>${order.id}</h4><p class="vendor-table-meta">${order.productName || "Order"}</p></div>
-            <span class="status-pill ${getStatusClass(order.status)}">${order.status}</span>
+            <div>
+              <h4>${order.id}</h4>
+              <p class="vendor-table-meta">${itemNames}</p>
+            </div>
+            <span class="status-pill ${getStatusClass(order.status || "Pending")}">${order.status || "Pending"}</span>
           </div>
+
           <div class="vendor-table-details">
             <div><span>Customer</span><strong>${order.customerName || "N/A"}</strong></div>
             <div><span>Email</span><strong>${order.customerEmail || "N/A"}</strong></div>
             <div><span>Phone</span><strong>${order.customerPhone || "N/A"}</strong></div>
-            <div><span>Date</span><strong>${order.date || "N/A"}</strong></div>
+            <div><span>Location</span><strong>${order.location || "N/A"}</strong></div>
             <div><span>Quantity</span><strong>${order.quantity || 0}</strong></div>
             <div><span>Total</span><strong>${formatCurrency(order.total)}</strong></div>
           </div>
-          <div class="vendor-table-actions">
-            <select class="table-select" data-order-status="${order.id}">
-              ${["Pending", "Shipped", "Delivered"]
-                .map(
-                  (status) =>
-                    `<option value="${status}" ${status === order.status ? "selected" : ""}>${status}</option>`
-                )
-                .join("")}
-            </select>
-          </div>
         </article>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
 function renderEarningsHistory() {
+  if (!elements.paymentHistory) return;
+
   const payouts = getVendorPayouts();
 
   if (!payouts.length) {
@@ -588,11 +599,11 @@ function renderEarningsHistory() {
       (payout) => `
         <article class="vendor-table-card">
           <div class="vendor-table-top">
-            <div><h4>${payout.id}</h4><p class="vendor-table-meta">${payout.method}</p></div>
-            <span class="status-pill ${getStatusClass(payout.status)}">${payout.status}</span>
+            <div><h4>${payout.id}</h4><p class="vendor-table-meta">${payout.method || "Payout"}</p></div>
+            <span class="status-pill ${getStatusClass(payout.status || "Pending")}">${payout.status || "Pending"}</span>
           </div>
           <div class="vendor-table-details">
-            <div><span>Date</span><strong>${payout.date}</strong></div>
+            <div><span>Date</span><strong>${payout.date || "N/A"}</strong></div>
             <div><span>Amount</span><strong>${formatCurrency(payout.amount)}</strong></div>
           </div>
         </article>
@@ -602,6 +613,8 @@ function renderEarningsHistory() {
 }
 
 function renderAnalytics() {
+  if (!elements.analyticsList) return;
+
   const products = getVendorProducts();
 
   if (!products.length) {
@@ -637,6 +650,8 @@ function renderAnalytics() {
 }
 
 function renderReviews() {
+  if (!elements.reviewList) return;
+
   const reviews = getVendorReviews();
 
   if (!reviews.length) {
@@ -658,53 +673,52 @@ function renderReviews() {
     .join("");
 }
 
-function initializeCategoryDropdown() {
-  const categorySelect = document.getElementById("product-category");
-  if (!categorySelect) return;
-
-  const isSelect = categorySelect.tagName === "SELECT";
-
-  if (!isSelect) {
-    console.warn("#product-category is not a <select>. Change it in your HTML to use a dropdown list.");
-    return;
-  }
-
-  categorySelect.innerHTML = [
-    '<option value="">Select a category</option>',
-    ...CATEGORY_OPTIONS.map(
-      (category) => `<option value="${category}">${category}</option>`
-    )
-  ].join("");
-}
-
 function populateSettings() {
   const vendor = getVendorProfile();
   const user = auth.currentUser;
 
-  document.getElementById("settings-store-name").value = vendor.storeName || "";
-  document.getElementById("settings-logo-url").value = vendor.logoUrl || "";
-  document.getElementById("settings-contact-email").value = vendor.contactEmail || "";
-  document.getElementById("settings-contact-phone").value = vendor.contactPhone || "";
-  document.getElementById("settings-description").value = vendor.description || "";
+  const storeNameInput = document.getElementById("settings-store-name");
+  const logoUrlInput = document.getElementById("settings-logo-url");
+  const contactEmailInput = document.getElementById("settings-contact-email");
+  const contactPhoneInput = document.getElementById("settings-contact-phone");
+  const descriptionInput = document.getElementById("settings-description");
 
-  document.getElementById("settings-store-name").readOnly = !!user?.displayName;
-  document.getElementById("settings-logo-url").readOnly = !!user?.photoURL;
-  document.getElementById("settings-contact-email").readOnly = !!user?.email;
-  document.getElementById("settings-contact-phone").readOnly = !!user?.phoneNumber;
+  if (storeNameInput) storeNameInput.value = vendor.storeName || "";
+  if (logoUrlInput) logoUrlInput.value = vendor.logoUrl || "";
+  if (contactEmailInput) contactEmailInput.value = vendor.contactEmail || "";
+  if (contactPhoneInput) contactPhoneInput.value = vendor.contactPhone || "";
+  if (descriptionInput) descriptionInput.value = vendor.description || "";
 
-  elements.settingsStoreNamePreview.textContent = vendor.storeName || "Vendor Studio";
-  elements.settingsDescriptionPreview.textContent =
-    vendor.description || "Professional marketplace dashboard for your store.";
-  elements.settingsEmailPreview.textContent = vendor.contactEmail || "No email found";
-  elements.settingsPhonePreview.textContent = vendor.contactPhone || "No phone found";
-  elements.settingsVendorIdPreview.textContent = state.vendorId || "";
+  if (storeNameInput) storeNameInput.readOnly = !!user?.displayName;
+  if (logoUrlInput) logoUrlInput.readOnly = !!user?.photoURL;
+  if (contactEmailInput) contactEmailInput.readOnly = !!user?.email;
+  if (contactPhoneInput) contactPhoneInput.readOnly = !!user?.phoneNumber;
 
-  if (vendor.logoUrl) {
-    elements.settingsLogoPreview.src = vendor.logoUrl;
-    elements.settingsLogoPreview.style.display = "block";
-  } else {
-    elements.settingsLogoPreview.removeAttribute("src");
-    elements.settingsLogoPreview.style.display = "none";
+  if (elements.settingsStoreNamePreview) {
+    elements.settingsStoreNamePreview.textContent = vendor.storeName || "Vendor Studio";
+  }
+  if (elements.settingsDescriptionPreview) {
+    elements.settingsDescriptionPreview.textContent =
+      vendor.description || "Professional marketplace dashboard for your store.";
+  }
+  if (elements.settingsEmailPreview) {
+    elements.settingsEmailPreview.textContent = vendor.contactEmail || "No email found";
+  }
+  if (elements.settingsPhonePreview) {
+    elements.settingsPhonePreview.textContent = vendor.contactPhone || "No phone found";
+  }
+  if (elements.settingsVendorIdPreview) {
+    elements.settingsVendorIdPreview.textContent = state.vendorId || "";
+  }
+
+  if (elements.settingsLogoPreview) {
+    if (vendor.logoUrl) {
+      elements.settingsLogoPreview.src = vendor.logoUrl;
+      elements.settingsLogoPreview.style.display = "block";
+    } else {
+      elements.settingsLogoPreview.removeAttribute("src");
+      elements.settingsLogoPreview.style.display = "none";
+    }
   }
 }
 
@@ -715,11 +729,25 @@ function resetProductForm() {
   if (!elements.productForm) return;
 
   elements.productForm.reset();
-  document.getElementById("product-id").value = "";
-  document.getElementById("product-status").value = "Active";
-  document.getElementById("product-variations").value = "";
-  elements.productFormTitle.textContent = "Add Product";
+
+  const productIdInput = document.getElementById("product-id");
+  const productStatusInput = document.getElementById("product-status");
+  const productVariationsInput = document.getElementById("product-variations");
+
+  if (productIdInput) productIdInput.value = "";
+  if (productStatusInput) productStatusInput.value = "Active";
+  if (productVariationsInput) productVariationsInput.value = "";
+
+  if (elements.productFormTitle) {
+    elements.productFormTitle.textContent = "Add Product";
+  }
+
   uploadedProductImages = [];
+
+  if (elements.productImageFileInput) {
+    elements.productImageFileInput.value = "";
+  }
+
   updateProductImagePreview([]);
 }
 
@@ -752,7 +780,11 @@ function fillProductForm(productId) {
   document.getElementById("product-variations").value = Array.isArray(product.variations)
     ? product.variations.join(", ")
     : "";
-  elements.productFormTitle.textContent = "Edit Product";
+
+  if (elements.productFormTitle) {
+    elements.productFormTitle.textContent = "Edit Product";
+  }
+
   setSection("products");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -767,6 +799,7 @@ function updateProductImagePreview(images) {
           `<img src="${src}" alt="Product preview ${index + 1}" class="vendor-image-thumb">`
       )
       .join("");
+
     elements.productImagePreview.classList.add("has-images");
   } else {
     elements.productImagePreview.innerHTML = "";
@@ -780,15 +813,15 @@ async function upsertProduct(formData) {
 
   isSavingProduct = true;
 
-  const submitButton = elements.productForm.querySelector('button[type="submit"]');
+  const submitButton = elements.productForm?.querySelector('button[type="submit"]');
   if (submitButton) submitButton.disabled = true;
 
   const payload = {
     vendorId: state.vendorId,
     name: formData.name,
     category: formData.category,
-    price: formData.price,
-    stock: formData.stock,
+    price: Number(formData.price || 0),
+    stock: Number(formData.stock || 0),
     image: formData.images[0] || "",
     images: formData.images,
     status: formData.status,
@@ -842,54 +875,39 @@ async function deleteProduct(productId) {
 }
 
 /* =========================
-   SETTINGS / ORDERS
+   SETTINGS
 ========================= */
-function updateOrderStatus(orderId, status) {
-  const targetOrder = getVendorOrders().find((order) => order.id === orderId);
+async function saveSettings(payload) {
+  if (!state.vendorId) return;
 
-  if (!targetOrder) {
-    showToast("You can only update your own orders.", { type: "error" });
-    return;
+  const authDefaults = getVendorProfileDefaults();
+
+  const merged = {
+    ...getVendorProfile(),
+    ...payload,
+    id: state.vendorId,
+    storeName: authDefaults.storeName || payload.storeName || "Vendor Studio",
+    logoUrl: authDefaults.logoUrl || payload.logoUrl || "",
+    contactEmail: authDefaults.contactEmail || payload.contactEmail || "",
+    contactPhone: authDefaults.contactPhone || payload.contactPhone || "",
+    description: payload.description || "Professional marketplace dashboard for your store."
+  };
+
+  state.vendorProfile = merged;
+  populateSettings();
+  renderStats();
+
+  try {
+    await setDoc(doc(db, "vendors", state.vendorId), merged, { merge: true });
+    showToast("Vendor profile updated.", { type: "success" });
+  } catch (err) {
+    console.error("Failed to save vendor settings:", err);
+    showToast(`Failed to sync settings: ${err.message}`, { type: "error" });
   }
-
-  state.data.orders = state.data.orders.map((order) =>
-    order.id === orderId ? { ...order, status } : order
-  );
-  saveData();
-  renderAll();
-  showToast(`Order ${orderId} marked ${status}.`, { type: "success" });
-}
-
-function saveSettings(payload) {
-  const authDefaults = getAuthVendorDefaults();
-
-  state.data.vendors = state.data.vendors.map((vendor) =>
-    vendor.id === state.vendorId
-      ? {
-          ...vendor,
-          ...payload,
-          storeName: authDefaults.storeName || payload.storeName || vendor.storeName,
-          contactEmail: authDefaults.contactEmail || payload.contactEmail || vendor.contactEmail,
-          contactPhone: authDefaults.contactPhone || payload.contactPhone || vendor.contactPhone,
-          logoUrl: authDefaults.logoUrl || payload.logoUrl || vendor.logoUrl
-        }
-      : vendor
-  );
-
-  if (!state.data.vendors.some((vendor) => vendor.id === state.vendorId)) {
-    state.data.vendors.push({
-      id: state.vendorId,
-      ...payload
-    });
-  }
-
-  saveData();
-  renderAll();
-  showToast("Vendor profile updated.", { type: "success" });
 }
 
 /* =========================
-   UI SECTION SWITCH
+   SECTION SWITCH
 ========================= */
 function renderAll() {
   renderStats();
@@ -904,7 +922,10 @@ function renderAll() {
 
 function setSection(section) {
   state.currentSection = section;
-  elements.pageTitle.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+
+  if (elements.pageTitle) {
+    elements.pageTitle.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+  }
 
   elements.navLinks.forEach((button) => {
     button.classList.toggle("active", button.dataset.section === section);
@@ -914,7 +935,7 @@ function setSection(section) {
     sectionEl.classList.toggle("active", sectionEl.id === `section-${section}`);
   });
 
-  elements.sidebar.classList.remove("open");
+  elements.sidebar?.classList.remove("open");
 }
 
 /* =========================
@@ -929,7 +950,7 @@ function bindEvents() {
   });
 
   elements.menuBtn?.addEventListener("click", () => {
-    elements.sidebar.classList.toggle("open");
+    elements.sidebar?.classList.toggle("open");
   });
 
   elements.productForm?.addEventListener("submit", async (event) => {
@@ -941,12 +962,14 @@ function bindEvents() {
     const category = document.getElementById("product-category").value.trim();
     const price = Number(document.getElementById("product-price").value);
     const stock = Number(document.getElementById("product-stock").value);
+
     const typedImages = normalizeImageList(
       elements.productImageInput.value
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean)
     );
+
     const images = typedImages.length ? typedImages : uploadedProductImages;
     const status = document.getElementById("product-status").value;
     const description = document.getElementById("product-description").value.trim();
@@ -954,6 +977,7 @@ function bindEvents() {
     const variations = variationsInput
       ? variationsInput.split(",").map((item) => item.trim()).filter(Boolean)
       : [];
+
     const id = document.getElementById("product-id").value;
     const existing = id ? getVendorProducts().find((product) => product.id === id) : null;
 
@@ -1048,12 +1072,6 @@ function bindEvents() {
     if (deleteId) await deleteProduct(deleteId);
   });
 
-  elements.orderList?.addEventListener("change", (event) => {
-    const orderId = event.target.getAttribute("data-order-status");
-    if (!orderId) return;
-    updateOrderStatus(orderId, event.target.value);
-  });
-
   elements.settingsForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -1070,21 +1088,12 @@ function bindEvents() {
         "Professional marketplace dashboard for your store."
     };
 
-    saveSettings(payload);
-
-    if (user) {
-      try {
-        await setDoc(doc(db, "vendors", user.uid), payload, { merge: true });
-      } catch (err) {
-        console.error("Failed to save vendor settings to Firebase:", err);
-        showToast(`Failed to sync settings: ${err.message}`, { type: "error" });
-      }
-    }
+    await saveSettings(payload);
   });
 }
 
 /* =========================
-   AUTH INIT
+   INIT
 ========================= */
 function init() {
   initializeCategoryDropdown();
@@ -1099,13 +1108,21 @@ function init() {
       return;
     }
 
+    if (!user.emailVerified) {
+      showToast("Please verify your email before using the vendor dashboard.", { type: "error" });
+      redirectToLogin();
+      return;
+    }
+
     state.vendorId = user.uid;
+
     await syncVendorProfileFromFirebaseLogin();
     subscribeProductsFromFirebase();
+    subscribeOrdersFromFirebase();
+
     renderAll();
     resetProductForm();
   });
 }
 
 init();
-

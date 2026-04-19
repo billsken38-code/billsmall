@@ -283,25 +283,51 @@ async function placeOrder(paymentType) {
   setPaymentMessage("Placing your order...", "#4B2E2B");
   localStorage.setItem("address", address);
 
-  const order = {
-    userId: currentUser.uid,
-    customer: {
-      name,
-      phone,
-      address,
-      location,
-      email: currentUser.email || document.getElementById("email").value.trim()
-    },
-    items: cart,
-    total: getBaseTotal() + deliveryFee,
-    deliveryFee,
-    paymentMethod: paymentType,
-    status: paymentType === "Paid" ? "Paid" : "Pending",
-    createdAt: serverTimestamp()
-  };
+  const groupedByVendor = {};
+
+  for (const item of cart) {
+    const vendorId = item.vendorId;
+
+    if (!vendorId) {
+      throw new Error(`Product "${item.name}" has no vendorId.`);
+    }
+
+    if (!groupedByVendor[vendorId]) {
+      groupedByVendor[vendorId] = [];
+    }
+
+    groupedByVendor[vendorId].push(item);
+  }
 
   try {
-    await addDoc(collection(db, "orders"), order);
+    const vendorIds = Object.keys(groupedByVendor);
+
+    for (const vendorId of vendorIds) {
+      const vendorItems = groupedByVendor[vendorId];
+      const itemsTotal = vendorItems.reduce(
+        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+        0
+      );
+
+      const order = {
+        userId: currentUser.uid,
+        vendorId,
+        customerName: name,
+        customerEmail: currentUser.email || document.getElementById("email").value.trim(),
+        customerPhone: phone,
+        address,
+        location,
+        items: vendorItems,
+        quantity: vendorItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0),
+        total: itemsTotal,
+        deliveryFee: 0,
+        paymentMethod: paymentType,
+        status: paymentType === "Paid" ? "Paid" : "Pending",
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, "orders"), order);
+    }
 
     localStorage.removeItem("cart");
     setPaymentMessage("Order placed successfully. Redirecting to your orders...", "green");
