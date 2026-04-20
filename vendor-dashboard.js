@@ -321,20 +321,10 @@ function subscribeOrdersFromFirebase() {
     state.unsubscribeOrders();
   }
 
-  let ordersQuery;
-
-  try {
-    ordersQuery = query(
-      collection(db, "orders"),
-      where("vendorId", "==", state.vendorId),
-      orderBy("createdAt", "desc")
-    );
-  } catch {
-    ordersQuery = query(
-      collection(db, "orders"),
-      where("vendorId", "==", state.vendorId)
-    );
-  }
+  const ordersQuery = query(
+    collection(db, "orders"),
+    where("vendorId", "==", state.vendorId)
+  );
 
   state.unsubscribeOrders = onSnapshot(
     ordersQuery,
