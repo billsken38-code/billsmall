@@ -119,10 +119,27 @@ function checkForm() {
 document.getElementById("location")?.addEventListener("change", () => {
   const location = document.getElementById("location").value;
 
-  if (location === "knust kumasi campus") deliveryFee = 20;
-  else if (location === "accra") deliveryFee = 30;
-  else if (location === "knust obuasi campus") deliveryFee = 5;
-  else deliveryFee = location ? 15 : 0;
+  if (location === "knust kumasi campus") {
+    deliveryFee = 20;
+  } else if (location === "accra college of education") {
+    deliveryFee = 30;
+  } else if (location === "knust obuasi campus") {
+    deliveryFee = 5;
+  } else if (location === "legon") {
+    deliveryFee = 30;
+  } else if (location === "kstu") {
+    deliveryFee = 20;
+  } else if (location === "govcco") {
+    deliveryFee = 30;
+  } else if (location === "uhas") {
+    deliveryFee = 30;
+  } else if (location === "hohoe nursing training") {
+    deliveryFee = 30;
+  } else if (location === "upsa") {
+    deliveryFee = 30;
+  } else {
+    deliveryFee = 0;
+  }
 
   updateTotalDisplay();
 });

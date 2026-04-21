@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vendor Dashboard - BILLS MALL</title>
   <link rel="stylesheet" href="vendor-dashboard.css" />
+  <link rel="manifest" href="./vendor-manifest.json" />
+  <meta name="theme-color" content="#4B2E2B" />
+  <link rel="apple-touch-icon" href="./icons/vendor-192.png" />
 </head>
 <body>
   <div class="vendor-shell">
@@ -101,12 +104,13 @@
                 Product Name
                 <input type="text" id="product-name" placeholder="Premium sneaker drop" />
               </label>
-             <label>
-             Category
-             <select id="product-category">
-             <option value="">Select a category</option>
-             </select>
-            </label>
+
+              <label>
+                Category
+                <select id="product-category">
+                  <option value="">Select a category</option>
+                </select>
+              </label>
 
               <div class="vendor-form-row">
                 <label>
@@ -292,5 +296,20 @@
   </div>
 
   <script type="module" src="vendor-dashboard.js"></script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("./service-worker.js")
+          .then((registration) => {
+            console.log("Service Worker registered:", registration);
+          })
+          .catch((error) => {
+            console.error("Service Worker registration failed:", error);
+          });
+      });
+    }
+  </script>
 </body>
 </html>
