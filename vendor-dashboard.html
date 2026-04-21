@@ -32,6 +32,39 @@
 
       <div class="vendor-sidebar-footer">
         <a href="index.html" class="vendor-back-link">Back to storefront</a>
+
+        <div class="vendor-install-box" style="margin-top:16px;">
+          <button
+            id="install-vendor-app-btn"
+            class="btn-primary"
+            style="display:none; width:100%;"
+            type="button"
+          >
+            Install Vendor App
+          </button>
+        </div>
+
+        <div class="vendor-support-box" style="margin-top:16px;">
+          <p style="margin:0 0 8px 0;">Need help or want to join the vendor group?</p>
+          <a
+            href="https://wa.me/233599480662?text=Hello%20I%20want%20help%20with%20my%20Bills%20Mall%20vendor%20account"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="vendor-back-link"
+            style="display:block; margin-bottom:8px;"
+          >
+            Chat with Admin on WhatsApp
+          </a>
+          <a
+            href="https://chat.whatsapp.com/CBRwEltZ3WoEccEzaohWUY?mode=gi_t"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="vendor-back-link"
+            style="display:block;"
+          >
+            Join Vendor WhatsApp Group
+          </a>
+        </div>
       </div>
     </aside>
 
@@ -52,6 +85,8 @@
       </header>
 
       <section class="vendor-section active" id="section-dashboard">
+        <div id="approval-notice-slot"></div>
+
         <div class="vendor-stats-grid" id="stats-grid"></div>
 
         <div class="vendor-grid two-up">
@@ -310,6 +345,44 @@
           });
       });
     }
+  </script>
+
+  <script>
+    let deferredVendorPrompt;
+    const vendorInstallButton = document.getElementById("install-vendor-app-btn");
+
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredVendorPrompt = event;
+
+      if (vendorInstallButton) {
+        vendorInstallButton.style.display = "inline-block";
+      }
+    });
+
+    vendorInstallButton?.addEventListener("click", async () => {
+      if (!deferredVendorPrompt) return;
+
+      deferredVendorPrompt.prompt();
+
+      const choiceResult = await deferredVendorPrompt.userChoice;
+
+      if (choiceResult.outcome === "accepted") {
+        console.log("Vendor app install accepted");
+      } else {
+        console.log("Vendor app install dismissed");
+      }
+
+      deferredVendorPrompt = null;
+      vendorInstallButton.style.display = "none";
+    });
+
+    window.addEventListener("appinstalled", () => {
+      console.log("Vendor app installed");
+      if (vendorInstallButton) {
+        vendorInstallButton.style.display = "none";
+      }
+    });
   </script>
 </body>
 </html>

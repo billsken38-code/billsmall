@@ -45,9 +45,22 @@
       <p>Discover trusted products, top deals, and featured picks.</p>
     </div>
   </section>
+  <div class="install-app-box">
+  <button id="install-app-btn" style="display:none;">
+    Install BILLS MALL App
+  </button>
+</div>
 
   <div class="category-bar"></div>
-
+<section class="seller-invite-section">
+  <div class="seller-invite-card">
+    <h2>Want to sell on Bills Mall?</h2>
+    <p>
+      Join Bills Mall as a vendor and start selling your products to more customers.
+    </p>
+    <a href="vendor-dashboard.html" class="seller-invite-btn">Become a Vendor</a>
+  </div>
+</section>
   <section class="featured-section">
     <div class="section-head">
       <div>
@@ -121,5 +134,42 @@
       });
     }
   </script>
+
+  <script>
+  let deferredPrompt;
+  const installButton = document.getElementById("install-app-btn");
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+
+    if (installButton) {
+      installButton.style.display = "inline-block";
+    }
+  });
+
+  installButton?.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+
+    const choiceResult = await deferredPrompt.userChoice;
+    if (choiceResult.outcome === "accepted") {
+      console.log("User accepted the install prompt");
+    } else {
+      console.log("User dismissed the install prompt");
+    }
+
+    deferredPrompt = null;
+    installButton.style.display = "none";
+  });
+
+  window.addEventListener("appinstalled", () => {
+    console.log("App installed");
+    if (installButton) {
+      installButton.style.display = "none";
+    }
+  });
+</script>
 </body>
 </html>
