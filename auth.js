@@ -26,7 +26,7 @@ window.signup = async function () {
     localStorage.setItem("userId", userCredential.user.uid);
 
     msg.style.color = "green";
-    msg.innerText = "Account created! Check your email to verify.";
+    msg.innerText = "Account created! Check your email to verify(check spam for message).";
   } catch (err) {
     msg.style.color = "red";
     msg.innerText = err.message;
