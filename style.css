@@ -1416,3 +1416,158 @@ button:hover {
     font-size: 12px;
   }
 }
+.seller-invite-section {
+  padding: 40px 20px;
+}
+
+.seller-invite-card {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #f8f4ee, #efe4d4);
+  border: 1px solid rgba(75, 46, 43, 0.12);
+  border-radius: 24px;
+  padding: 36px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.seller-invite-text {
+  max-width: 700px;
+}
+
+.seller-invite-kicker {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8b5e3c;
+}
+
+.seller-invite-card h2 {
+  margin: 0 0 12px;
+  font-size: 2rem;
+  line-height: 1.15;
+  color: #2f1f1c;
+}
+
+.seller-invite-card p {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #4d3a34;
+}
+
+.seller-invite-actions {
+  margin-top: 22px;
+}
+
+.seller-invite-btn {
+  display: inline-block;
+  background: #4b2e2b;
+  color: #fff;
+  text-decoration: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 18px rgba(75, 46, 43, 0.18);
+}
+
+.seller-invite-btn:hover {
+  background: #8b5e3c;
+  transform: translateY(-2px);
+}
+
+.seller-invite-badge {
+  min-width: 220px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.seller-invite-badge span {
+  background: #fff;
+  color: #4b2e2b;
+  border: 1px solid rgba(75, 46, 43, 0.12);
+  padding: 16px 20px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 768px) {
+  .seller-invite-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 28px 20px;
+  }
+
+  .seller-invite-card h2 {
+    font-size: 1.65rem;
+  }
+
+  .seller-invite-card p {
+    font-size: 1rem;
+  }
+
+  .seller-invite-badge {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+.category-shell {
+  width: 100%;
+}
+
+.category-mobile-top {
+  display: none;
+  padding: 0 16px 12px;
+}
+
+.category-toggle-btn {
+  width: 100%;
+  border: none;
+  background: #4b2e2b;
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.category-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 0 16px 20px;
+}
+
+@media (max-width: 768px) {
+  .category-mobile-top {
+    display: block;
+  }
+
+  .category-bar {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px 20px;
+  }
+
+  .category-bar.open {
+    display: flex;
+  }
+
+  .category-bar .category-card {
+    width: 100%;
+    text-align: left;
+  }
+}

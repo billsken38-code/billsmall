@@ -1,117 +1,205 @@
-const STORAGE_KEY = 'bills_mall_admin_dashboard_v2';
+import {
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc,
+  setDoc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-const defaultData = {
-  auth: {
-    currentUser: {
-      uid: 'admin_001',
-      name: 'Bills Mall Admin',
-      email: 'admin@billsmall.com',
-      role: 'platform_admin'
-    }
-  },
-  settings: {
-    commissionRate: 10,
-    categories: ['Fashion', 'Electronics', 'Beauty', 'Home', 'Groceries']
-  },
-  vendors: [],
-  products: [],
-  customers: [],
-  orders: []
+import { auth, db } from "./firebase.js";
+import { requireAdmin } from "./admin-auth.js";
+import { showToast } from "./ui.js";
+
+const SETTINGS_KEY = "bills_mall_admin_settings_v1";
+
+const defaultSettings = {
+  commissionRate: 5,
+  categories: ["Fashion", "Electronics", "Beauty", "Home", "Groceries"],
+  adminProfile: {
+    name: "Bills Mall Admin",
+    email: "admin@billsmall.com",
+    role: "platform_admin"
+  }
 };
 
 const state = {
-  data: loadData(),
-  section: 'dashboard',
-  chartRange: 'monthly',
-  chart: null
+  data: {
+    auth: {
+      currentUser: {
+        uid: "",
+        name: "Admin User",
+        email: "",
+        role: "platform_admin"
+      }
+    },
+    settings: loadSettings(),
+    vendors: [],
+    products: [],
+    customers: [],
+    orders: []
+  },
+  section: "dashboard",
+  chartRange: "monthly",
+  chart: null,
+  unsubscribeVendors: null,
+  unsubscribeProducts: null,
+  unsubscribeOrders: null,
+  unsubscribePlatformSettings: null
 };
 
 const elements = {
-  pageTitle: document.getElementById('pageTitle'),
-  navButtons: [...document.querySelectorAll('.nav-btn')],
-  sections: [...document.querySelectorAll('.section')],
-  statsGrid: document.getElementById('statsGrid'),
-  alertList: document.getElementById('alertList'),
-  topVendorsList: document.getElementById('topVendorsList'),
-  topProductsList: document.getElementById('topProductsList'),
-  vendorList: document.getElementById('vendorList'),
-  productList: document.getElementById('productList'),
-  orderList: document.getElementById('orderList'),
-  customerList: document.getElementById('customerList'),
-  payoutList: document.getElementById('payoutList'),
-  reportSummary: document.getElementById('reportSummary'),
-  insightList: document.getElementById('insightList'),
-  categoryList: document.getElementById('categoryList'),
-  productVendorFilter: document.getElementById('productVendorFilter'),
-  productCategoryFilter: document.getElementById('productCategoryFilter'),
-  vendorSearch: document.getElementById('vendorSearch'),
-  vendorStatusFilter: document.getElementById('vendorStatusFilter'),
-  productSearch: document.getElementById('productSearch'),
-  productStatusFilter: document.getElementById('productStatusFilter'),
-  orderSearch: document.getElementById('orderSearch'),
-  orderStatusFilter: document.getElementById('orderStatusFilter'),
-  customerSearch: document.getElementById('customerSearch'),
-  chartRangeSelect: document.getElementById('chartRangeSelect'),
-  commissionRateInput: document.getElementById('commissionRateInput'),
-  saveCommissionBtn: document.getElementById('saveCommissionBtn'),
-  newCategoryInput: document.getElementById('newCategoryInput'),
-  addCategoryBtn: document.getElementById('addCategoryBtn'),
-  adminName: document.getElementById('adminName'),
-  adminRole: document.getElementById('adminRole'),
-  adminNameInput: document.getElementById('adminNameInput'),
-  adminEmailInput: document.getElementById('adminEmailInput'),
-  adminRoleInput: document.getElementById('adminRoleInput'),
-  saveAdminSettingsBtn: document.getElementById('saveAdminSettingsBtn'),
-  rbacStatus: document.getElementById('rbacStatus'),
-  exportBtn: document.getElementById('exportBtn'),
-  seedDataBtn: document.getElementById('seedDataBtn')
+  pageTitle: document.getElementById("pageTitle"),
+  navButtons: [...document.querySelectorAll(".nav-btn")],
+  sections: [...document.querySelectorAll(".section")],
+  statsGrid: document.getElementById("statsGrid"),
+  alertList: document.getElementById("alertList"),
+  topVendorsList: document.getElementById("topVendorsList"),
+  topProductsList: document.getElementById("topProductsList"),
+  vendorList: document.getElementById("vendorList"),
+  productList: document.getElementById("productList"),
+  orderList: document.getElementById("orderList"),
+  customerList: document.getElementById("customerList"),
+  payoutList: document.getElementById("payoutList"),
+  reportSummary: document.getElementById("reportSummary"),
+  insightList: document.getElementById("insightList"),
+  categoryList: document.getElementById("categoryList"),
+  productVendorFilter: document.getElementById("productVendorFilter"),
+  productCategoryFilter: document.getElementById("productCategoryFilter"),
+  vendorSearch: document.getElementById("vendorSearch"),
+  vendorStatusFilter: document.getElementById("vendorStatusFilter"),
+  productSearch: document.getElementById("productSearch"),
+  productStatusFilter: document.getElementById("productStatusFilter"),
+  orderSearch: document.getElementById("orderSearch"),
+  orderStatusFilter: document.getElementById("orderStatusFilter"),
+  customerSearch: document.getElementById("customerSearch"),
+  chartRangeSelect: document.getElementById("chartRangeSelect"),
+  commissionRateInput: document.getElementById("commissionRateInput"),
+  saveCommissionBtn: document.getElementById("saveCommissionBtn"),
+  newCategoryInput: document.getElementById("newCategoryInput"),
+  addCategoryBtn: document.getElementById("addCategoryBtn"),
+  adminName: document.getElementById("adminName"),
+  adminRole: document.getElementById("adminRole"),
+  adminNameInput: document.getElementById("adminNameInput"),
+  adminEmailInput: document.getElementById("adminEmailInput"),
+  adminRoleInput: document.getElementById("adminRoleInput"),
+  saveAdminSettingsBtn: document.getElementById("saveAdminSettingsBtn"),
+  rbacStatus: document.getElementById("rbacStatus"),
+  exportBtn: document.getElementById("exportBtn"),
+  seedDataBtn: document.getElementById("seedDataBtn")
 };
 
-function loadData() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) {
-    try {
-      return JSON.parse(raw);
-    } catch (error) {
-      console.error('Failed to parse admin data', error);
-    }
+function loadSettings() {
+  const raw = localStorage.getItem(SETTINGS_KEY);
+  if (!raw) return structuredClone(defaultSettings);
+
+  try {
+    return {
+      ...structuredClone(defaultSettings),
+      ...JSON.parse(raw)
+    };
+  } catch (error) {
+    console.error("Failed to parse admin settings:", error);
+    return structuredClone(defaultSettings);
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
-  return structuredClone(defaultData);
 }
 
-function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+function saveSettingsLocal() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.data.settings));
 }
 
-function canAccessAdmin() {
-  const role = state.data.auth?.currentUser?.role;
-  return ['platform_admin', 'super_admin', 'support_admin'].includes(role);
+async function ensurePlatformSettingsDoc() {
+  const settingsRef = doc(db, "platform_settings", "main");
+  const snap = await getDoc(settingsRef);
+
+  if (!snap.exists()) {
+    await setDoc(settingsRef, {
+      commissionRate: defaultSettings.commissionRate,
+      categories: defaultSettings.categories
+    });
+  }
 }
 
-function getVendorName(vendorId) {
-  return state.data.vendors.find((vendor) => vendor.id === vendorId)?.name || 'Unknown Vendor';
+function subscribePlatformSettings() {
+  if (state.unsubscribePlatformSettings) state.unsubscribePlatformSettings();
+
+  state.unsubscribePlatformSettings = onSnapshot(
+    doc(db, "platform_settings", "main"),
+    (snapshot) => {
+      if (!snapshot.exists()) return;
+
+      const data = snapshot.data();
+      state.data.settings = {
+        ...state.data.settings,
+        commissionRate: Number(data.commissionRate ?? 5),
+        categories: Array.isArray(data.categories) ? data.categories : state.data.settings.categories
+      };
+
+      saveSettingsLocal();
+      renderAll();
+    },
+    (error) => {
+      console.error("Failed to load platform settings:", error);
+      showToast(`Failed to load platform settings: ${error.message}`, { type: "error" });
+    }
+  );
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat('en-GH', {
-    style: 'currency',
-    currency: 'GHS',
+  return new Intl.NumberFormat("en-GH", {
+    style: "currency",
+    currency: "GHS",
     maximumFractionDigits: 2
   }).format(Number(value || 0));
 }
 
 function statusClass(status) {
-  return `status-${String(status).toLowerCase().replace(/\s+/g, '-')}`;
+  return `status-${String(status || "").toLowerCase().replace(/\s+/g, "-")}`;
+}
+
+function getVendorName(vendorId) {
+  if (!vendorId) return "Unknown Vendor";
+  const vendor = state.data.vendors.find((item) => item.id === vendorId);
+  return vendor?.storeName || vendor?.name || vendor?.contactEmail || "Unknown Vendor";
+}
+
+function getVendorEmail(vendor) {
+  return vendor?.contactEmail || vendor?.email || "No email";
+}
+
+function getVendorPhone(vendor) {
+  return vendor?.contactPhone || vendor?.phone || "No phone";
+}
+
+function deriveCustomersFromOrders() {
+  const map = new Map();
+
+  state.data.orders.forEach((order) => {
+    const customerId = order.userId || order.customerEmail || order.customerPhone || order.id;
+    if (!customerId) return;
+
+    if (!map.has(customerId)) {
+      map.set(customerId, {
+        id: customerId,
+        name: order.customerName || "Unknown Customer",
+        email: order.customerEmail || "No email",
+        phone: order.customerPhone || "No phone",
+        complaints: 0
+      });
+    }
+  });
+
+  state.data.customers = [...map.values()];
 }
 
 function getOverview() {
   const orders = state.data.orders;
   const vendors = state.data.vendors;
   const products = state.data.products;
+
   const revenue = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const pendingOrders = orders.filter((order) => order.status === 'pending').length;
-  const activeVendors = vendors.filter((vendor) => vendor.status === 'approved').length;
+  const pendingOrders = orders.filter((order) => String(order.status || "").toLowerCase() === "pending").length;
+  const activeVendors = vendors.filter((vendor) => vendor.status === "approved").length;
 
   return {
     revenue,
@@ -126,35 +214,53 @@ function getOverview() {
 function buildAlerts() {
   const alerts = [];
 
-  state.data.products.filter((product) => Number(product.stock) <= 3).forEach((product) => {
-    alerts.push({
-      type: 'warning',
-      title: 'Low stock alert',
-      text: `${product.name} has only ${product.stock} item(s) left.`
+  state.data.products
+    .filter((product) => Number(product.stock || 0) <= 3)
+    .forEach((product) => {
+      alerts.push({
+        type: "warning",
+        title: "Low stock alert",
+        text: `${product.name} has only ${product.stock || 0} item(s) left.`
+      });
     });
-  });
 
-  state.data.vendors.filter((vendor) => vendor.status === 'pending').forEach((vendor) => {
-    alerts.push({
-      type: 'success',
-      title: 'Vendor approval needed',
-      text: `${vendor.name} is waiting for approval.`
+  state.data.vendors
+    .filter((vendor) => vendor.status === "pending")
+    .forEach((vendor) => {
+      alerts.push({
+        type: "success",
+        title: "Vendor approval needed",
+        text: `${vendor.storeName || vendor.name || "Vendor"} is waiting for approval.`
+      });
     });
-  });
 
-  state.data.orders.filter((order) => order.dispute || order.status === 'dispute').forEach((order) => {
-    alerts.push({
-      type: 'danger',
-      title: 'Dispute raised',
-      text: `${order.id} requires admin review.`
+  state.data.orders
+    .filter((order) => order.dispute || String(order.status || "").toLowerCase() === "dispute")
+    .forEach((order) => {
+      alerts.push({
+        type: "danger",
+        title: "Dispute raised",
+        text: `${order.id} requires admin review.`
+      });
     });
-  });
 
   return alerts;
 }
 
 function getTopVendors() {
-  return [...state.data.vendors]
+  return state.data.vendors
+    .map((vendor) => {
+      const vendorOrders = state.data.orders.filter((order) => order.vendorId === vendor.id);
+      const totalSales = vendorOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+      const totalProducts = state.data.products.filter((product) => product.vendorId === vendor.id).length;
+
+      return {
+        ...vendor,
+        totalSales,
+        totalProducts,
+        rating: Number(vendor.rating || 0).toFixed(1)
+      };
+    })
     .sort((a, b) => Number(b.totalSales || 0) - Number(a.totalSales || 0))
     .slice(0, 5);
 }
@@ -167,39 +273,48 @@ function getTopProducts() {
 
 function renderStats() {
   const overview = getOverview();
-  const cards = [
-    { label: 'Total Revenue', value: formatCurrency(overview.revenue), note: 'Platform-wide sales volume' },
-    { label: 'Total Orders', value: overview.totalOrders, note: 'All orders across all vendors' },
-    { label: 'Total Vendors', value: overview.totalVendors, note: `${overview.activeVendors} currently approved` },
-    { label: 'Total Products', value: overview.totalProducts, note: 'All catalog listings' },
-    { label: 'Pending Orders', value: overview.pendingOrders, note: 'Orders requiring action' }
-  ];
 
-  elements.statsGrid.innerHTML = cards.map((card) => `
+  elements.statsGrid.innerHTML = [
+    { label: "Total Revenue", value: formatCurrency(overview.revenue), note: "Platform-wide sales volume" },
+    { label: "Total Orders", value: overview.totalOrders, note: "All orders across all vendors" },
+    { label: "Total Vendors", value: overview.totalVendors, note: `${overview.activeVendors} currently approved` },
+    { label: "Total Products", value: overview.totalProducts, note: "All catalog listings" },
+    { label: "Pending Orders", value: overview.pendingOrders, note: "Orders requiring action" }
+  ].map((card) => `
     <article class="stat-card">
       <div class="stat-label">${card.label}</div>
       <div class="stat-value">${card.value}</div>
       <div class="stat-note">${card.note}</div>
     </article>
-  `).join('');
+  `).join("");
+}
+
+function parseOrderDate(order) {
+  if (order.createdAt?.seconds) {
+    return new Date(order.createdAt.seconds * 1000);
+  }
+  if (typeof order.createdAt === "string") {
+    return new Date(order.createdAt);
+  }
+  return null;
 }
 
 function aggregateOrders(range) {
   const buckets = {};
 
   state.data.orders.forEach((order) => {
-    const date = new Date(order.createdAt);
-    if (Number.isNaN(date.getTime())) return;
+    const date = parseOrderDate(order);
+    if (!date || Number.isNaN(date.getTime())) return;
 
-    let key = '';
-    if (range === 'daily') {
+    let key = "";
+    if (range === "daily") {
       key = date.toISOString().slice(0, 10);
-    } else if (range === 'weekly') {
+    } else if (range === "weekly") {
       const firstDay = new Date(date);
       firstDay.setDate(date.getDate() - date.getDay());
       key = `Week of ${firstDay.toISOString().slice(0, 10)}`;
     } else {
-      key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+      key = date.toLocaleString("default", { month: "short", year: "numeric" });
     }
 
     if (!buckets[key]) buckets[key] = 0;
@@ -210,7 +325,7 @@ function aggregateOrders(range) {
 }
 
 function renderChart() {
-  const canvas = document.getElementById('salesChart');
+  const canvas = document.getElementById("salesChart");
   const bucketMap = aggregateOrders(state.chartRange);
   const labels = Object.keys(bucketMap);
   const values = Object.values(bucketMap);
@@ -218,28 +333,28 @@ function renderChart() {
   if (state.chart) state.chart.destroy();
 
   const parent = canvas.parentElement;
-  const oldEmpty = parent.querySelector('.chart-empty-state');
+  const oldEmpty = parent.querySelector(".chart-empty-state");
   if (oldEmpty) oldEmpty.remove();
 
   if (!labels.length) {
-    canvas.style.display = 'none';
-    const empty = document.createElement('div');
-    empty.className = 'empty-state chart-empty-state';
-    empty.textContent = 'No sales data yet. Analytics will appear once orders start coming in.';
+    canvas.style.display = "none";
+    const empty = document.createElement("div");
+    empty.className = "empty-state chart-empty-state";
+    empty.textContent = "No sales data yet. Analytics will appear once orders start coming in.";
     parent.appendChild(empty);
     return;
   }
 
-  canvas.style.display = 'block';
+  canvas.style.display = "block";
   state.chart = new Chart(canvas, {
-    type: 'line',
+    type: "line",
     data: {
       labels,
       datasets: [{
         label: `Revenue (${state.chartRange})`,
         data: values,
-        borderColor: '#b5651d',
-        backgroundColor: 'rgba(181,101,29,0.16)',
+        borderColor: "#b5651d",
+        backgroundColor: "rgba(181,101,29,0.16)",
         fill: true,
         tension: 0.32
       }]
@@ -254,17 +369,15 @@ function renderChart() {
 
 function renderAlerts() {
   const alerts = buildAlerts();
-  if (!alerts.length) {
-    elements.alertList.innerHTML = '<div class="empty-state">No alerts right now.</div>';
-    return;
-  }
 
-  elements.alertList.innerHTML = alerts.map((alert) => `
-    <div class="alert-item ${alert.type}">
-      <strong>${alert.title}</strong>
-      <div>${alert.text}</div>
-    </div>
-  `).join('');
+  elements.alertList.innerHTML = alerts.length
+    ? alerts.map((alert) => `
+        <div class="alert-item ${alert.type}">
+          <strong>${alert.title}</strong>
+          <div>${alert.text}</div>
+        </div>
+      `).join("")
+    : '<div class="empty-state">No alerts right now.</div>';
 }
 
 function renderTopLists() {
@@ -275,13 +388,13 @@ function renderTopLists() {
     ? vendors.map((vendor) => `
         <div class="mini-item">
           <div>
-            <strong>${vendor.name}</strong>
+            <strong>${vendor.storeName || vendor.name || "Vendor"}</strong>
             <div class="eyebrow">${vendor.totalProducts} products • Rating ${vendor.rating}</div>
           </div>
           <strong>${formatCurrency(vendor.totalSales)}</strong>
         </div>
-      `).join('')
-    : '<div class="empty-state">No vendors yet. The platform is brand new.</div>';
+      `).join("")
+    : '<div class="empty-state">No vendors yet.</div>';
 
   elements.topProductsList.innerHTML = products.length
     ? products.map((product) => `
@@ -290,57 +403,91 @@ function renderTopLists() {
             <strong>${product.name}</strong>
             <div class="eyebrow">${getVendorName(product.vendorId)}</div>
           </div>
-          <strong>${product.sold} sold</strong>
+          <strong>${product.sold || 0} sold</strong>
         </div>
-      `).join('')
-    : '<div class="empty-state">No products yet. Listings will appear here.</div>';
+      `).join("")
+    : '<div class="empty-state">No products yet.</div>';
 }
 
 function renderVendorFilters() {
-  const vendors = state.data.vendors;
-  const categories = [...new Set(state.data.products.map((item) => item.category))];
+  const categories = [...new Set(state.data.products.map((item) => item.category).filter(Boolean))];
 
   elements.productVendorFilter.innerHTML = ['<option value="all">All vendors</option>']
-    .concat(vendors.map((vendor) => `<option value="${vendor.id}">${vendor.name}</option>`))
-    .join('');
+    .concat(
+      state.data.vendors.map(
+        (vendor) => `<option value="${vendor.id}">${vendor.storeName || vendor.name || vendor.id}</option>`
+      )
+    )
+    .join("");
 
   elements.productCategoryFilter.innerHTML = ['<option value="all">All categories</option>']
     .concat(categories.map((category) => `<option value="${category}">${category}</option>`))
-    .join('');
+    .join("");
+}
+
+async function updateVendorStatus(vendorId, status) {
+  try {
+    await updateDoc(doc(db, "vendors", vendorId), { status });
+    showToast(`Vendor marked ${status}.`, { type: "success" });
+  } catch (error) {
+    console.error("Failed to update vendor status:", error);
+    showToast(`Failed to update vendor: ${error.message}`, { type: "error" });
+  }
+}
+
+async function updateOrderStatus(orderId, status) {
+  try {
+    await updateDoc(doc(db, "orders", orderId), { status });
+    showToast(`Order updated to ${status}.`, { type: "success" });
+  } catch (error) {
+    console.error("Failed to update order status:", error);
+    showToast(`Failed to update order: ${error.message}`, { type: "error" });
+  }
 }
 
 function renderVendors() {
-  const query = elements.vendorSearch.value.trim().toLowerCase();
+  const search = elements.vendorSearch.value.trim().toLowerCase();
   const status = elements.vendorStatusFilter.value;
 
   const vendors = state.data.vendors.filter((vendor) => {
-    const matchesQuery = !query || vendor.name.toLowerCase().includes(query) || vendor.email.toLowerCase().includes(query);
-    const matchesStatus = status === 'all' || vendor.status === status;
-    return matchesQuery && matchesStatus;
+    const name = String(vendor.storeName || vendor.name || "").toLowerCase();
+    const email = String(getVendorEmail(vendor)).toLowerCase();
+
+    const matchesSearch = !search || name.includes(search) || email.includes(search);
+    const matchesStatus = status === "all" || vendor.status === status;
+
+    return matchesSearch && matchesStatus;
   });
 
-  if (!vendors.length) {
-    elements.vendorList.innerHTML = '<div class="empty-state">No vendors yet. This admin panel is fresh and unused.</div>';
-    return;
-  }
+  elements.vendorList.innerHTML = vendors.length
+    ? vendors.map((vendor) => {
+        const vendorOrders = state.data.orders.filter((order) => order.vendorId === vendor.id);
+        const totalSales = vendorOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+        const totalProducts = state.data.products.filter((product) => product.vendorId === vendor.id).length;
 
-  elements.vendorList.innerHTML = vendors.map((vendor) => `
-    <article class="table-card">
-      <div class="table-top">
-        <div>
-          <strong>${vendor.name}</strong>
-          <div class="eyebrow">${vendor.email}</div>
-        </div>
-        <span class="badge ${statusClass(vendor.status)}">${vendor.status}</span>
-      </div>
-      <div class="table-details">
-        <div class="detail-box"><span>Phone</span><strong>${vendor.phone}</strong></div>
-        <div class="detail-box"><span>Sales</span><strong>${formatCurrency(vendor.totalSales)}</strong></div>
-        <div class="detail-box"><span>Products</span><strong>${vendor.totalProducts}</strong></div>
-        <div class="detail-box"><span>Rating</span><strong>${vendor.rating}</strong></div>
-      </div>
-    </article>
-  `).join('');
+        return `
+          <article class="table-card">
+            <div class="table-top">
+              <div>
+                <strong>${vendor.storeName || vendor.name || "Vendor"}</strong>
+                <div class="eyebrow">${getVendorEmail(vendor)}</div>
+              </div>
+              <span class="badge ${statusClass(vendor.status || "pending")}">${vendor.status || "pending"}</span>
+            </div>
+            <div class="table-details">
+              <div class="detail-box"><span>Phone</span><strong>${getVendorPhone(vendor)}</strong></div>
+              <div class="detail-box"><span>Sales</span><strong>${formatCurrency(totalSales)}</strong></div>
+              <div class="detail-box"><span>Products</span><strong>${totalProducts}</strong></div>
+              <div class="detail-box"><span>Vendor ID</span><strong>${vendor.id}</strong></div>
+            </div>
+            <div class="table-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" data-vendor-approve="${vendor.id}">Approve</button>
+              <button class="btn-outline" data-vendor-suspend="${vendor.id}">Suspend</button>
+            </div>
+          </article>
+        `;
+      }).join("")
+    : '<div class="empty-state">No vendors found.</div>';
 }
 
 function renderProducts() {
@@ -350,35 +497,32 @@ function renderProducts() {
   const category = elements.productCategoryFilter.value;
 
   const products = state.data.products.filter((product) => {
-    const matchSearch = !search || product.name.toLowerCase().includes(search);
-    const matchVendor = vendorId === 'all' || product.vendorId === vendorId;
-    const matchStatus = status === 'all' || product.status === status;
-    const matchCategory = category === 'all' || product.category === category;
+    const matchSearch = !search || String(product.name || "").toLowerCase().includes(search);
+    const matchVendor = vendorId === "all" || product.vendorId === vendorId;
+    const matchStatus = status === "all" || String(product.status || "").toLowerCase() === status.toLowerCase();
+    const matchCategory = category === "all" || product.category === category;
     return matchSearch && matchVendor && matchStatus && matchCategory;
   });
 
-  if (!products.length) {
-    elements.productList.innerHTML = '<div class="empty-state">No products found. The catalog is empty for now.</div>';
-    return;
-  }
-
-  elements.productList.innerHTML = products.map((product) => `
-    <article class="table-card">
-      <div class="table-top">
-        <div>
-          <strong>${product.name}</strong>
-          <div class="eyebrow">${getVendorName(product.vendorId)} • ${product.category}</div>
-        </div>
-        <span class="badge ${statusClass(product.status)}">${product.status}</span>
-      </div>
-      <div class="table-details">
-        <div class="detail-box"><span>Price</span><strong>${formatCurrency(product.price)}</strong></div>
-        <div class="detail-box"><span>Stock</span><strong>${product.stock}</strong></div>
-        <div class="detail-box"><span>Sold</span><strong>${product.sold}</strong></div>
-        <div class="detail-box"><span>Vendor</span><strong>${getVendorName(product.vendorId)}</strong></div>
-      </div>
-    </article>
-  `).join('');
+  elements.productList.innerHTML = products.length
+    ? products.map((product) => `
+        <article class="table-card">
+          <div class="table-top">
+            <div>
+              <strong>${product.name}</strong>
+              <div class="eyebrow">${getVendorName(product.vendorId)} • ${product.category || "General"}</div>
+            </div>
+            <span class="badge ${statusClass(product.status || "active")}">${product.status || "active"}</span>
+          </div>
+          <div class="table-details">
+            <div class="detail-box"><span>Price</span><strong>${formatCurrency(product.price)}</strong></div>
+            <div class="detail-box"><span>Stock</span><strong>${product.stock || 0}</strong></div>
+            <div class="detail-box"><span>Sold</span><strong>${product.sold || 0}</strong></div>
+            <div class="detail-box"><span>Vendor</span><strong>${getVendorName(product.vendorId)}</strong></div>
+          </div>
+        </article>
+      `).join("")
+    : '<div class="empty-state">No products found.</div>';
 }
 
 function renderOrders() {
@@ -386,69 +530,93 @@ function renderOrders() {
   const status = elements.orderStatusFilter.value;
 
   const orders = state.data.orders.filter((order) => {
-    const matchSearch = !search || order.id.toLowerCase().includes(search) || order.customerName.toLowerCase().includes(search);
-    const matchStatus = status === 'all' || order.status === status;
+    const id = String(order.id || "").toLowerCase();
+    const customerName = String(order.customerName || "").toLowerCase();
+    const orderStatus = String(order.status || "").toLowerCase();
+
+    const matchSearch = !search || id.includes(search) || customerName.includes(search);
+    const matchStatus = status === "all" || orderStatus === status.toLowerCase();
     return matchSearch && matchStatus;
   });
 
-  if (!orders.length) {
-    elements.orderList.innerHTML = '<div class="empty-state">No orders found. New orders will appear here later.</div>';
-    return;
-  }
+  elements.orderList.innerHTML = orders.length
+    ? orders.map((order) => {
+        const createdDate = parseOrderDate(order);
+        const formattedDate = createdDate && !Number.isNaN(createdDate.getTime())
+          ? createdDate.toLocaleString()
+          : "N/A";
 
-  elements.orderList.innerHTML = orders.map((order) => `
-    <article class="table-card">
-      <div class="table-top">
-        <div>
-          <strong>${order.id}</strong>
-          <div class="eyebrow">${order.customerName} • ${getVendorName(order.vendorId)}</div>
-        </div>
-        <span class="badge ${statusClass(order.status)}">${order.status}</span>
-      </div>
-      <div class="table-details">
-        <div class="detail-box"><span>Total</span><strong>${formatCurrency(order.total)}</strong></div>
-        <div class="detail-box"><span>Date</span><strong>${order.createdAt}</strong></div>
-        <div class="detail-box"><span>Items</span><strong>${order.items.length}</strong></div>
-        <div class="detail-box"><span>Issue</span><strong>${order.dispute ? 'Dispute' : order.refundRequested ? 'Refund' : 'None'}</strong></div>
-      </div>
-    </article>
-  `).join('');
+        return `
+          <article class="table-card">
+            <div class="table-top">
+              <div>
+                <strong>${order.id}</strong>
+                <div class="eyebrow">${order.customerName || "Customer"} • ${getVendorName(order.vendorId)}</div>
+              </div>
+              <span class="badge ${statusClass(order.status || "pending")}">${order.status || "pending"}</span>
+            </div>
+            <div class="table-details">
+              <div class="detail-box"><span>Total</span><strong>${formatCurrency(order.total)}</strong></div>
+              <div class="detail-box"><span>Date</span><strong>${formattedDate}</strong></div>
+              <div class="detail-box"><span>Items</span><strong>${Array.isArray(order.items) ? order.items.length : 0}</strong></div>
+              <div class="detail-box"><span>Issue</span><strong>${order.dispute ? "Dispute" : order.refundRequested ? "Refund" : "None"}</strong></div>
+            </div>
+
+            <div class="table-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" data-order-update="${order.id}" data-status="pending">Pending</button>
+              <button class="btn" data-order-update="${order.id}" data-status="paid">Paid</button>
+              <button class="btn" data-order-update="${order.id}" data-status="shipped">Shipped</button>
+              <button class="btn" data-order-update="${order.id}" data-status="delivered">Delivered</button>
+              <button class="btn-outline" data-order-update="${order.id}" data-status="refunded">Refunded</button>
+              <button class="btn-danger" data-order-update="${order.id}" data-status="dispute">Dispute</button>
+            </div>
+          </article>
+        `;
+      }).join("")
+    : '<div class="empty-state">No orders found.</div>';
 }
 
 function renderCustomers() {
-  const query = elements.customerSearch.value.trim().toLowerCase();
+  const search = elements.customerSearch.value.trim().toLowerCase();
 
   const customers = state.data.customers.filter((customer) => {
-    return !query || customer.name.toLowerCase().includes(query) || customer.email.toLowerCase().includes(query);
+    return (
+      !search ||
+      String(customer.name || "").toLowerCase().includes(search) ||
+      String(customer.email || "").toLowerCase().includes(search)
+    );
   });
 
-  if (!customers.length) {
-    elements.customerList.innerHTML = '<div class="empty-state">No customers yet. Customer profiles will appear here.</div>';
-    return;
-  }
+  elements.customerList.innerHTML = customers.length
+    ? customers.map((customer) => {
+        const orderHistory = state.data.orders.filter((order) => {
+          return (
+            order.userId === customer.id ||
+            order.customerEmail === customer.email
+          );
+        });
 
-  elements.customerList.innerHTML = customers.map((customer) => {
-    const orderHistory = state.data.orders.filter((order) => order.customerId === customer.id);
-    const spent = orderHistory.reduce((sum, order) => sum + Number(order.total || 0), 0);
+        const spent = orderHistory.reduce((sum, order) => sum + Number(order.total || 0), 0);
 
-    return `
-      <article class="table-card">
-        <div class="table-top">
-          <div>
-            <strong>${customer.name}</strong>
-            <div class="eyebrow">${customer.email}</div>
-          </div>
-          <span class="badge ${customer.complaints ? 'status-pending' : 'status-approved'}">${customer.complaints} complaints</span>
-        </div>
-        <div class="table-details">
-          <div class="detail-box"><span>Phone</span><strong>${customer.phone}</strong></div>
-          <div class="detail-box"><span>Total Orders</span><strong>${orderHistory.length}</strong></div>
-          <div class="detail-box"><span>Total Spent</span><strong>${formatCurrency(spent)}</strong></div>
-          <div class="detail-box"><span>Latest Order</span><strong>${orderHistory.at(-1)?.id || 'None'}</strong></div>
-        </div>
-      </article>
-    `;
-  }).join('');
+        return `
+          <article class="table-card">
+            <div class="table-top">
+              <div>
+                <strong>${customer.name}</strong>
+                <div class="eyebrow">${customer.email}</div>
+              </div>
+              <span class="badge ${customer.complaints ? "status-pending" : "status-approved"}">${customer.complaints} complaints</span>
+            </div>
+            <div class="table-details">
+              <div class="detail-box"><span>Phone</span><strong>${customer.phone}</strong></div>
+              <div class="detail-box"><span>Total Orders</span><strong>${orderHistory.length}</strong></div>
+              <div class="detail-box"><span>Total Spent</span><strong>${formatCurrency(spent)}</strong></div>
+              <div class="detail-box"><span>Latest Order</span><strong>${orderHistory.at(-1)?.id || "None"}</strong></div>
+            </div>
+          </article>
+        `;
+      }).join("")
+    : '<div class="empty-state">No customers yet.</div>';
 }
 
 function calculatePayouts() {
@@ -456,7 +624,8 @@ function calculatePayouts() {
 
   return state.data.vendors.map((vendor) => {
     const vendorOrders = state.data.orders.filter((order) => {
-      return order.vendorId === vendor.id && ['paid', 'delivered'].includes(order.status);
+      const status = String(order.status || "").toLowerCase();
+      return order.vendorId === vendor.id && ["paid", "delivered"].includes(status);
     });
 
     const gross = vendorOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
@@ -465,11 +634,11 @@ function calculatePayouts() {
 
     return {
       vendorId: vendor.id,
-      vendorName: vendor.name,
+      vendorName: vendor.storeName || vendor.name || "Vendor",
       gross,
       commission,
       net,
-      payoutStatus: net > 0 ? 'pending' : 'paid'
+      payoutStatus: net > 0 ? "pending" : "paid"
     };
   });
 }
@@ -478,28 +647,25 @@ function renderPayments() {
   const payouts = calculatePayouts();
   elements.commissionRateInput.value = state.data.settings.commissionRate;
 
-  if (!payouts.length) {
-    elements.payoutList.innerHTML = '<div class="empty-state">No payouts yet. Vendor earnings will show here later.</div>';
-    return;
-  }
-
-  elements.payoutList.innerHTML = payouts.map((payout) => `
-    <article class="table-card">
-      <div class="table-top">
-        <div>
-          <strong>${payout.vendorName}</strong>
-          <div class="eyebrow">Vendor payout calculation</div>
-        </div>
-        <span class="badge ${statusClass(payout.payoutStatus)}">${payout.payoutStatus}</span>
-      </div>
-      <div class="table-details">
-        <div class="detail-box"><span>Gross Sales</span><strong>${formatCurrency(payout.gross)}</strong></div>
-        <div class="detail-box"><span>Commission</span><strong>${formatCurrency(payout.commission)}</strong></div>
-        <div class="detail-box"><span>Vendor Earnings</span><strong>${formatCurrency(payout.net)}</strong></div>
-        <div class="detail-box"><span>Rate</span><strong>${state.data.settings.commissionRate}%</strong></div>
-      </div>
-    </article>
-  `).join('');
+  elements.payoutList.innerHTML = payouts.length
+    ? payouts.map((payout) => `
+        <article class="table-card">
+          <div class="table-top">
+            <div>
+              <strong>${payout.vendorName}</strong>
+              <div class="eyebrow">Vendor payout calculation</div>
+            </div>
+            <span class="badge ${statusClass(payout.payoutStatus)}">${payout.payoutStatus}</span>
+          </div>
+          <div class="table-details">
+            <div class="detail-box"><span>Gross Sales</span><strong>${formatCurrency(payout.gross)}</strong></div>
+            <div class="detail-box"><span>Commission</span><strong>${formatCurrency(payout.commission)}</strong></div>
+            <div class="detail-box"><span>Vendor Earnings</span><strong>${formatCurrency(payout.net)}</strong></div>
+            <div class="detail-box"><span>Rate</span><strong>${state.data.settings.commissionRate}%</strong></div>
+          </div>
+        </article>
+      `).join("")
+    : '<div class="empty-state">No payouts yet.</div>';
 }
 
 function renderAnalytics() {
@@ -510,21 +676,21 @@ function renderAnalytics() {
   const avgOrderValue = overview.totalOrders ? overview.revenue / overview.totalOrders : 0;
 
   elements.reportSummary.innerHTML = [
-    ['Revenue', formatCurrency(overview.revenue)],
-    ['Average order value', formatCurrency(avgOrderValue)],
-    ['Pending payouts', payouts.filter((item) => item.payoutStatus === 'pending').length],
-    ['Vendor approvals waiting', state.data.vendors.filter((vendor) => vendor.status === 'pending').length]
+    ["Revenue", formatCurrency(overview.revenue)],
+    ["Average order value", formatCurrency(avgOrderValue)],
+    ["Pending payouts", payouts.filter((item) => item.payoutStatus === "pending").length],
+    ["Vendor approvals waiting", state.data.vendors.filter((vendor) => vendor.status === "pending").length]
   ].map(([label, value]) => `
     <div class="mini-item">
       <span>${label}</span>
       <strong>${value}</strong>
     </div>
-  `).join('');
+  `).join("");
 
   elements.insightList.innerHTML = `
-    <div class="mini-item"><span>Top vendor</span><strong>${topVendor ? topVendor.name : 'N/A'}</strong></div>
-    <div class="mini-item"><span>Top product</span><strong>${topProduct ? topProduct.name : 'N/A'}</strong></div>
-    <div class="mini-item"><span>Dispute cases</span><strong>${state.data.orders.filter((order) => order.dispute || order.status === 'dispute').length}</strong></div>
+    <div class="mini-item"><span>Top vendor</span><strong>${topVendor ? (topVendor.storeName || topVendor.name) : "N/A"}</strong></div>
+    <div class="mini-item"><span>Top product</span><strong>${topProduct ? topProduct.name : "N/A"}</strong></div>
+    <div class="mini-item"><span>Dispute cases</span><strong>${state.data.orders.filter((order) => order.dispute || String(order.status || "").toLowerCase() === "dispute").length}</strong></div>
     <div class="mini-item"><span>Refund requests</span><strong>${state.data.orders.filter((order) => order.refundRequested).length}</strong></div>
   `;
 }
@@ -538,35 +704,32 @@ function renderSettings() {
       <span>${category}</span>
       <button class="btn-danger" data-category-remove="${index}">Remove</button>
     </div>
-  `).join('');
+  `).join("");
 
-  elements.adminName.textContent = currentUser.name;
-  elements.adminRole.textContent = `Role: ${currentUser.role}`;
-  elements.adminNameInput.value = currentUser.name;
-  elements.adminEmailInput.value = currentUser.email;
-  elements.adminRoleInput.value = currentUser.role;
-  elements.rbacStatus.textContent = `RBAC: ${currentUser.role}`;
+  elements.adminName.textContent = currentUser.name || "Admin User";
+  elements.adminRole.textContent = `Role: ${currentUser.role || "platform_admin"}`;
+  elements.adminNameInput.value = currentUser.name || "";
+  elements.adminEmailInput.value = currentUser.email || "";
+  elements.adminRoleInput.value = currentUser.role || "platform_admin";
+  elements.rbacStatus.textContent = `RBAC: ${currentUser.role || "platform_admin"}`;
 }
 
 function setSection(section) {
   state.section = section;
-  elements.pageTitle.textContent = section.replace(/(^\w)|(-\w)/g, (match) => match.replace('-', '').toUpperCase());
+  elements.pageTitle.textContent = section.replace(/(^\w)|(-\w)/g, (match) =>
+    match.replace("-", "").toUpperCase()
+  );
 
   elements.navButtons.forEach((button) => {
-    button.classList.toggle('active', button.dataset.section === section);
+    button.classList.toggle("active", button.dataset.section === section);
   });
 
   elements.sections.forEach((sectionEl) => {
-    sectionEl.classList.toggle('active', sectionEl.id === `section-${section}`);
+    sectionEl.classList.toggle("active", sectionEl.id === `section-${section}`);
   });
 }
 
 function renderAll() {
-  if (!canAccessAdmin()) {
-    document.body.innerHTML = '<div style="padding:40px;font-family:Arial,sans-serif;">Access denied. This dashboard is only for admins.</div>';
-    return;
-  }
-
   renderStats();
   renderChart();
   renderAlerts();
@@ -585,18 +748,78 @@ function addCategory() {
   const value = elements.newCategoryInput.value.trim();
   if (!value) return;
   if (state.data.settings.categories.includes(value)) return;
+
   state.data.settings.categories.push(value);
-  elements.newCategoryInput.value = '';
-  saveData();
+  elements.newCategoryInput.value = "";
+  saveSettingsLocal();
   renderAll();
+}
+
+function subscribeVendors() {
+  if (state.unsubscribeVendors) state.unsubscribeVendors();
+
+  state.unsubscribeVendors = onSnapshot(
+    collection(db, "vendors"),
+    (snapshot) => {
+      state.data.vendors = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      renderAll();
+    },
+    (error) => {
+      console.error("Failed to load vendors:", error);
+      showToast(`Failed to load vendors: ${error.message}`, { type: "error" });
+    }
+  );
+}
+
+function subscribeProducts() {
+  if (state.unsubscribeProducts) state.unsubscribeProducts();
+
+  state.unsubscribeProducts = onSnapshot(
+    collection(db, "products"),
+    (snapshot) => {
+      state.data.products = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      renderAll();
+    },
+    (error) => {
+      console.error("Failed to load products:", error);
+      showToast(`Failed to load products: ${error.message}`, { type: "error" });
+    }
+  );
+}
+
+function subscribeOrders() {
+  if (state.unsubscribeOrders) state.unsubscribeOrders();
+
+  state.unsubscribeOrders = onSnapshot(
+    collection(db, "orders"),
+    (snapshot) => {
+      state.data.orders = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+
+      deriveCustomersFromOrders();
+      renderAll();
+    },
+    (error) => {
+      console.error("Failed to load orders:", error);
+      showToast(`Failed to load orders: ${error.message}`, { type: "error" });
+    }
+  );
 }
 
 function bindEvents() {
   elements.navButtons.forEach((button) => {
-    button.addEventListener('click', () => setSection(button.dataset.section));
+    button.addEventListener("click", () => setSection(button.dataset.section));
   });
 
-  elements.chartRangeSelect.addEventListener('change', (event) => {
+  elements.chartRangeSelect.addEventListener("change", (event) => {
     state.chartRange = event.target.value;
     renderChart();
   });
@@ -612,61 +835,145 @@ function bindEvents() {
     elements.orderStatusFilter,
     elements.customerSearch
   ].forEach((input) => {
-    input.addEventListener('input', renderAll);
-    input.addEventListener('change', renderAll);
+    input?.addEventListener("input", renderAll);
+    input?.addEventListener("change", renderAll);
   });
 
-  elements.saveCommissionBtn.addEventListener('click', () => {
-    state.data.settings.commissionRate = Number(elements.commissionRateInput.value || 0);
-    saveData();
-    renderAll();
+  elements.saveCommissionBtn.addEventListener("click", async () => {
+    const nextRate = Number(elements.commissionRateInput.value || 0);
+
+    try {
+      await setDoc(doc(db, "platform_settings", "main"), {
+        commissionRate: nextRate,
+        categories: state.data.settings.categories
+      }, { merge: true });
+
+      showToast("Commission updated platform-wide.", { type: "success" });
+    } catch (error) {
+      console.error("Failed to save commission:", error);
+      showToast(`Failed to save commission: ${error.message}`, { type: "error" });
+    }
   });
 
-  elements.addCategoryBtn.addEventListener('click', addCategory);
+  elements.addCategoryBtn.addEventListener("click", addCategory);
 
-  elements.newCategoryInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
+  elements.newCategoryInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
       event.preventDefault();
       addCategory();
     }
   });
 
-  elements.categoryList.addEventListener('click', (event) => {
+  elements.categoryList.addEventListener("click", async (event) => {
     const index = event.target.dataset.categoryRemove;
     if (index === undefined) return;
+
     state.data.settings.categories.splice(Number(index), 1);
-    saveData();
-    renderAll();
+    saveSettingsLocal();
+
+    try {
+      await setDoc(doc(db, "platform_settings", "main"), {
+        commissionRate: state.data.settings.commissionRate,
+        categories: state.data.settings.categories
+      }, { merge: true });
+
+      renderAll();
+    } catch (error) {
+      console.error("Failed to save categories:", error);
+      showToast(`Failed to save categories: ${error.message}`, { type: "error" });
+    }
   });
 
-  elements.saveAdminSettingsBtn.addEventListener('click', () => {
+  elements.saveAdminSettingsBtn.addEventListener("click", () => {
     state.data.auth.currentUser = {
       ...state.data.auth.currentUser,
-      name: elements.adminNameInput.value.trim() || 'Bills Mall Admin',
-      email: elements.adminEmailInput.value.trim() || 'admin@billsmall.com',
+      name: elements.adminNameInput.value.trim() || "Bills Mall Admin",
+      email: elements.adminEmailInput.value.trim() || "",
       role: elements.adminRoleInput.value
     };
-    saveData();
+
+    state.data.settings.adminProfile = {
+      ...state.data.auth.currentUser
+    };
+
+    saveSettingsLocal();
     renderAll();
+    showToast("Admin settings saved.", { type: "success" });
   });
 
-  elements.exportBtn.addEventListener('click', () => {
-    const dataStr = JSON.stringify(state.data, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
+  elements.exportBtn.addEventListener("click", () => {
+    const exportData = {
+      vendors: state.data.vendors,
+      products: state.data.products,
+      orders: state.data.orders,
+      customers: state.data.customers,
+      settings: state.data.settings
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json"
+    });
+
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'bills-mall-admin-report.json';
+    a.download = "bills-mall-admin-report.json";
     a.click();
     URL.revokeObjectURL(url);
   });
 
-  elements.seedDataBtn.addEventListener('click', () => {
-    state.data = structuredClone(defaultData);
-    saveData();
-    renderAll();
+  elements.seedDataBtn.addEventListener("click", () => {
+    showToast("This dashboard now uses live Firebase data. Demo reset was removed.", {
+      type: "info"
+    });
+  });
+
+  elements.vendorList.addEventListener("click", async (event) => {
+    const approveId = event.target.getAttribute("data-vendor-approve");
+    const suspendId = event.target.getAttribute("data-vendor-suspend");
+
+    if (approveId) {
+      await updateVendorStatus(approveId, "approved");
+    }
+
+    if (suspendId) {
+      await updateVendorStatus(suspendId, "suspended");
+    }
+  });
+
+  elements.orderList.addEventListener("click", async (event) => {
+    const orderId = event.target.getAttribute("data-order-update");
+    const status = event.target.getAttribute("data-status");
+
+    if (!orderId || !status) return;
+
+    await updateOrderStatus(orderId, status);
   });
 }
 
-bindEvents();
-renderAll();
+async function init() {
+  bindEvents();
+
+  try {
+    const user = await requireAdmin();
+
+    state.data.auth.currentUser = {
+      uid: user.uid,
+      name: user.displayName || state.data.settings.adminProfile.name || "Bills Mall Admin",
+      email: user.email || state.data.settings.adminProfile.email || "",
+      role: state.data.settings.adminProfile.role || "platform_admin"
+    };
+
+    await ensurePlatformSettingsDoc();
+
+    renderAll();
+    subscribePlatformSettings();
+    subscribeVendors();
+    subscribeProducts();
+    subscribeOrders();
+  } catch (error) {
+    console.error("Admin init failed:", error);
+  }
+}
+
+init();

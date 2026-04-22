@@ -373,12 +373,33 @@ function initAuthGuard() {
   });
 }
 
+function setupCategoryMobileToggle() {
+  const toggleBtn = document.getElementById("category-toggle-btn");
+  const categoryBar = document.getElementById("category-bar");
+
+  if (!toggleBtn || !categoryBar) return;
+
+  toggleBtn.addEventListener("click", () => {
+    categoryBar.classList.toggle("open");
+  });
+
+  categoryBar.addEventListener("click", (event) => {
+    const clickedCategory = event.target.closest(".category-card");
+    if (!clickedCategory) return;
+
+    if (window.innerWidth <= 768) {
+      categoryBar.classList.remove("open");
+    }
+  });
+}
+
 function init() {
   renderCategoryBar();
   bindEvents();
   subscribeProducts();
   updateCartCount();
   initAuthGuard();
+  setupCategoryMobileToggle();
 }
 
 init();

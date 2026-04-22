@@ -29,7 +29,6 @@ import { showToast } from "./ui.js";
 ========================= */
 const COMMISSION_RATE = 0.05;
 
-// Replace these with your real links
 const WHATSAPP_ADMIN_URL =
   "https://wa.me/233599480662?text=Hello%20I%20want%20help%20with%20my%20Bills%20Mall%20vendor%20account";
 
@@ -438,11 +437,11 @@ function calculateOverview() {
   const earnings = grossSales * (1 - COMMISSION_RATE);
 
   const deliveredRevenue = orders
-    .filter((order) => order.status === "Delivered")
+    .filter((order) => String(order.status || "").toLowerCase() === "delivered")
     .reduce((sum, order) => sum + Number(order.total || 0) * (1 - COMMISSION_RATE), 0);
 
   const processingRevenue = orders
-    .filter((order) => order.status !== "Delivered")
+    .filter((order) => String(order.status || "").toLowerCase() !== "delivered")
     .reduce((sum, order) => sum + Number(order.total || 0) * (1 - COMMISSION_RATE), 0);
 
   const paidOut = payouts
@@ -462,7 +461,7 @@ function calculateOverview() {
     pendingBalance: processingRevenue,
     averageRating,
     activeProducts: products.filter((product) => product.status === "Active").length,
-    openOrders: orders.filter((order) => order.status !== "Delivered").length
+    openOrders: orders.filter((order) => String(order.status || "").toLowerCase() !== "delivered").length
   };
 }
 
@@ -639,6 +638,8 @@ function renderOrders() {
         ? order.items.map((item) => item.name).filter(Boolean).join(", ")
         : (order.productName || "Order");
 
+      const orderStatus = String(order.status || "Pending");
+
       return `
         <article class="vendor-table-card">
           <div class="vendor-table-top">
@@ -646,7 +647,7 @@ function renderOrders() {
               <h4>${order.id}</h4>
               <p class="vendor-table-meta">${itemNames}</p>
             </div>
-            <span class="status-pill ${getStatusClass(order.status || "Pending")}">${order.status || "Pending"}</span>
+            <span class="status-pill ${getStatusClass(orderStatus)}">${orderStatus}</span>
           </div>
 
           <div class="vendor-table-details">
@@ -657,10 +658,45 @@ function renderOrders() {
             <div><span>Quantity</span><strong>${order.quantity || 0}</strong></div>
             <div><span>Total</span><strong>${formatCurrency(order.total)}</strong></div>
           </div>
+
+          <div class="vendor-table-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            ${
+              orderStatus.toLowerCase() === "pending" || orderStatus.toLowerCase() === "paid"
+                ? `<button class="table-action-btn edit" data-order-status="${order.id}" data-next-status="Shipped">Mark as Shipped</button>`
+                : ""
+            }
+            ${
+              orderStatus.toLowerCase() === "shipped"
+                ? `<button class="table-action-btn edit" data-order-status="${order.id}" data-next-status="Delivered">Mark as Delivered</button>`
+                : ""
+            }
+          </div>
         </article>
       `;
     })
     .join("");
+}
+
+async function updateVendorOrderStatus(orderId, nextStatus) {
+  if (!requireAuth()) return;
+  if (!state.vendorId) return;
+
+  const targetOrder = getVendorOrders().find((order) => order.id === orderId);
+  if (!targetOrder) {
+    showToast("Order not found.", { type: "error" });
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "orders", orderId), {
+      status: nextStatus
+    });
+
+    showToast(`Order marked as ${nextStatus}.`, { type: "success" });
+  } catch (err) {
+    console.error("Failed to update order status:", err);
+    showToast(`Failed to update order: ${err.message}`, { type: "error" });
+  }
 }
 
 function renderEarningsHistory() {
@@ -1172,6 +1208,15 @@ function bindEvents() {
 
     if (editId) fillProductForm(editId);
     if (deleteId) await deleteProduct(deleteId);
+  });
+
+  elements.orderList?.addEventListener("click", async (event) => {
+    const orderId = event.target.getAttribute("data-order-status");
+    const nextStatus = event.target.getAttribute("data-next-status");
+
+    if (!orderId || !nextStatus) return;
+
+    await updateVendorOrderStatus(orderId, nextStatus);
   });
 
   elements.settingsForm?.addEventListener("submit", async (event) => {
