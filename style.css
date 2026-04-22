@@ -1121,7 +1121,143 @@ button:hover {
   background: #e8c476;
   transform: scale(0.95);
 }
+/* CHECKOUT PAGE FIX */
+* {
+  box-sizing: border-box;
+}
 
+.checkout-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.checkout-form,
+.order-summary,
+.payment-section {
+  width: 100%;
+}
+
+.checkout-form input,
+.checkout-form select,
+.payment-section input,
+.payment-section select,
+.checkout-form button,
+.payment-section button {
+  width: 100%;
+  max-width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border: 1px solid #666;
+  border-radius: 10px;
+  font-size: 16px;
+  background: #222;
+  color: #fff;
+  outline: none;
+}
+
+.checkout-form input::placeholder,
+.payment-section input::placeholder {
+  color: #bbb;
+}
+
+.checkout-form select,
+.payment-section select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: #222;
+  color: #fff;
+}
+
+.checkout-form button,
+.payment-section button {
+  background: #4b2e2b;
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.checkout-form button:hover,
+.payment-section button:hover {
+  opacity: 0.95;
+}
+
+.order-summary {
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.payment-section {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#momo-section,
+#cod-section {
+  margin-top: 14px;
+}
+
+#order-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#order-items > div {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+#error,
+#payment-msg {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #ffb3b3;
+}
+
+/* MOBILE FIX */
+@media (max-width: 768px) {
+  .checkout-container {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 12px;
+  }
+
+  .checkout-form,
+  .order-summary,
+  .payment-section {
+    width: 100%;
+  }
+
+  .checkout-form input,
+  .checkout-form select,
+  .payment-section input,
+  .payment-section select,
+  .checkout-form button,
+  .payment-section button {
+    font-size: 16px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .navbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .logo {
+    font-size: 1.2rem;
+  }
+}
 /* =======================
    TOASTS / POPUPS
 ======================= */
