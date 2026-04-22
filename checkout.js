@@ -22,6 +22,10 @@ const paymentMethod = document.getElementById("payment-method");
 const momoSection = document.getElementById("momo-section");
 const codSection = document.getElementById("cod-section");
 
+function formatCurrency(value) {
+  return `GHS ${Number(value || 0).toFixed(2)}`;
+}
+
 function setError(message) {
   if (error) {
     error.innerText = message;
@@ -66,49 +70,81 @@ onAuthStateChanged(auth, (user) => {
   fillCustomerDetails(user);
 });
 
+function getBaseTotal() {
+  return cart.reduce(
+    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+    0
+  );
+}
+
+function getGrandTotal() {
+  return getBaseTotal() + deliveryFee;
+}
+
 function displayOrder() {
   if (!orderItems || !totalPrice) return;
 
   if (cart.length === 0) {
-    orderItems.innerHTML = "<p>Your cart is empty</p>";
+    orderItems.innerHTML = `<div class="order-item"><span>Your cart is empty</span></div>`;
     totalPrice.innerHTML = "";
     return;
   }
 
-  let total = 0;
-  orderItems.innerHTML = "";
+  orderItems.innerHTML = cart
+    .map((item) => {
+      const qty = Number(item.quantity || 1);
+      const price = Number(item.price || 0);
+      const subtotal = price * qty;
+      const variation = item.variation ? item.variation : "Standard";
 
-  cart.forEach((item) => {
-    const qty = item.quantity || 1;
-    const subtotal = Number(item.price || 0) * qty;
-    total += subtotal;
+      return `
+        <div class="order-item">
+          <div>
+            <strong>${item.name}</strong><br>
+            <small>${variation}</small><br>
+            <small>Qty: ${qty}</small>
+          </div>
+          <div>
+            <strong>${formatCurrency(subtotal)}</strong>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
 
-    const div = document.createElement("div");
-    div.className = "order-item";
-    div.innerHTML = `
-      ${item.name} (${item.variation || "No option"})
-      x ${qty} = <b>GHS ${subtotal}</b>
-    `;
-    orderItems.appendChild(div);
-  });
-
-  totalPrice.innerHTML = `<p>Items Total: GHS ${total}</p>`;
+  updateTotalDisplay();
 }
 
-function getBaseTotal() {
-  return cart.reduce(
-    (sum, item) => sum + Number(item.price || 0) * (item.quantity || 1),
-    0
-  );
+function updateTotalDisplay() {
+  if (!totalPrice) return;
+
+  const baseTotal = getBaseTotal();
+  const total = baseTotal + deliveryFee;
+
+  totalPrice.innerHTML = `
+    <div class="summary-line">
+      <span>Items Total</span>
+      <strong>${formatCurrency(baseTotal)}</strong>
+    </div>
+    <div class="summary-line">
+      <span>Delivery Fee</span>
+      <strong>${formatCurrency(deliveryFee)}</strong>
+    </div>
+    <div class="summary-line summary-total">
+      <span>Total</span>
+      <strong>${formatCurrency(total)}</strong>
+    </div>
+  `;
 }
 
 function checkForm() {
   const name = document.getElementById("name")?.value.trim();
   const phone = document.getElementById("phone")?.value.trim();
   const address = document.getElementById("address")?.value.trim();
+  const location = document.getElementById("location")?.value.trim();
 
   if (proceedBtn) {
-    proceedBtn.disabled = !(name && phone && address);
+    proceedBtn.disabled = !(name && phone && address && location);
   }
 }
 
@@ -142,24 +178,14 @@ document.getElementById("location")?.addEventListener("change", () => {
   }
 
   updateTotalDisplay();
+  checkForm();
 });
 
-function updateTotalDisplay() {
-  const baseTotal = getBaseTotal();
-  const total = baseTotal + deliveryFee;
-
-  totalPrice.innerHTML = `
-    <p>Items: GHS ${baseTotal}</p>
-    <p>Delivery: GHS ${deliveryFee}</p>
-    <h3>Total: GHS ${total}</h3>
-  `;
-}
-
 function goToPayment() {
-  const name = document.getElementById("name").value.trim();
-  const phone = document.getElementById("phone").value.trim();
-  const address = document.getElementById("address").value.trim();
-  const location = document.getElementById("location").value;
+  const name = document.getElementById("name")?.value.trim();
+  const phone = document.getElementById("phone")?.value.trim();
+  const address = document.getElementById("address")?.value.trim();
+  const location = document.getElementById("location")?.value.trim();
 
   if (!name || !phone || !address || !location) {
     setError("Fill your name, phone, address, and location first.");
@@ -205,19 +231,12 @@ window.payWithPaystack = function () {
     return;
   }
 
-  const amount = (getBaseTotal() + deliveryFee) * 100;
+  const amount = getGrandTotal() * 100;
 
   if (amount <= 0) {
     setPaymentMessage("Invalid order total.", "#b00020");
     return;
   }
-
-  console.log("Paystack starting", {
-    email: currentUser?.email,
-    amount,
-    deliveryFee,
-    cart
-  });
 
   const handler = PaystackPop.setup({
     key: "pk_live_1593829182b5428b42076c0a6896a88c64e498ba",
@@ -225,32 +244,25 @@ window.payWithPaystack = function () {
     amount,
     currency: "GHS",
     callback: function (response) {
-      console.log("Paystack callback response:", response);
       verifyPayment(response.reference).catch((err) => {
         console.error("Verification error:", err);
         setPaymentMessage(`Payment verification failed: ${err.message}`, "#b00020");
       });
     },
     onClose: function () {
-      console.log("Paystack popup closed by user.");
       setPaymentMessage("Payment cancelled.", "#b00020");
     }
   });
 
-  console.log("Opening Paystack iframe...");
   handler.openIframe();
 };
 
 async function verifyPayment(reference) {
-  console.log("Verifying reference:", reference);
-
   const res = await fetch("https://backend-616b.onrender.com/verify-payment", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reference })
   });
-
-  console.log("Verification HTTP status:", res.status);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -259,7 +271,6 @@ async function verifyPayment(reference) {
   }
 
   const data = await res.json();
-  console.log("Verification response data:", data);
 
   if (data.success) {
     await placeOrder("Paid");
@@ -283,10 +294,10 @@ async function placeOrder(paymentType) {
     return;
   }
 
-  const name = document.getElementById("name").value.trim();
-  const phone = document.getElementById("phone").value.trim();
-  const address = document.getElementById("address").value.trim();
-  const location = document.getElementById("location").value;
+  const name = document.getElementById("name")?.value.trim();
+  const phone = document.getElementById("phone")?.value.trim();
+  const address = document.getElementById("address")?.value.trim();
+  const location = document.getElementById("location")?.value.trim();
 
   if (!name || !phone || !address || !location || cart.length === 0) {
     setPaymentMessage("Complete your delivery details before placing the order.", "#b00020");
@@ -330,7 +341,7 @@ async function placeOrder(paymentType) {
         userId: currentUser.uid,
         vendorId,
         customerName: name,
-        customerEmail: currentUser.email || document.getElementById("email").value.trim(),
+        customerEmail: currentUser.email || document.getElementById("email")?.value.trim(),
         customerPhone: phone,
         address,
         location,
@@ -361,5 +372,10 @@ async function placeOrder(paymentType) {
 displayOrder();
 fillCustomerDetails(auth.currentUser);
 checkForm();
+
+if (paymentSection) {
+  paymentSection.style.display = "none";
+}
+
 momoSection.style.display = "none";
 codSection.style.display = "none";
