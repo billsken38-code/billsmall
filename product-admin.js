@@ -80,16 +80,31 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function isAbsoluteUrl(value) {
-  return /^https?:\/\//i.test(String(value || "").trim());
+function isValidImagePath(value) {
+  const path = String(value || "").trim();
+
+  if (!path) return false;
+
+  if (/^https?:\/\//i.test(path)) return true;
+
+  if (
+    path.startsWith("./") ||
+    path.startsWith("../") ||
+    path.startsWith("/") ||
+    path.startsWith("images/") ||
+    path.startsWith("./images/")
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
-function normalizeTypedImages(rawValue) {
-  return String(rawValue || "")
-    .split(",")
-    .map((item) => item.trim())
+function normalizeImageList(values = []) {
+  return values
+    .map((value) => String(value || "").trim())
     .filter(Boolean)
-    .filter((item) => isAbsoluteUrl(item));
+    .filter((value) => isValidImagePath(value));
 }
 
 function sanitizeFileName(fileName = "") {
@@ -173,7 +188,7 @@ function productCardTemplate(id, product) {
     <article class="product-admin-item">
       <div class="product-admin-item-top">
         <div class="product-admin-item-media">
-          <img src="${image}" alt="${escapeHtml(product.name)}" class="product-admin-thumb">
+          <img src="${image}" alt="${escapeHtml(product.name)}" class="product-admin-thumb" loading="lazy">
           <div>
             <h3>${escapeHtml(product.name)}</h3>
             <p class="product-admin-meta">${escapeHtml(product.category || "Uncategorized")}</p>
@@ -253,13 +268,21 @@ function subscribeProducts() {
 
 function getFormData() {
   const name = elements.nameInput?.value.trim() || "";
-  const price = Number(elements.priceInput?.value);
+  const price = Number(elements.priceInput?.value || 0);
   const category = elements.categoryInput?.value || "";
   const stock = Number(elements.stockInput?.value || 0);
   const status = elements.statusInput?.value || "Active";
   const featured = elements.featuredInput?.checked || false;
-  const typedImages = normalizeTypedImages(elements.imageInput?.value || "");
-  const images = typedImages.length ? typedImages : state.uploadedImages;
+
+  const typedImages = normalizeImageList(
+    (elements.imageInput?.value || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+
+  const images = [...typedImages, ...state.uploadedImages].filter(Boolean);
+
   const description = elements.descriptionInput?.value.trim() || "";
   const variationsInput = elements.variationsInput?.value.trim() || "";
   const variations = variationsInput
@@ -317,6 +340,12 @@ async function addProduct() {
   try {
     const formData = getFormData();
     const validationMessage = validateFormData(formData);
+
+    console.log("Admin typed images:", normalizeImageList(
+      (elements.imageInput?.value || "").split(",")
+    ));
+    console.log("Admin uploaded images:", state.uploadedImages);
+    console.log("Admin final images:", formData.images);
 
     if (validationMessage) {
       showToast(validationMessage, { type: "error" });
@@ -378,7 +407,12 @@ function bindEvents() {
   });
 
   elements.imageInput?.addEventListener("input", (event) => {
-    const typedImages = normalizeTypedImages(event.target.value);
+    const typedImages = normalizeImageList(
+      event.target.value
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
 
     if (typedImages.length) {
       state.uploadedImages = typedImages;
@@ -393,10 +427,6 @@ function bindEvents() {
     const files = Array.from(event.target.files || []);
 
     if (!files.length) {
-      if (!elements.imageInput?.value.trim()) {
-        state.uploadedImages = [];
-        updateImagePreview([]);
-      }
       return;
     }
 
@@ -409,10 +439,8 @@ function bindEvents() {
     try {
       showToast("Uploading images...", { type: "info" });
 
-      state.uploadedImages = await Promise.all(files.map((file) => uploadImageFile(file)));
-      if (elements.imageInput) {
-        elements.imageInput.value = "";
-      }
+      const uploaded = await Promise.all(files.map((file) => uploadImageFile(file)));
+      state.uploadedImages = uploaded;
       updateImagePreview(state.uploadedImages);
 
       showToast(

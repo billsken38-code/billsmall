@@ -27,7 +27,7 @@ import { showToast } from "./ui.js";
 /* =========================
    CONFIG
 ========================= */
-const COMMISSION_RATE = 0.05;
+let COMMISSION_RATE = 0.05;
 
 const WHATSAPP_ADMIN_URL =
   "https://wa.me/233599480662?text=Hello%20I%20want%20help%20with%20my%20Bills%20Mall%20vendor%20account";
@@ -66,6 +66,7 @@ const state = {
   vendorPayouts: [],
   unsubscribeProducts: null,
   unsubscribeOrders: null,
+  unsubscribePlatformSettings: null,
   authReady: false,
   eventsBound: false
 };
@@ -130,15 +131,31 @@ function getStatusClass(status) {
   return `status-${String(status || "").toLowerCase().replace(/\s+/g, "-")}`;
 }
 
-function isAbsoluteUrl(value) {
-  return /^https?:\/\//i.test(String(value || "").trim());
+function isValidImagePath(value) {
+  const path = String(value || "").trim();
+
+  if (!path) return false;
+
+  if (/^https?:\/\//i.test(path)) return true;
+
+  if (
+    path.startsWith("./") ||
+    path.startsWith("../") ||
+    path.startsWith("/") ||
+    path.startsWith("images/") ||
+    path.startsWith("./images/")
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function normalizeImageList(values = []) {
   return values
     .map((value) => String(value || "").trim())
     .filter(Boolean)
-    .filter((value) => isAbsoluteUrl(value));
+    .filter((value) => isValidImagePath(value));
 }
 
 function sanitizeFileName(name = "") {
@@ -233,6 +250,47 @@ function clearVendorState() {
     state.unsubscribeOrders();
     state.unsubscribeOrders = null;
   }
+
+  if (state.unsubscribePlatformSettings) {
+    state.unsubscribePlatformSettings();
+    state.unsubscribePlatformSettings = null;
+  }
+}
+
+/* =========================
+   PLATFORM SETTINGS
+========================= */
+async function ensureVendorPlatformSettingsDoc() {
+  const settingsRef = doc(db, "platform_settings", "main");
+  const snap = await getDoc(settingsRef);
+
+  if (!snap.exists()) {
+    await setDoc(settingsRef, {
+      commissionRate: 5,
+      categories: CATEGORY_OPTIONS
+    }, { merge: true });
+  }
+}
+
+function subscribePlatformSettings() {
+  if (state.unsubscribePlatformSettings) {
+    state.unsubscribePlatformSettings();
+  }
+
+  state.unsubscribePlatformSettings = onSnapshot(
+    doc(db, "platform_settings", "main"),
+    (snapshot) => {
+      if (!snapshot.exists()) return;
+
+      const data = snapshot.data();
+      COMMISSION_RATE = Number(data.commissionRate ?? 5) / 100;
+      renderAll();
+    },
+    (error) => {
+      console.error("Failed to load platform settings:", error);
+      showToast(`Failed to load platform settings: ${error.message}`, { type: "error" });
+    }
+  );
 }
 
 /* =========================
@@ -588,7 +646,7 @@ function renderProducts() {
         <article class="vendor-table-card">
           <div class="vendor-table-top">
             <div class="vendor-table-title">
-              <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}">
+              <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}" loading="lazy">
               <div>
                 <h4>${product.name}</h4>
                 <p class="vendor-table-meta">${product.category || "General"}</p>
@@ -747,7 +805,7 @@ function renderAnalytics() {
         <article class="vendor-table-card">
           <div class="vendor-table-top">
             <div class="vendor-table-title">
-              <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}">
+              <img class="vendor-table-image" src="${product.images?.[0] || product.image || ""}" alt="${product.name}" loading="lazy">
               <div><h4>${product.name}</h4><p class="vendor-table-meta">${product.category}</p></div>
             </div>
             <span class="status-pill ${getStatusClass(product.status || "Draft")}">${product.status || "Draft"}</span>
@@ -1096,31 +1154,55 @@ function bindEvents() {
       return;
     }
 
-    const name = document.getElementById("product-name").value.trim();
-    const category = document.getElementById("product-category").value.trim();
-    const price = Number(document.getElementById("product-price").value);
-    const stock = Number(document.getElementById("product-stock").value);
+    const name = document.getElementById("product-name")?.value.trim() || "";
+    const category = document.getElementById("product-category")?.value.trim() || "";
+    const price = Number(document.getElementById("product-price")?.value || 0);
+    const stock = Number(document.getElementById("product-stock")?.value || 0);
+    const status = document.getElementById("product-status")?.value || "Active";
+    const description = document.getElementById("product-description")?.value.trim() || "";
+    const variationsInput = document.getElementById("product-variations")?.value.trim() || "";
+    const variations = variationsInput
+      ? variationsInput.split(",").map((item) => item.trim()).filter(Boolean)
+      : [];
+
+    const id = document.getElementById("product-id")?.value || "";
+    const existing = id ? getVendorProducts().find((product) => product.id === id) : null;
 
     const typedImages = normalizeImageList(
-      elements.productImageInput.value
+      (elements.productImageInput?.value || "")
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean)
     );
 
-    const images = typedImages.length ? typedImages : uploadedProductImages;
-    const status = document.getElementById("product-status").value;
-    const description = document.getElementById("product-description").value.trim();
-    const variationsInput = document.getElementById("product-variations").value.trim();
-    const variations = variationsInput
-      ? variationsInput.split(",").map((item) => item.trim()).filter(Boolean)
-      : [];
+    const images = [...typedImages, ...uploadedProductImages].filter(Boolean);
 
-    const id = document.getElementById("product-id").value;
-    const existing = id ? getVendorProducts().find((product) => product.id === id) : null;
+    console.log("typedImages:", typedImages);
+    console.log("uploadedProductImages:", uploadedProductImages);
+    console.log("final images:", images);
 
-    if (!name || !category || Number.isNaN(price) || Number.isNaN(stock)) {
-      showToast("Name, category, price, and stock are required.", { type: "error" });
+    if (!name) {
+      showToast("Product name is required.", { type: "error" });
+      return;
+    }
+
+    if (!category) {
+      showToast("Please select a category.", { type: "error" });
+      return;
+    }
+
+    if (Number.isNaN(price) || price <= 0) {
+      showToast("Please enter a valid price.", { type: "error" });
+      return;
+    }
+
+    if (Number.isNaN(stock) || stock < 0) {
+      showToast("Please enter a valid stock quantity.", { type: "error" });
+      return;
+    }
+
+    if (!description) {
+      showToast("Please enter a product description.", { type: "error" });
       return;
     }
 
@@ -1169,10 +1251,6 @@ function bindEvents() {
     const files = Array.from(event.target.files || []);
 
     if (!files.length) {
-      if (!elements.productImageInput.value.trim()) {
-        uploadedProductImages = [];
-        updateProductImagePreview([]);
-      }
       return;
     }
 
@@ -1185,11 +1263,11 @@ function bindEvents() {
     try {
       showToast("Uploading images to Firebase Storage...", { type: "info" });
 
-      uploadedProductImages = await Promise.all(
+      const uploaded = await Promise.all(
         files.map((file) => uploadToFirebaseStorage(file))
       );
 
-      elements.productImageInput.value = "";
+      uploadedProductImages = uploaded;
       updateProductImagePreview(uploadedProductImages);
 
       showToast(
@@ -1262,6 +1340,9 @@ function init() {
     }
 
     state.vendorId = user.uid;
+
+    await ensureVendorPlatformSettingsDoc();
+    subscribePlatformSettings();
 
     await syncVendorProfileFromFirebaseLogin();
     subscribeProductsFromFirebase();
