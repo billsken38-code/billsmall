@@ -1,16 +1,23 @@
 import {
   collection,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  doc,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
 import { auth, db } from "./firebase.js";
 import { redirectWithToast, showToast } from "./ui.js";
+import {
+  defaultDeliveryConfig,
+  normalizeDeliveryConfig,
+  calculateDeliveryFee as calculateConfiguredDeliveryFee
+} from "./delivery-config.js";
 
 let currentUser = null;
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
-let deliveryFee = 0;
+let deliveryConfig = normalizeDeliveryConfig(defaultDeliveryConfig);
 
 const orderItems = document.getElementById("order-items");
 const totalPrice = document.getElementById("total-price");
@@ -21,15 +28,14 @@ const paymentSection = document.getElementById("payment-section");
 const paymentMethod = document.getElementById("payment-method");
 const momoSection = document.getElementById("momo-section");
 const codSection = document.getElementById("cod-section");
+const locationSelect = document.getElementById("location");
 
 function formatCurrency(value) {
   return `GHS ${Number(value || 0).toFixed(2)}`;
 }
 
 function setError(message) {
-  if (error) {
-    error.innerText = message;
-  }
+  if (error) error.innerText = message;
 }
 
 function setPaymentMessage(message, color = "inherit") {
@@ -70,6 +76,10 @@ onAuthStateChanged(auth, (user) => {
   fillCustomerDetails(user);
 });
 
+function getCustomerLocation() {
+  return locationSelect?.value.trim().toLowerCase() || "";
+}
+
 function getBaseTotal() {
   return cart.reduce(
     (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
@@ -77,8 +87,95 @@ function getBaseTotal() {
   );
 }
 
+function groupCartByVendor() {
+  const grouped = {};
+
+  for (const item of cart) {
+    const vendorId = item.vendorId;
+
+    if (!vendorId) {
+      console.warn("Cart item missing vendorId:", item);
+      continue;
+    }
+
+    if (!grouped[vendorId]) {
+      grouped[vendorId] = [];
+    }
+
+    grouped[vendorId].push(item);
+  }
+
+  return grouped;
+}
+
+function getVendorLocationFromItems(items = []) {
+  const firstWithLocation = items.find((item) => item.vendorLocation);
+  return String(firstWithLocation?.vendorLocation || "").trim().toLowerCase();
+}
+
+function renderLocationOptions() {
+  if (!locationSelect) return;
+
+  const selectedValue = locationSelect.value;
+  const optionsHtml = ['<option value="">Select Location</option>']
+    .concat(
+      deliveryConfig.locations.map(
+        (location) => `<option value="${location.value}">${location.label}</option>`
+      )
+    )
+    .join("");
+
+  locationSelect.innerHTML = optionsHtml;
+
+  if (selectedValue && deliveryConfig.locations.some((location) => location.value === selectedValue)) {
+    locationSelect.value = selectedValue;
+  }
+}
+
+function calculateDeliveryFee(vendorLocation, customerLocation) {
+  return calculateConfiguredDeliveryFee(vendorLocation, customerLocation, deliveryConfig);
+}
+
+async function loadDeliveryConfig() {
+  renderLocationOptions();
+
+  try {
+    const settingsSnap = await getDoc(doc(db, "platform_settings", "main"));
+    if (settingsSnap.exists()) {
+      const data = settingsSnap.data();
+      deliveryConfig = normalizeDeliveryConfig(data.delivery || defaultDeliveryConfig);
+      renderLocationOptions();
+      updateTotalDisplay();
+      checkForm();
+    }
+  } catch (err) {
+    console.error("Failed to load delivery settings:", err);
+  }
+}
+
+function getDeliveryBreakdown() {
+  const customerLocation = getCustomerLocation();
+  const grouped = groupCartByVendor();
+
+  return Object.entries(grouped).map(([vendorId, items]) => {
+    const vendorLocation = getVendorLocationFromItems(items);
+    const fee = calculateDeliveryFee(vendorLocation, customerLocation);
+
+    return {
+      vendorId,
+      vendorLocation,
+      items,
+      fee
+    };
+  });
+}
+
+function getTotalDeliveryFee() {
+  return getDeliveryBreakdown().reduce((sum, entry) => sum + Number(entry.fee || 0), 0);
+}
+
 function getGrandTotal() {
-  return getBaseTotal() + deliveryFee;
+  return getBaseTotal() + getTotalDeliveryFee();
 }
 
 function displayOrder() {
@@ -119,17 +216,34 @@ function updateTotalDisplay() {
   if (!totalPrice) return;
 
   const baseTotal = getBaseTotal();
-  const total = baseTotal + deliveryFee;
+  const deliveryBreakdown = getDeliveryBreakdown();
+  const deliveryTotal = deliveryBreakdown.reduce((sum, entry) => sum + entry.fee, 0);
+  const total = baseTotal + deliveryTotal;
+
+  const deliveryHtml = deliveryBreakdown.length
+    ? deliveryBreakdown
+        .map(
+          (entry) => `
+            <div class="summary-line">
+              <span>Delivery (${entry.vendorLocation || "vendor location not set"})</span>
+              <strong>${formatCurrency(entry.fee)}</strong>
+            </div>
+          `
+        )
+        .join("")
+    : `
+      <div class="summary-line">
+        <span>Delivery Fee</span>
+        <strong>${formatCurrency(0)}</strong>
+      </div>
+    `;
 
   totalPrice.innerHTML = `
     <div class="summary-line">
       <span>Items Total</span>
       <strong>${formatCurrency(baseTotal)}</strong>
     </div>
-    <div class="summary-line">
-      <span>Delivery Fee</span>
-      <strong>${formatCurrency(deliveryFee)}</strong>
-    </div>
+    ${deliveryHtml}
     <div class="summary-line summary-total">
       <span>Total</span>
       <strong>${formatCurrency(total)}</strong>
@@ -152,31 +266,7 @@ function checkForm() {
   document.getElementById(id)?.addEventListener("input", checkForm);
 });
 
-document.getElementById("location")?.addEventListener("change", () => {
-  const location = document.getElementById("location").value;
-
-  if (location === "knust kumasi campus") {
-    deliveryFee = 20;
-  } else if (location === "accra college of education") {
-    deliveryFee = 30;
-  } else if (location === "knust obuasi campus") {
-    deliveryFee = 5;
-  } else if (location === "legon") {
-    deliveryFee = 30;
-  } else if (location === "kstu") {
-    deliveryFee = 20;
-  } else if (location === "govcco") {
-    deliveryFee = 30;
-  } else if (location === "uhas") {
-    deliveryFee = 30;
-  } else if (location === "hohoe nursing training") {
-    deliveryFee = 30;
-  } else if (location === "upsa") {
-    deliveryFee = 30;
-  } else {
-    deliveryFee = 0;
-  }
-
+locationSelect?.addEventListener("change", () => {
   updateTotalDisplay();
   checkForm();
 });
@@ -226,7 +316,6 @@ window.payWithPaystack = function () {
   }
 
   if (typeof PaystackPop === "undefined") {
-    console.error("PaystackPop is not available on window.");
     setPaymentMessage("Paystack failed to load. Refresh the page and try again.", "#b00020");
     return;
   }
@@ -311,21 +400,8 @@ async function placeOrder(paymentType) {
   setPaymentMessage("Placing your order...", "#4B2E2B");
   localStorage.setItem("address", address);
 
-  const groupedByVendor = {};
-
-  for (const item of cart) {
-    const vendorId = item.vendorId;
-
-    if (!vendorId) {
-      throw new Error(`Product "${item.name}" has no vendorId.`);
-    }
-
-    if (!groupedByVendor[vendorId]) {
-      groupedByVendor[vendorId] = [];
-    }
-
-    groupedByVendor[vendorId].push(item);
-  }
+  const groupedByVendor = groupCartByVendor();
+  const deliveryBreakdown = getDeliveryBreakdown();
 
   try {
     const vendorIds = Object.keys(groupedByVendor);
@@ -337,9 +413,13 @@ async function placeOrder(paymentType) {
         0
       );
 
+      const vendorDelivery = deliveryBreakdown.find((entry) => entry.vendorId === vendorId);
+      const vendorDeliveryFee = Number(vendorDelivery?.fee || 0);
+
       const order = {
         userId: currentUser.uid,
         vendorId,
+        vendorLocation: vendorDelivery?.vendorLocation || "",
         customerName: name,
         customerEmail: currentUser.email || document.getElementById("email")?.value.trim(),
         customerPhone: phone,
@@ -348,7 +428,8 @@ async function placeOrder(paymentType) {
         items: vendorItems,
         quantity: vendorItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0),
         total: itemsTotal,
-        deliveryFee: 0,
+        deliveryFee: vendorDeliveryFee,
+        grandTotal: itemsTotal + vendorDeliveryFee,
         paymentMethod: paymentType,
         status: paymentType === "Paid" ? "Paid" : "Pending",
         createdAt: serverTimestamp()
@@ -372,6 +453,7 @@ async function placeOrder(paymentType) {
 displayOrder();
 fillCustomerDetails(auth.currentUser);
 checkForm();
+loadDeliveryConfig();
 
 if (paymentSection) {
   paymentSection.style.display = "none";

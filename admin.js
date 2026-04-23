@@ -10,12 +10,19 @@ import {
 import { auth, db } from "./firebase.js";
 import { requireAdmin } from "./admin-auth.js";
 import { showToast } from "./ui.js";
+import {
+  defaultDeliveryConfig,
+  normalizeDeliveryConfig,
+  slugifyLocationValue,
+  getUniqueZones
+} from "./delivery-config.js";
 
 const SETTINGS_KEY = "bills_mall_admin_settings_v1";
 
 const defaultSettings = {
   commissionRate: 5,
   categories: ["Fashion", "Electronics", "Beauty", "Home", "Groceries"],
+  delivery: defaultDeliveryConfig,
   adminProfile: {
     name: "Bills Mall Admin",
     email: "admin@billsmall.com",
@@ -78,6 +85,20 @@ const elements = {
   saveCommissionBtn: document.getElementById("saveCommissionBtn"),
   newCategoryInput: document.getElementById("newCategoryInput"),
   addCategoryBtn: document.getElementById("addCategoryBtn"),
+  sameLocationFeeInput: document.getElementById("sameLocationFeeInput"),
+  sameZoneFeeInput: document.getElementById("sameZoneFeeInput"),
+  defaultCrossZoneFeeInput: document.getElementById("defaultCrossZoneFeeInput"),
+  saveDeliveryFeesBtn: document.getElementById("saveDeliveryFeesBtn"),
+  newLocationLabelInput: document.getElementById("newLocationLabelInput"),
+  newLocationValueInput: document.getElementById("newLocationValueInput"),
+  newLocationZoneInput: document.getElementById("newLocationZoneInput"),
+  addLocationBtn: document.getElementById("addLocationBtn"),
+  locationList: document.getElementById("locationList"),
+  routeZoneAInput: document.getElementById("routeZoneAInput"),
+  routeZoneBInput: document.getElementById("routeZoneBInput"),
+  routeFeeInput: document.getElementById("routeFeeInput"),
+  addRouteFeeBtn: document.getElementById("addRouteFeeBtn"),
+  routeFeeList: document.getElementById("routeFeeList"),
   adminName: document.getElementById("adminName"),
   adminRole: document.getElementById("adminRole"),
   adminNameInput: document.getElementById("adminNameInput"),
@@ -91,21 +112,39 @@ const elements = {
 
 function loadSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
-  if (!raw) return structuredClone(defaultSettings);
-
-  try {
+  if (!raw) {
     return {
       ...structuredClone(defaultSettings),
-      ...JSON.parse(raw)
+      delivery: normalizeDeliveryConfig(defaultSettings.delivery)
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      ...structuredClone(defaultSettings),
+      ...parsed,
+      delivery: normalizeDeliveryConfig(parsed.delivery || defaultSettings.delivery)
     };
   } catch (error) {
     console.error("Failed to parse admin settings:", error);
-    return structuredClone(defaultSettings);
+    return {
+      ...structuredClone(defaultSettings),
+      delivery: normalizeDeliveryConfig(defaultSettings.delivery)
+    };
   }
 }
 
 function saveSettingsLocal() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.data.settings));
+}
+
+function getNormalizedDeliverySettings() {
+  return normalizeDeliveryConfig(state.data.settings.delivery);
+}
+
+async function savePlatformSettings(partialSettings) {
+  await setDoc(doc(db, "platform_settings", "main"), partialSettings, { merge: true });
 }
 
 async function ensurePlatformSettingsDoc() {
@@ -115,7 +154,8 @@ async function ensurePlatformSettingsDoc() {
   if (!snap.exists()) {
     await setDoc(settingsRef, {
       commissionRate: defaultSettings.commissionRate,
-      categories: defaultSettings.categories
+      categories: defaultSettings.categories,
+      delivery: defaultDeliveryConfig
     });
   }
 }
@@ -132,7 +172,8 @@ function subscribePlatformSettings() {
       state.data.settings = {
         ...state.data.settings,
         commissionRate: Number(data.commissionRate ?? 5),
-        categories: Array.isArray(data.categories) ? data.categories : state.data.settings.categories
+        categories: Array.isArray(data.categories) ? data.categories : state.data.settings.categories,
+        delivery: normalizeDeliveryConfig(data.delivery || state.data.settings.delivery)
       };
 
       saveSettingsLocal();
@@ -698,6 +739,8 @@ function renderAnalytics() {
 function renderSettings() {
   const categories = state.data.settings.categories;
   const currentUser = state.data.auth.currentUser;
+  const delivery = getNormalizedDeliverySettings();
+  const zones = getUniqueZones(delivery);
 
   elements.categoryList.innerHTML = categories.map((category, index) => `
     <div class="mini-item">
@@ -705,6 +748,35 @@ function renderSettings() {
       <button class="btn-danger" data-category-remove="${index}">Remove</button>
     </div>
   `).join("");
+
+  elements.sameLocationFeeInput.value = delivery.fees.sameLocation;
+  elements.sameZoneFeeInput.value = delivery.fees.sameZone;
+  elements.defaultCrossZoneFeeInput.value = delivery.fees.defaultCrossZone;
+
+  elements.locationList.innerHTML = delivery.locations.length
+    ? delivery.locations.map((location, index) => `
+        <div class="mini-item">
+          <span>${location.label} (${location.value}) - Zone: ${location.zone}</span>
+          <button class="btn-danger" data-location-remove="${index}">Remove</button>
+        </div>
+      `).join("")
+    : '<div class="empty-state">No delivery locations yet.</div>';
+
+  const zoneOptions = ['<option value="">Select zone</option>']
+    .concat(zones.map((zone) => `<option value="${zone}">${zone}</option>`))
+    .join("");
+
+  elements.routeZoneAInput.innerHTML = zoneOptions;
+  elements.routeZoneBInput.innerHTML = zoneOptions;
+
+  elements.routeFeeList.innerHTML = delivery.zoneRoutes.length
+    ? delivery.zoneRoutes.map((route, index) => `
+        <div class="mini-item">
+          <span>${route.zoneA} to ${route.zoneB} - ${formatCurrency(route.fee)}</span>
+          <button class="btn-danger" data-route-remove="${index}">Remove</button>
+        </div>
+      `).join("")
+    : '<div class="empty-state">No special route fees yet.</div>';
 
   elements.adminName.textContent = currentUser.name || "Admin User";
   elements.adminRole.textContent = `Role: ${currentUser.role || "platform_admin"}`;
@@ -752,6 +824,102 @@ function addCategory() {
   state.data.settings.categories.push(value);
   elements.newCategoryInput.value = "";
   saveSettingsLocal();
+  renderAll();
+}
+
+async function saveDeliveryFees() {
+  const delivery = getNormalizedDeliverySettings();
+
+  state.data.settings.delivery = normalizeDeliveryConfig({
+    ...delivery,
+    fees: {
+      sameLocation: Number(elements.sameLocationFeeInput.value || 0),
+      sameZone: Number(elements.sameZoneFeeInput.value || 0),
+      defaultCrossZone: Number(elements.defaultCrossZoneFeeInput.value || 0)
+    }
+  });
+
+  saveSettingsLocal();
+
+  await savePlatformSettings({
+    delivery: state.data.settings.delivery
+  });
+
+  renderAll();
+}
+
+async function addDeliveryLocation() {
+  const label = elements.newLocationLabelInput.value.trim();
+  const customValue = elements.newLocationValueInput.value.trim();
+  const zone = elements.newLocationZoneInput.value.trim().toLowerCase();
+  const value = slugifyLocationValue(customValue || label);
+
+  if (!label || !zone || !value) {
+    showToast("Enter a location name and zone.", { type: "error" });
+    return;
+  }
+
+  const delivery = getNormalizedDeliverySettings();
+  const alreadyExists = delivery.locations.some((location) => location.value === value);
+
+  if (alreadyExists) {
+    showToast("That location already exists.", { type: "error" });
+    return;
+  }
+
+  state.data.settings.delivery = normalizeDeliveryConfig({
+    ...delivery,
+    locations: delivery.locations.concat([{ label, value, zone }])
+  });
+
+  elements.newLocationLabelInput.value = "";
+  elements.newLocationValueInput.value = "";
+  elements.newLocationZoneInput.value = "";
+  saveSettingsLocal();
+
+  await savePlatformSettings({
+    delivery: state.data.settings.delivery
+  });
+
+  renderAll();
+}
+
+async function addRouteFee() {
+  const zoneA = elements.routeZoneAInput.value.trim().toLowerCase();
+  const zoneB = elements.routeZoneBInput.value.trim().toLowerCase();
+  const fee = Number(elements.routeFeeInput.value || 0);
+
+  if (!zoneA || !zoneB) {
+    showToast("Select both zones for the route.", { type: "error" });
+    return;
+  }
+
+  if (zoneA === zoneB) {
+    showToast("Use the same-zone fee for matching zones.", { type: "error" });
+    return;
+  }
+
+  const delivery = getNormalizedDeliverySettings();
+  const nextRoutes = delivery.zoneRoutes.filter((route) => {
+    const sameDirection = route.zoneA === zoneA && route.zoneB === zoneB;
+    const reverseDirection = route.zoneA === zoneB && route.zoneB === zoneA;
+    return !(sameDirection || reverseDirection);
+  });
+
+  nextRoutes.push({ zoneA, zoneB, fee });
+
+  state.data.settings.delivery = normalizeDeliveryConfig({
+    ...delivery,
+    zoneRoutes: nextRoutes
+  });
+
+  elements.routeFeeInput.value = "";
+  saveSettingsLocal();
+
+  await savePlatformSettings({
+    delivery: state.data.settings.delivery
+  });
+
   renderAll();
 }
 
@@ -843,10 +1011,10 @@ function bindEvents() {
     const nextRate = Number(elements.commissionRateInput.value || 0);
 
     try {
-      await setDoc(doc(db, "platform_settings", "main"), {
+      await savePlatformSettings({
         commissionRate: nextRate,
         categories: state.data.settings.categories
-      }, { merge: true });
+      });
 
       showToast("Commission updated platform-wide.", { type: "success" });
     } catch (error) {
@@ -856,6 +1024,33 @@ function bindEvents() {
   });
 
   elements.addCategoryBtn.addEventListener("click", addCategory);
+  elements.saveDeliveryFeesBtn.addEventListener("click", async () => {
+    try {
+      await saveDeliveryFees();
+      showToast("Delivery fees saved.", { type: "success" });
+    } catch (error) {
+      console.error("Failed to save delivery fees:", error);
+      showToast(`Failed to save delivery fees: ${error.message}`, { type: "error" });
+    }
+  });
+  elements.addLocationBtn.addEventListener("click", async () => {
+    try {
+      await addDeliveryLocation();
+      showToast("Location added.", { type: "success" });
+    } catch (error) {
+      console.error("Failed to add location:", error);
+      showToast(`Failed to add location: ${error.message}`, { type: "error" });
+    }
+  });
+  elements.addRouteFeeBtn.addEventListener("click", async () => {
+    try {
+      await addRouteFee();
+      showToast("Route fee saved.", { type: "success" });
+    } catch (error) {
+      console.error("Failed to save route fee:", error);
+      showToast(`Failed to save route fee: ${error.message}`, { type: "error" });
+    }
+  });
 
   elements.newCategoryInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -872,15 +1067,72 @@ function bindEvents() {
     saveSettingsLocal();
 
     try {
-      await setDoc(doc(db, "platform_settings", "main"), {
+      await savePlatformSettings({
         commissionRate: state.data.settings.commissionRate,
         categories: state.data.settings.categories
-      }, { merge: true });
+      });
 
       renderAll();
     } catch (error) {
       console.error("Failed to save categories:", error);
       showToast(`Failed to save categories: ${error.message}`, { type: "error" });
+    }
+  });
+
+  elements.locationList.addEventListener("click", async (event) => {
+    const index = event.target.dataset.locationRemove;
+    if (index === undefined) return;
+
+    const delivery = getNormalizedDeliverySettings();
+    const nextLocations = delivery.locations.filter((_, itemIndex) => itemIndex !== Number(index));
+    const allowedZones = new Set(nextLocations.map((location) => location.zone));
+    const nextRoutes = delivery.zoneRoutes.filter((route) => {
+      return allowedZones.has(route.zoneA) && allowedZones.has(route.zoneB);
+    });
+
+    state.data.settings.delivery = normalizeDeliveryConfig({
+      ...delivery,
+      locations: nextLocations,
+      zoneRoutes: nextRoutes
+    });
+
+    saveSettingsLocal();
+
+    try {
+      await savePlatformSettings({
+        delivery: state.data.settings.delivery
+      });
+
+      renderAll();
+      showToast("Location removed.", { type: "success" });
+    } catch (error) {
+      console.error("Failed to remove location:", error);
+      showToast(`Failed to remove location: ${error.message}`, { type: "error" });
+    }
+  });
+
+  elements.routeFeeList.addEventListener("click", async (event) => {
+    const index = event.target.dataset.routeRemove;
+    if (index === undefined) return;
+
+    const delivery = getNormalizedDeliverySettings();
+    state.data.settings.delivery = normalizeDeliveryConfig({
+      ...delivery,
+      zoneRoutes: delivery.zoneRoutes.filter((_, itemIndex) => itemIndex !== Number(index))
+    });
+
+    saveSettingsLocal();
+
+    try {
+      await savePlatformSettings({
+        delivery: state.data.settings.delivery
+      });
+
+      renderAll();
+      showToast("Route fee removed.", { type: "success" });
+    } catch (error) {
+      console.error("Failed to remove route fee:", error);
+      showToast(`Failed to remove route fee: ${error.message}`, { type: "error" });
     }
   });
 

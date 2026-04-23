@@ -42,6 +42,11 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /platform_settings/{documentId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -403,13 +403,19 @@ textarea {
 
 .settings-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 18px;
 }
 
 .form-grid {
   display: grid;
   gap: 14px;
+}
+
+.three-col-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .form-grid label {
@@ -429,6 +435,12 @@ textarea {
   flex-wrap: wrap;
 }
 
+.settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
 canvas {
   max-height: 360px;
 }
@@ -440,6 +452,10 @@ canvas {
 
   .content-grid,
   .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .three-col-grid {
     grid-template-columns: 1fr;
   }
 }
