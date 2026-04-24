@@ -669,8 +669,8 @@ function renderProducts() {
           }
 
           <div class="vendor-table-actions">
-            <button class="table-action-btn edit" data-edit-product="${product.id}" ${!isVendorApproved() ? "disabled" : ""}>Edit</button>
-            <button class="table-action-btn delete" data-delete-product="${product.id}" ${!isVendorApproved() ? "disabled" : ""}>Delete</button>
+            <button type="button" class="table-action-btn edit" data-edit-product="${product.id}" ${!isVendorApproved() ? "disabled" : ""}>Edit</button>
+            <button type="button" class="table-action-btn delete" data-delete-product="${product.id}" ${!isVendorApproved() ? "disabled" : ""}>Delete</button>
           </div>
         </article>
       `
@@ -720,12 +720,12 @@ function renderOrders() {
           <div class="vendor-table-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
             ${
               orderStatus.toLowerCase() === "pending" || orderStatus.toLowerCase() === "paid"
-                ? `<button class="table-action-btn edit" data-order-status="${order.id}" data-next-status="Shipped">Mark as Shipped</button>`
+                ? `<button type="button" class="table-action-btn edit" data-order-status="${order.id}" data-next-status="Shipped">Mark as Shipped</button>`
                 : ""
             }
             ${
               orderStatus.toLowerCase() === "shipped"
-                ? `<button class="table-action-btn edit" data-order-status="${order.id}" data-next-status="Delivered">Mark as Delivered</button>`
+                ? `<button type="button" class="table-action-btn edit" data-order-status="${order.id}" data-next-status="Delivered">Mark as Delivered</button>`
                 : ""
             }
           </div>
@@ -1281,16 +1281,22 @@ function bindEvents() {
   });
 
   elements.productList?.addEventListener("click", async (event) => {
-    const editId = event.target.getAttribute("data-edit-product");
-    const deleteId = event.target.getAttribute("data-delete-product");
+    const target = event.target.closest("[data-edit-product], [data-delete-product]");
+    if (!target) return;
+
+    const editId = target.getAttribute("data-edit-product");
+    const deleteId = target.getAttribute("data-delete-product");
 
     if (editId) fillProductForm(editId);
     if (deleteId) await deleteProduct(deleteId);
   });
 
   elements.orderList?.addEventListener("click", async (event) => {
-    const orderId = event.target.getAttribute("data-order-status");
-    const nextStatus = event.target.getAttribute("data-next-status");
+    const target = event.target.closest("[data-order-status]");
+    if (!target) return;
+
+    const orderId = target.getAttribute("data-order-status");
+    const nextStatus = target.getAttribute("data-next-status");
 
     if (!orderId || !nextStatus) return;
 

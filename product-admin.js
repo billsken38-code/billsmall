@@ -60,7 +60,8 @@ const state = {
   uploadedImages: [],
   unsubscribeProducts: null,
   isSaving: false,
-  isReady: false
+  isReady: false,
+  eventsBound: false
 };
 
 function formatCurrency(value) {
@@ -165,6 +166,11 @@ async function uploadImageFile(file) {
 }
 
 function resetForm() {
+  if (!state.isReady) {
+    showToast("Admin access is still loading.", { type: "info" });
+    return;
+  }
+
   elements.productForm?.reset();
   state.uploadedImages = [];
   updateImagePreview([]);
@@ -176,6 +182,13 @@ function resetForm() {
   if (elements.statusInput) {
     elements.statusInput.value = "Active";
   }
+}
+
+function setFormEnabled(enabled) {
+  const fields = elements.productForm?.querySelectorAll("input, select, textarea, button");
+  fields?.forEach((field) => {
+    field.disabled = !enabled;
+  });
 }
 
 function productCardTemplate(id, product) {
@@ -331,6 +344,11 @@ function validateFormData(data) {
 }
 
 async function addProduct() {
+  if (!state.isReady) {
+    showToast("Admin access is still loading.", { type: "info" });
+    return;
+  }
+
   if (state.isSaving) return;
   state.isSaving = true;
 
@@ -381,6 +399,11 @@ async function addProduct() {
 }
 
 async function deleteProduct(id) {
+  if (!state.isReady) {
+    showToast("Admin access is still loading.", { type: "info" });
+    return;
+  }
+
   if (!confirm("Delete this product?")) return;
 
   try {
@@ -393,6 +416,9 @@ async function deleteProduct(id) {
 }
 
 function bindEvents() {
+  if (state.eventsBound) return;
+  state.eventsBound = true;
+
   elements.productForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     await addProduct();
@@ -401,7 +427,10 @@ function bindEvents() {
   elements.resetFormBtn?.addEventListener("click", resetForm);
 
   elements.productList?.addEventListener("click", async (event) => {
-    const productId = event.target.getAttribute("data-delete-product");
+    const target = event.target.closest("[data-delete-product]");
+    if (!target) return;
+
+    const productId = target.getAttribute("data-delete-product");
     if (!productId) return;
     await deleteProduct(productId);
   });
@@ -424,6 +453,12 @@ function bindEvents() {
   });
 
   elements.imageFilesInput?.addEventListener("change", async (event) => {
+    if (!state.isReady) {
+      showToast("Admin access is still loading.", { type: "info" });
+      event.target.value = "";
+      return;
+    }
+
     const files = Array.from(event.target.files || []);
 
     if (!files.length) {
@@ -456,14 +491,17 @@ function bindEvents() {
 
 async function init() {
   initializeCategoryDropdown();
+  setFormEnabled(false);
   bindEvents();
 
   try {
     await requireAdmin();
     state.isReady = true;
+    setFormEnabled(true);
     subscribeProducts();
   } catch {
     state.isReady = false;
+    setFormEnabled(false);
   }
 }
 
