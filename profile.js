@@ -4,27 +4,28 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
 import { auth } from "./firebase.js";
+import { redirectWithToast } from "./ui.js";
 
 const nameEl = document.getElementById("user-name");
 const emailEl = document.getElementById("user-email");
 const avatarEl = document.getElementById("profile-avatar");
 const addressEl = document.getElementById("user-address");
+const logoutButton = document.querySelector(".logout-btn");
 
 function loadAddress() {
   const saved = localStorage.getItem("address");
-
-  if (saved) {
-    addressEl.innerText = saved;
-  } else {
-    addressEl.innerText = "No address added";
-  }
+  addressEl.innerText = saved || "No address added";
 }
 
-onAuthStateChanged(auth, (user) => {
+function updateProfileUi(user) {
   if (!user) {
     nameEl.innerText = "Guest User";
     emailEl.innerText = "Not logged in";
-    avatarEl.innerText = "👤";
+    avatarEl.innerText = "G";
+
+    if (logoutButton) {
+      logoutButton.innerText = "Login";
+    }
     return;
   }
 
@@ -34,6 +35,14 @@ onAuthStateChanged(auth, (user) => {
   nameEl.innerText = displayName;
   emailEl.innerText = email;
   avatarEl.innerText = displayName.charAt(0).toUpperCase();
+
+  if (logoutButton) {
+    logoutButton.innerText = "Logout";
+  }
+}
+
+onAuthStateChanged(auth, (user) => {
+  updateProfileUi(user);
 });
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -77,10 +86,15 @@ function showToast(message) {
 }
 
 window.logout = async function () {
+  if (!auth.currentUser) {
+    window.location.href = "login.html";
+    return;
+  }
+
   try {
     await signOut(auth);
-    localStorage.removeItem("cart");
-    window.location.href = "login.html";
+    localStorage.removeItem("userId");
+    redirectWithToast("index.html", "Logged out. You can still browse products.", { type: "info" });
   } catch (error) {
     console.error("Logout failed:", error);
     showToast("Failed to logout");

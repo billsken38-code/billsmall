@@ -9,6 +9,10 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function isVendor(vendorId) {
+      return signedIn() && request.auth.uid == vendorId;
+    }
+
     function isVendorProductOwner() {
       return signedIn() &&
         resource.data.vendorId == request.auth.uid;
@@ -29,6 +33,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /vendors/{vendorId} {
+      allow read: if isAdmin() || isVendor(vendorId);
+      allow create: if isAdmin() || isVendor(vendorId);
+      allow update: if isAdmin() || isVendor(vendorId);
+      allow delete: if isAdmin();
+    }
+
     match /products/{productId} {
       allow read: if true;
       allow create: if isAdmin() || isIncomingVendorProductOwner();
@@ -38,8 +49,17 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow create: if signedIn()
         && request.resource.data.userId == request.auth.uid;
-      allow read: if isAdmin() || isOwner(resource.data.userId);
-      allow update, delete: if isAdmin();
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || isVendor(resource.data.vendorId);
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.vendorId == request.auth.uid
+          && request.resource.data.vendorId == resource.data.vendorId
+          && request.resource.data.userId == resource.data.userId
+        );
+      allow delete: if isAdmin();
     }
 
     match /platform_settings/{documentId} {

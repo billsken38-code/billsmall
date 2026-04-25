@@ -6,7 +6,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import {
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import { redirectWithToast, showToast } from "./ui.js";
 
 const CATEGORY_OPTIONS = [
@@ -35,7 +38,9 @@ const state = {
   unsubscribeProducts: null,
   currentProduct: null,
   currentImageIndex: 0,
-  authReady: false
+  authReady: false,
+  currentUser: null,
+  loginPromptTimeoutId: null
 };
 
 const elements = {
@@ -46,7 +51,14 @@ const elements = {
   adminLink: document.getElementById("admin-link"),
   lightbox: document.getElementById("lightbox"),
   lightboxImage: document.querySelector(".lightbox-img"),
-  categoryBar: document.querySelector(".category-bar")
+  categoryBar: document.querySelector(".category-bar"),
+  loginCtaButton: document.getElementById("login-cta-button"),
+  loginCallout: document.getElementById("login-callout"),
+  navOrdersLink: document.getElementById("nav-orders-link"),
+  navProfileLink: document.getElementById("nav-profile-link"),
+  navLoginLink: document.getElementById("nav-login-link"),
+  navSignupLink: document.getElementById("nav-signup-link"),
+  navLogoutButton: document.getElementById("nav-logout-button")
 };
 
 function formatCurrency(value) {
@@ -89,6 +101,92 @@ function getPrimaryImage(product) {
 function isOutOfStock(product) {
   const stock = Number(product.stock || 0);
   return stock <= 0 || product.status === "Out of Stock";
+}
+
+function isLoggedIn() {
+  return !!(state.currentUser || localStorage.getItem("userId"));
+}
+
+function updateGuestAccessUi() {
+  const loggedIn = isLoggedIn();
+
+  if (elements.loginCtaButton) {
+    elements.loginCtaButton.hidden = loggedIn;
+  }
+
+  if (elements.navOrdersLink) {
+    elements.navOrdersLink.hidden = !loggedIn;
+  }
+
+  if (elements.navProfileLink) {
+    elements.navProfileLink.hidden = !loggedIn;
+  }
+
+  if (elements.navLoginLink) {
+    elements.navLoginLink.hidden = loggedIn;
+  }
+
+  if (elements.navSignupLink) {
+    elements.navSignupLink.hidden = loggedIn;
+  }
+
+  if (elements.navLogoutButton) {
+    elements.navLogoutButton.hidden = !loggedIn;
+  }
+}
+
+function hideLoginPrompt() {
+  if (!elements.loginCallout) return;
+
+  elements.loginCallout.hidden = true;
+  elements.loginCallout.classList.remove("show");
+
+  if (state.loginPromptTimeoutId) {
+    window.clearTimeout(state.loginPromptTimeoutId);
+    state.loginPromptTimeoutId = null;
+  }
+}
+
+function showLoginPrompt() {
+  if (!elements.loginCallout || !elements.loginCtaButton) {
+    showToast("Please log in first to add products.", { type: "info" });
+    return;
+  }
+
+  const buttonRect = elements.loginCtaButton.getBoundingClientRect();
+  const calloutWidth = Math.min(320, Math.max(220, window.innerWidth - 24));
+  const left = Math.min(
+    window.innerWidth - calloutWidth - 12,
+    Math.max(12, buttonRect.right - calloutWidth)
+  );
+  const top = buttonRect.bottom + 14;
+  const arrowLeft = Math.min(
+    calloutWidth - 28,
+    Math.max(28, buttonRect.left + buttonRect.width / 2 - left)
+  );
+
+  elements.loginCallout.style.width = `${calloutWidth}px`;
+  elements.loginCallout.style.left = `${left}px`;
+  elements.loginCallout.style.top = `${top}px`;
+  elements.loginCallout.style.setProperty("--login-callout-arrow-left", `${arrowLeft}px`);
+  elements.loginCallout.hidden = false;
+
+  window.requestAnimationFrame(() => {
+    elements.loginCallout.classList.add("show");
+  });
+
+  elements.loginCtaButton.classList.add("login-cta-highlight");
+  window.setTimeout(() => {
+    elements.loginCtaButton?.classList.remove("login-cta-highlight");
+  }, 1800);
+
+  if (state.loginPromptTimeoutId) {
+    window.clearTimeout(state.loginPromptTimeoutId);
+  }
+
+  state.loginPromptTimeoutId = window.setTimeout(() => {
+    hideLoginPrompt();
+  }, 3800);
 }
 
 function renderCategoryBar() {
@@ -214,6 +312,11 @@ function addToCart(productId) {
   const product = state.products.find((item) => item.id === productId);
   if (!product) return;
 
+  if (!isLoggedIn()) {
+    showLoginPrompt();
+    return;
+  }
+
   if (isOutOfStock(product)) {
     showToast("This product is out of stock.", { type: "error" });
     return;
@@ -288,10 +391,17 @@ function prevImage() {
   elements.lightboxImage.src = images[state.currentImageIndex];
 }
 
-function logout() {
-  localStorage.removeItem("user");
-  localStorage.removeItem("userId");
-  redirectWithToast("login.html", "Logged out successfully.", { type: "success" });
+async function logout() {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Logout failed:", error);
+  } finally {
+    localStorage.removeItem("user");
+    localStorage.removeItem("userId");
+    hideLoginPrompt();
+    redirectWithToast("index.html", "Logged out. You can still browse products.", { type: "info" });
+  }
 }
 
 function revealAdminLink() {
@@ -302,6 +412,7 @@ function revealAdminLink() {
 
 function bindEvents() {
   elements.searchInput?.addEventListener("input", applyFilters);
+  elements.loginCtaButton?.addEventListener("click", hideLoginPrompt);
 
   elements.categoryBar?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-category]");
@@ -317,6 +428,9 @@ function bindEvents() {
       showToast("Admin shortcut unlocked.", { type: "info" });
     }
   });
+
+  window.addEventListener("resize", hideLoginPrompt);
+  window.addEventListener("scroll", hideLoginPrompt, { passive: true });
 }
 
 function subscribeProducts() {
@@ -355,11 +469,9 @@ function subscribeProducts() {
 function initAuthGuard() {
   onAuthStateChanged(auth, (user) => {
     state.authReady = true;
-
-    if (!user && !localStorage.getItem("userId")) {
-      window.location.href = "login.html";
-      return;
-    }
+    state.currentUser = user || null;
+    hideLoginPrompt();
+    updateGuestAccessUi();
 
     if (user?.email) {
       const adminEmails = [
@@ -395,6 +507,7 @@ function setupCategoryMobileToggle() {
 
 function init() {
   renderCategoryBar();
+  updateGuestAccessUi();
   bindEvents();
   subscribeProducts();
   updateCartCount();

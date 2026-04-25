@@ -1,4 +1,4 @@
-const CACHE_NAME = "bills-mall-v1";
+const CACHE_NAME = "bills-mall-v2";
 
 const FILES_TO_CACHE = [
   "./",
@@ -50,6 +50,44 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+  const isHtmlRequest =
+    event.request.mode === "navigate" ||
+    event.request.destination === "document";
+  const isCoreAsset =
+    isSameOrigin &&
+    (
+      requestUrl.pathname.endsWith("/script.js") ||
+      requestUrl.pathname.endsWith("/product.js") ||
+      requestUrl.pathname.endsWith("/cart.js") ||
+      requestUrl.pathname.endsWith("/profile.js") ||
+      requestUrl.pathname.endsWith("/checkout.js") ||
+      requestUrl.pathname.endsWith("/index.html") ||
+      requestUrl.pathname === "/" ||
+      requestUrl.pathname.endsWith("/service-worker.js")
+    );
+
+  if (isHtmlRequest || isCoreAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const responseClone = networkResponse.clone();
+
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(event.request);
+          return cachedResponse || caches.match("./index.html");
+        })
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {

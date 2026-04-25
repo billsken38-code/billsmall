@@ -3,12 +3,84 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-import { db } from "./firebase.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import { auth, db } from "./firebase.js";
 import { showToast } from "./ui.js";
 
 let product = null;
 let selectedVariation = null;
 let currentImage = "";
+let currentUser = null;
+let loginPromptTimeoutId = null;
+
+const elements = {
+  loginCtaButton: document.getElementById("login-cta-button"),
+  loginCallout: document.getElementById("login-callout")
+};
+
+function isLoggedIn() {
+  return !!(currentUser || localStorage.getItem("userId"));
+}
+
+function updateGuestAccessUi() {
+  if (elements.loginCtaButton) {
+    elements.loginCtaButton.hidden = isLoggedIn();
+  }
+}
+
+function hideLoginPrompt() {
+  if (!elements.loginCallout) return;
+
+  elements.loginCallout.hidden = true;
+  elements.loginCallout.classList.remove("show");
+
+  if (loginPromptTimeoutId) {
+    window.clearTimeout(loginPromptTimeoutId);
+    loginPromptTimeoutId = null;
+  }
+}
+
+function showLoginPrompt() {
+  if (!elements.loginCallout || !elements.loginCtaButton) {
+    showToast("Please log in first to add products.", { type: "info" });
+    return;
+  }
+
+  const buttonRect = elements.loginCtaButton.getBoundingClientRect();
+  const calloutWidth = Math.min(320, Math.max(220, window.innerWidth - 24));
+  const left = Math.min(
+    window.innerWidth - calloutWidth - 12,
+    Math.max(12, buttonRect.right - calloutWidth)
+  );
+  const top = buttonRect.bottom + 14;
+  const arrowLeft = Math.min(
+    calloutWidth - 28,
+    Math.max(28, buttonRect.left + buttonRect.width / 2 - left)
+  );
+
+  elements.loginCallout.style.width = `${calloutWidth}px`;
+  elements.loginCallout.style.left = `${left}px`;
+  elements.loginCallout.style.top = `${top}px`;
+  elements.loginCallout.style.setProperty("--login-callout-arrow-left", `${arrowLeft}px`);
+  elements.loginCallout.hidden = false;
+
+  window.requestAnimationFrame(() => {
+    elements.loginCallout.classList.add("show");
+  });
+
+  elements.loginCtaButton.classList.add("login-cta-highlight");
+  window.setTimeout(() => {
+    elements.loginCtaButton?.classList.remove("login-cta-highlight");
+  }, 1800);
+
+  if (loginPromptTimeoutId) {
+    window.clearTimeout(loginPromptTimeoutId);
+  }
+
+  loginPromptTimeoutId = window.setTimeout(() => {
+    hideLoginPrompt();
+  }, 3800);
+}
 
 async function loadProduct() {
   const params = new URLSearchParams(window.location.search);
@@ -120,6 +192,8 @@ function renderProduct() {
 }
 
 function bindProductEvents() {
+  elements.loginCtaButton?.addEventListener("click", hideLoginPrompt);
+
   document.querySelectorAll("[data-image]").forEach((button) => {
     button.addEventListener("click", () => {
       currentImage = button.dataset.image;
@@ -147,6 +221,11 @@ function bindProductEvents() {
 }
 
 function addToCart() {
+  if (!isLoggedIn()) {
+    showLoginPrompt();
+    return;
+  }
+
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
   if (product.variations?.length && !selectedVariation) {
@@ -184,6 +263,11 @@ function addToCart() {
 }
 
 function buyNow() {
+  if (!isLoggedIn()) {
+    showLoginPrompt();
+    return;
+  }
+
   if (product.variations?.length && !selectedVariation) {
     showToast("Select a variation.", { type: "error" });
     return;
@@ -199,5 +283,14 @@ function buyNow() {
   window.location.href = "cart.html";
 }
 
+onAuthStateChanged(auth, (user) => {
+  currentUser = user || null;
+  hideLoginPrompt();
+  updateGuestAccessUi();
+});
 
+window.addEventListener("resize", hideLoginPrompt);
+window.addEventListener("scroll", hideLoginPrompt, { passive: true });
+
+updateGuestAccessUi();
 loadProduct();

@@ -145,6 +145,8 @@ onAuthStateChanged(auth, (user) => {
   if (!container) return;
 
   if (!user) {
+    if (empty) empty.style.display = "none";
+    renderSummary([]);
     container.innerHTML = `<div class="orders-page-empty">Please login to view your orders.</div>`;
     return;
   }

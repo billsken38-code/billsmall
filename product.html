@@ -11,6 +11,9 @@
   <header class="navbar">
     <a href="index.html"><button type="button">⬅ Back</button></a>
     <h1 class="logo">Product Details</h1>
+    <div class="nav-actions product-nav-actions">
+      <a href="login.html" class="login-cta-btn" id="login-cta-button">Login</a>
+    </div>
   </header>
 
   <main class="product-page-shell">
@@ -18,6 +21,11 @@
       <div class="product-page-empty">Loading product...</div>
     </div>
   </main>
+
+  <div id="login-callout" class="login-callout" hidden>
+    <div class="login-callout-arrow" aria-hidden="true"></div>
+    <p class="login-callout-text">Log in first to add products to your cart.</p>
+  </div>
 
   <script type="module" src="product.js"></script>
 </body>

@@ -9,6 +9,10 @@ const summaryItems = document.getElementById("cart-summary-items");
 const summaryProducts = document.getElementById("cart-summary-products");
 const summaryTotal = document.getElementById("cart-summary-total");
 
+function isLoggedIn() {
+  return !!localStorage.getItem("userId");
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-GH", {
     style: "currency",
@@ -132,6 +136,21 @@ cartContainer?.addEventListener("click", (event) => {
   if (action === "increase") increase(index);
   if (action === "decrease") decrease(index);
   if (action === "remove") removeItem(index);
+});
+
+checkoutLink?.addEventListener("click", (event) => {
+  if (checkoutBtn?.disabled || isLoggedIn()) return;
+
+  event.preventDefault();
+  sessionStorage.setItem(
+    "pending_app_toast",
+    JSON.stringify({
+      message: "Please log in to continue to checkout.",
+      type: "info",
+      duration: 2600
+    })
+  );
+  window.location.href = "login.html";
 });
 
 displayCart();

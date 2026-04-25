@@ -133,12 +133,56 @@ button:hover {
   cursor: pointer;
   width: auto;
   padding: 0;
+  text-decoration: none;
+}
+
+.mobile-auth-link {
+  display: none;
 }
 
 .nav-actions {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.product-nav-actions {
+  margin-left: auto;
+}
+
+.login-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f6d6a8, #ffd98b);
+  color: #4b2e2b;
+  text-decoration: none;
+  font-weight: 700;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-cta-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.22);
+}
+
+.login-cta-highlight {
+  animation: loginPulse 0.8s ease 2;
+}
+
+@keyframes loginPulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-2px) scale(1.06);
+  }
 }
 
 /* =======================
@@ -1425,6 +1469,45 @@ button:hover {
   background: linear-gradient(135deg, #6d4a16, var(--brand-dark));
 }
 
+.login-callout {
+  --login-callout-arrow-left: 40px;
+  position: fixed;
+  z-index: 12020;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #fff9ef;
+  color: #4b2e2b;
+  border: 1px solid rgba(75, 46, 43, 0.14);
+  box-shadow: 0 18px 36px rgba(75, 46, 43, 0.18);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.login-callout.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.login-callout-arrow {
+  position: absolute;
+  top: -10px;
+  left: calc(var(--login-callout-arrow-left) - 10px);
+  width: 20px;
+  height: 20px;
+  background: #fff9ef;
+  border-top: 1px solid rgba(75, 46, 43, 0.14);
+  border-left: 1px solid rgba(75, 46, 43, 0.14);
+  transform: rotate(45deg);
+}
+
+.login-callout-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 /* =======================
    VENDOR IMAGE PREVIEW
 ======================= */
@@ -1671,9 +1754,17 @@ button:hover {
     display: flex;
   }
 
+  .mobile-auth-link {
+    display: inline-flex;
+  }
+
   .search-bar {
     width: 100%;
     order: 3;
+  }
+
+  .nav-actions {
+    margin-left: auto;
   }
 
   .cart-btn {
@@ -1737,6 +1828,15 @@ button:hover {
   .app-toast {
     max-width: none;
     min-width: 0;
+  }
+
+  .login-cta-btn {
+    min-width: 78px;
+    padding: 9px 14px;
+  }
+
+  .login-callout {
+    max-width: calc(100vw - 24px);
   }
 
   #products-container {
