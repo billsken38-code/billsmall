@@ -175,6 +175,15 @@ function sanitizeFileName(fileName = "") {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function loadSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
   if (!raw) {
