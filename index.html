@@ -15,12 +15,10 @@
 
     <div class="search-bar">
       <input type="text" placeholder="Search for products..." id="search-input" />
+      <button type="button" id="search-button" class="search-btn">Search</button>
     </div>
 
     <div class="nav-actions">
-      <a href="login.html" class="login-cta-btn" id="login-cta-button">
-        Login
-      </a>
       <a href="cart.html" class="cart-link">
         <div class="cart-icon">
           🛒
@@ -35,8 +33,8 @@
       <a href="index.html" onclick="toggleMenu()">Home</a>
       <a href="orders-user.html" id="nav-orders-link" onclick="toggleMenu()">My Orders</a>
       <a href="profile.html" id="nav-profile-link" onclick="toggleMenu()">Profile</a>
-      <a href="login.html" id="nav-login-link" class="mobile-auth-link" onclick="toggleMenu()">Login</a>
-      <a href="signup.html" id="nav-signup-link" class="mobile-auth-link" onclick="toggleMenu()">Create Account</a>
+      <a href="login.html" id="nav-login-link" class="auth-nav-link" onclick="toggleMenu()">Login</a>
+      <a href="signup.html" id="nav-signup-link" class="auth-nav-link auth-nav-link-secondary" onclick="toggleMenu()">Create Account</a>
       <button id="nav-logout-button" onclick="logout()">Logout</button>
     </div>
   </header>

@@ -140,26 +140,115 @@
       </section>
 
       <section class="section" id="section-products">
-        <article class="card">
-          <div class="card-head">
-            <div>
-              <p class="eyebrow">Global product control</p>
-              <h3>Manage all vendor products</h3>
+        <div class="product-admin-dashboard-grid">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Catalog management</p>
+                <h3>Add product directly from admin</h3>
+              </div>
             </div>
-          </div>
-          <div class="filter-bar">
-            <input id="productSearch" type="text" placeholder="Search product" />
-            <select id="productVendorFilter"></select>
-            <select id="productStatusFilter">
-              <option value="all">All statuses</option>
-              <option value="approved">Approved</option>
-              <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <select id="productCategoryFilter"></select>
-          </div>
-          <div class="stack" id="productList"></div>
-        </article>
+
+            <form id="product-form" class="admin-product-form">
+              <div class="admin-product-row">
+                <label>
+                  Product Name
+                  <input type="text" id="name" placeholder="Product Name" required />
+                </label>
+
+                <label>
+                  Price
+                  <input type="number" id="price" placeholder="Price" min="0" step="0.01" required />
+                </label>
+              </div>
+
+              <div class="admin-product-row">
+                <label>
+                  Category
+                  <select id="category" required></select>
+                </label>
+
+                <label>
+                  Stock
+                  <input type="number" id="stock" placeholder="Stock quantity" min="0" step="1" />
+                </label>
+              </div>
+
+              <div class="admin-product-row">
+                <label>
+                  Status
+                  <select id="status">
+                    <option value="Active">Active</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Out of Stock">Out of Stock</option>
+                  </select>
+                </label>
+
+                <label class="admin-product-checkbox">
+                  <span>Featured Product</span>
+                  <input type="checkbox" id="featured" />
+                </label>
+              </div>
+
+              <label>
+                Image URLs
+                <input type="text" id="images" placeholder="images/product1.jpg, ./images/product2.jpg or https://image1..." />
+              </label>
+
+              <p class="admin-product-helper">
+                Paste direct image URLs separated by commas, or upload one or more image files below.
+              </p>
+
+              <label>
+                Upload Images
+                <input type="file" id="image-files" accept="image/*" multiple />
+              </label>
+
+              <div class="admin-product-preview-wrap">
+                <div id="admin-image-preview" class="admin-product-preview-grid"></div>
+              </div>
+
+              <label>
+                Description
+                <textarea id="product-description" placeholder="Enter product description" rows="4" required></textarea>
+              </label>
+
+              <label>
+                Variations (comma separated)
+                <input type="text" id="variations" placeholder="e.g. Size 38, Size 39, Size 40" />
+              </label>
+
+              <div class="actions-inline">
+                <button type="submit" class="btn">Add Product</button>
+                <button type="button" class="btn-outline" id="reset-product-form">Reset</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Global product control</p>
+                <h3>Manage all vendor products</h3>
+              </div>
+            </div>
+            <div class="filter-bar">
+              <input id="productSearch" type="text" placeholder="Search product" />
+              <select id="productVendorFilter"></select>
+              <select id="productStatusFilter">
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="out of stock">Out of Stock</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <select id="productCategoryFilter"></select>
+            </div>
+            <div class="stack" id="productList"></div>
+          </article>
+        </div>
       </section>
 
       <section class="section" id="section-orders">

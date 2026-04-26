@@ -1,13 +1,20 @@
 import {
   collection,
+  addDoc,
   onSnapshot,
   doc,
+  deleteDoc,
   updateDoc,
   setDoc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
 
-import { auth, db } from "./firebase.js";
+import { auth, db, storage } from "./firebase.js";
 import { requireAdmin } from "./admin-auth.js";
 import { showToast } from "./ui.js";
 import {
@@ -18,6 +25,23 @@ import {
 } from "./delivery-config.js";
 
 const SETTINGS_KEY = "bills_mall_admin_settings_v1";
+const PRODUCT_CATEGORY_FALLBACK = [
+  "Fashion",
+  "Electronics",
+  "Beauty",
+  "Home & Kitchen",
+  "Health",
+  "Shoes",
+  "Bags",
+  "Accessories",
+  "Books",
+  "Baby Products",
+  "Groceries",
+  "Sports",
+  "Office Supplies",
+  "Jewelry",
+  "Other"
+];
 
 const defaultSettings = {
   commissionRate: 5,
@@ -52,7 +76,9 @@ const state = {
   unsubscribeVendors: null,
   unsubscribeProducts: null,
   unsubscribeOrders: null,
-  unsubscribePlatformSettings: null
+  unsubscribePlatformSettings: null,
+  productImages: [],
+  isSavingProduct: false
 };
 
 const elements = {
@@ -65,6 +91,19 @@ const elements = {
   topProductsList: document.getElementById("topProductsList"),
   vendorList: document.getElementById("vendorList"),
   productList: document.getElementById("productList"),
+  productForm: document.getElementById("product-form"),
+  productNameInput: document.getElementById("name"),
+  productPriceInput: document.getElementById("price"),
+  productCategoryInput: document.getElementById("category"),
+  productStockInput: document.getElementById("stock"),
+  productAdminStatusInput: document.getElementById("status"),
+  productFeaturedInput: document.getElementById("featured"),
+  productImageInput: document.getElementById("images"),
+  productImageFilesInput: document.getElementById("image-files"),
+  productImagePreview: document.getElementById("admin-image-preview"),
+  productDescriptionInput: document.getElementById("product-description"),
+  productVariationsInput: document.getElementById("variations"),
+  resetProductFormBtn: document.getElementById("reset-product-form"),
   orderList: document.getElementById("orderList"),
   customerList: document.getElementById("customerList"),
   payoutList: document.getElementById("payoutList"),
@@ -109,6 +148,32 @@ const elements = {
   exportBtn: document.getElementById("exportBtn"),
   seedDataBtn: document.getElementById("seedDataBtn")
 };
+
+function isValidImagePath(value) {
+  const path = String(value || "").trim();
+
+  if (!path) return false;
+  if (/^https?:\/\//i.test(path)) return true;
+
+  return (
+    path.startsWith("./") ||
+    path.startsWith("../") ||
+    path.startsWith("/") ||
+    path.startsWith("images/") ||
+    path.startsWith("./images/")
+  );
+}
+
+function normalizeImageList(values = []) {
+  return values
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value) => isValidImagePath(value));
+}
+
+function sanitizeFileName(fileName = "") {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
 
 function loadSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
@@ -452,6 +517,9 @@ function renderTopLists() {
 
 function renderVendorFilters() {
   const categories = [...new Set(state.data.products.map((item) => item.category).filter(Boolean))];
+  const adminCategories = state.data.settings.categories?.length
+    ? state.data.settings.categories
+    : PRODUCT_CATEGORY_FALLBACK;
 
   elements.productVendorFilter.innerHTML = ['<option value="all">All vendors</option>']
     .concat(
@@ -464,6 +532,17 @@ function renderVendorFilters() {
   elements.productCategoryFilter.innerHTML = ['<option value="all">All categories</option>']
     .concat(categories.map((category) => `<option value="${category}">${category}</option>`))
     .join("");
+
+  if (elements.productCategoryInput) {
+    const currentValue = elements.productCategoryInput.value;
+    elements.productCategoryInput.innerHTML = ['<option value="">Select category</option>']
+      .concat(adminCategories.map((category) => `<option value="${category}">${category}</option>`))
+      .join("");
+
+    if (currentValue && adminCategories.includes(currentValue)) {
+      elements.productCategoryInput.value = currentValue;
+    }
+  }
 }
 
 async function updateVendorStatus(vendorId, status) {
@@ -561,9 +640,170 @@ function renderProducts() {
             <div class="detail-box"><span>Sold</span><strong>${product.sold || 0}</strong></div>
             <div class="detail-box"><span>Vendor</span><strong>${getVendorName(product.vendorId)}</strong></div>
           </div>
+          ${
+            product.description
+              ? `<p class="admin-product-description">${escapeHtml(product.description)}</p>`
+              : ""
+          }
+          ${
+            Array.isArray(product.variations) && product.variations.length
+              ? `<div class="admin-product-tags">
+                  ${product.variations.map((variation) => `<span>${escapeHtml(variation)}</span>`).join("")}
+                </div>`
+              : ""
+          }
+          <div class="table-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-danger" data-delete-product="${product.id}">Delete</button>
+          </div>
         </article>
       `).join("")
     : '<div class="empty-state">No products found.</div>';
+}
+
+function updateProductImagePreview(images) {
+  if (!elements.productImagePreview) return;
+
+  if (!images.length) {
+    elements.productImagePreview.innerHTML = "";
+    elements.productImagePreview.classList.remove("has-images");
+    return;
+  }
+
+  elements.productImagePreview.innerHTML = images
+    .map((src, index) => `<img src="${src}" alt="Preview ${index + 1}">`)
+    .join("");
+  elements.productImagePreview.classList.add("has-images");
+}
+
+function resetProductForm() {
+  elements.productForm?.reset();
+  state.productImages = [];
+  updateProductImagePreview([]);
+
+  if (elements.productCategoryInput) {
+    elements.productCategoryInput.value = "";
+  }
+
+  if (elements.productAdminStatusInput) {
+    elements.productAdminStatusInput.value = "Active";
+  }
+}
+
+function setProductFormEnabled(enabled) {
+  const fields = elements.productForm?.querySelectorAll("input, select, textarea, button");
+  fields?.forEach((field) => {
+    field.disabled = !enabled;
+  });
+}
+
+function getProductFormData() {
+  const typedImages = normalizeImageList(
+    (elements.productImageInput?.value || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+
+  const uploadedImages = Array.from(new Set(state.productImages.filter((value) => /^https?:\/\//i.test(value))));
+  const images = [...typedImages, ...uploadedImages].filter(Boolean);
+  const variationsInput = elements.productVariationsInput?.value.trim() || "";
+
+  return {
+    name: elements.productNameInput?.value.trim() || "",
+    price: Number(elements.productPriceInput?.value || 0),
+    category: elements.productCategoryInput?.value || "",
+    stock: Number(elements.productStockInput?.value || 0),
+    status: elements.productAdminStatusInput?.value || "Active",
+    featured: !!elements.productFeaturedInput?.checked,
+    images,
+    description: elements.productDescriptionInput?.value.trim() || "",
+    variations: variationsInput
+      ? variationsInput.split(",").map((item) => item.trim()).filter(Boolean)
+      : []
+  };
+}
+
+function validateProductFormData(data) {
+  if (!data.name) return "Product name is required.";
+  if (Number.isNaN(data.price) || data.price <= 0) return "Enter a valid product price.";
+  if (!data.category) return "Please select a category.";
+  if (Number.isNaN(data.stock) || data.stock < 0) return "Stock must be 0 or more.";
+  if (!data.description) return "Product description is required.";
+  if (!data.images.length) return "Add at least one product image.";
+  return "";
+}
+
+async function uploadAdminImageFile(file) {
+  const adminId = auth.currentUser?.uid;
+  if (!adminId) {
+    throw new Error("You must be logged in as admin to upload images.");
+  }
+
+  const safeName = `${Date.now()}-${sanitizeFileName(file.name)}`;
+  const storageRef = ref(storage, `products/${adminId}/${safeName}`);
+
+  await uploadBytes(storageRef, file, {
+    contentType: file.type
+  });
+
+  return getDownloadURL(storageRef);
+}
+
+async function addProductFromAdmin() {
+  if (state.isSavingProduct) return;
+
+  state.isSavingProduct = true;
+  const submitButton = elements.productForm?.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
+
+  try {
+    const formData = getProductFormData();
+    const validationMessage = validateProductFormData(formData);
+
+    if (validationMessage) {
+      showToast(validationMessage, { type: "error" });
+      return;
+    }
+
+    await addDoc(collection(db, "products"), {
+      name: formData.name,
+      price: formData.price,
+      category: formData.category,
+      stock: formData.stock,
+      status: formData.status,
+      featured: formData.featured,
+      image: formData.images[0],
+      images: formData.images,
+      description: formData.description,
+      variations: formData.variations,
+      vendorId: auth.currentUser?.uid || "admin",
+      createdAt: new Date().toISOString(),
+      sold: 0,
+      views: 0
+    });
+
+    showToast("Product added successfully.", { type: "success" });
+    resetProductForm();
+  } catch (error) {
+    console.error("Failed to add product:", error);
+    showToast(`Failed to add product: ${error.message}`, { type: "error" });
+  } finally {
+    state.isSavingProduct = false;
+    if (submitButton) submitButton.disabled = false;
+  }
+}
+
+async function deleteProductFromAdmin(productId) {
+  if (!productId) return;
+  if (!confirm("Delete this product?")) return;
+
+  try {
+    await deleteDoc(doc(db, "products", productId));
+    showToast("Product deleted.", { type: "success" });
+  } catch (error) {
+    console.error("Failed to delete product:", error);
+    showToast(`Failed to delete product: ${error.message}`, { type: "error" });
+  }
 }
 
 function renderOrders() {
@@ -987,6 +1227,13 @@ function bindEvents() {
     button.addEventListener("click", () => setSection(button.dataset.section));
   });
 
+  elements.productForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await addProductFromAdmin();
+  });
+
+  elements.resetProductFormBtn?.addEventListener("click", resetProductForm);
+
   elements.chartRangeSelect.addEventListener("change", (event) => {
     state.chartRange = event.target.value;
     renderChart();
@@ -1180,6 +1427,51 @@ function bindEvents() {
     });
   });
 
+  elements.productImageInput?.addEventListener("input", (event) => {
+    const typedImages = normalizeImageList(
+      event.target.value
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
+
+    const uploadedImages = state.productImages.filter((value) => /^https?:\/\//i.test(value));
+    state.productImages = [...typedImages, ...uploadedImages];
+    updateProductImagePreview(state.productImages);
+  });
+
+  elements.productImageFilesInput?.addEventListener("change", async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    if (files.some((file) => !file.type.startsWith("image/"))) {
+      showToast("Please choose image files only.", { type: "error" });
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      showToast("Uploading images...", { type: "info" });
+      const uploaded = await Promise.all(files.map((file) => uploadAdminImageFile(file)));
+      const typedImages = normalizeImageList(
+        (elements.productImageInput?.value || "")
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+      );
+
+      state.productImages = [...typedImages, ...uploaded];
+      updateProductImagePreview(state.productImages);
+      showToast(
+        `${uploaded.length} image${uploaded.length > 1 ? "s" : ""} uploaded successfully.`,
+        { type: "success" }
+      );
+    } catch (error) {
+      console.error("Failed to upload product images:", error);
+      showToast(`Image upload failed: ${error.message}`, { type: "error" });
+    }
+  });
+
   elements.vendorList.addEventListener("click", async (event) => {
     const approveId = event.target.getAttribute("data-vendor-approve");
     const suspendId = event.target.getAttribute("data-vendor-suspend");
@@ -1191,6 +1483,13 @@ function bindEvents() {
     if (suspendId) {
       await updateVendorStatus(suspendId, "suspended");
     }
+  });
+
+  elements.productList.addEventListener("click", async (event) => {
+    const productId = event.target.getAttribute("data-delete-product");
+    if (!productId) return;
+
+    await deleteProductFromAdmin(productId);
   });
 
   elements.orderList.addEventListener("click", async (event) => {
@@ -1205,6 +1504,7 @@ function bindEvents() {
 
 async function init() {
   bindEvents();
+  setProductFormEnabled(false);
 
   try {
     const user = await requireAdmin();
@@ -1218,6 +1518,7 @@ async function init() {
 
     await ensurePlatformSettingsDoc();
 
+    setProductFormEnabled(true);
     renderAll();
     subscribePlatformSettings();
     subscribeVendors();

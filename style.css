@@ -93,7 +93,7 @@ button:hover {
   display: flex;
   gap: 5px;
   flex: 1;
-  max-width: 300px;
+  max-width: 420px;
 }
 
 .search-bar input {
@@ -103,6 +103,12 @@ button:hover {
   border: none;
   background: #ffffff;
   color: var(--text-main);
+}
+
+.search-btn {
+  padding: 8px 16px;
+  white-space: nowrap;
+  background: linear-gradient(135deg, #8b5e3c, #6f4633);
 }
 
 .cart-btn {
@@ -134,10 +140,6 @@ button:hover {
   width: auto;
   padding: 0;
   text-decoration: none;
-}
-
-.mobile-auth-link {
-  display: none;
 }
 
 .nav-actions {
@@ -172,6 +174,19 @@ button:hover {
 
 .login-cta-highlight {
   animation: loginPulse 0.8s ease 2;
+}
+
+.auth-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.auth-nav-link-secondary {
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 @keyframes loginPulse {
@@ -1548,22 +1563,22 @@ button:hover {
    SELLER INVITE
 ======================= */
 .seller-invite-section {
-  padding: 40px 20px;
+  padding: 18px 20px;
 }
 
 .app-download-section {
-  padding: 18px 20px 24px;
+  padding: 8px 20px 12px;
 }
 
 .app-download-card {
-  max-width: 1100px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 30px 32px;
-  border-radius: 24px;
+  padding: 16px 18px;
+  border-radius: 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 28px;
+  gap: 16px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(244, 231, 211, 0.96));
   color: var(--text-main);
@@ -1573,12 +1588,12 @@ button:hover {
 
 .app-download-text {
   flex: 1;
-  max-width: 720px;
+  max-width: 620px;
 }
 
 .app-download-kicker {
-  margin: 0 0 10px;
-  font-size: 13px;
+  margin: 0 0 6px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 1.4px;
   text-transform: uppercase;
@@ -1586,47 +1601,48 @@ button:hover {
 }
 
 .app-download-card h2 {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   color: #2f1f1c;
-  font-size: 2rem;
-  line-height: 1.12;
+  font-size: 1.35rem;
+  line-height: 1.08;
 }
 
 .app-download-card p {
   margin: 0;
   color: #5f5148;
-  line-height: 1.6;
+  font-size: 0.94rem;
+  line-height: 1.45;
 }
 
 .app-download-points {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .app-download-points span {
   display: inline-flex;
   align-items: center;
-  padding: 9px 14px;
+  padding: 6px 10px;
   border-radius: 999px;
   background: rgba(75, 46, 43, 0.08);
   color: #4b2e2b;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 .app-download-actions {
-  min-width: 240px;
+  min-width: 180px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 6px;
 }
 
 .app-download-link {
-  min-width: 220px;
-  padding: 16px 24px;
+  min-width: 170px;
+  padding: 10px 16px;
   background: linear-gradient(135deg, var(--brand-dark), #6a443f);
   color: #ffffff;
   white-space: nowrap;
@@ -1634,32 +1650,32 @@ button:hover {
 }
 
 .app-download-note {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   color: #7b6d63;
   text-align: right;
 }
 
 .seller-invite-card {
-  max-width: 1100px;
+  max-width: 980px;
   margin: 0 auto;
   background: linear-gradient(135deg, #f8f4ee, #efe4d4);
   border: 1px solid rgba(75, 46, 43, 0.12);
-  border-radius: 24px;
-  padding: 36px 28px;
+  border-radius: 18px;
+  padding: 18px 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 24px;
+  gap: 14px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
 }
 
 .seller-invite-text {
-  max-width: 700px;
+  max-width: 620px;
 }
 
 .seller-invite-kicker {
-  margin: 0 0 10px;
-  font-size: 13px;
+  margin: 0 0 6px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 1.4px;
   text-transform: uppercase;
@@ -1667,21 +1683,21 @@ button:hover {
 }
 
 .seller-invite-card h2 {
-  margin: 0 0 12px;
-  font-size: 2rem;
-  line-height: 1.15;
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  line-height: 1.08;
   color: #2f1f1c;
 }
 
 .seller-invite-card p {
   margin: 0;
-  font-size: 1.05rem;
-  line-height: 1.7;
+  font-size: 0.92rem;
+  line-height: 1.45;
   color: #4d3a34;
 }
 
 .seller-invite-actions {
-  margin-top: 22px;
+  margin-top: 12px;
 }
 
 .seller-invite-btn {
@@ -1689,10 +1705,10 @@ button:hover {
   background: #4b2e2b;
   color: #ffffff;
   text-decoration: none;
-  padding: 14px 24px;
+  padding: 10px 16px;
   border-radius: 12px;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.88rem;
   transition: all 0.25s ease;
   box-shadow: 0 8px 18px rgba(75, 46, 43, 0.18);
 }
@@ -1703,7 +1719,7 @@ button:hover {
 }
 
 .seller-invite-badge {
-  min-width: 220px;
+  min-width: 150px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1713,11 +1729,12 @@ button:hover {
   background: #ffffff;
   color: #4b2e2b;
   border: 1px solid rgba(75, 46, 43, 0.12);
-  padding: 16px 20px;
+  padding: 10px 14px;
   border-radius: 999px;
   font-weight: 700;
   text-align: center;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  font-size: 0.82rem;
 }
 
 /* =======================
@@ -1754,13 +1771,10 @@ button:hover {
     display: flex;
   }
 
-  .mobile-auth-link {
-    display: inline-flex;
-  }
-
   .search-bar {
     width: 100%;
     order: 3;
+    max-width: none;
   }
 
   .nav-actions {

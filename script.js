@@ -45,6 +45,7 @@ const state = {
 
 const elements = {
   searchInput: document.getElementById("search-input"),
+  searchButton: document.getElementById("search-button"),
   productsContainer: document.getElementById("products-container"),
   featuredProductsContainer: document.getElementById("featured-products-container"),
   cartCount: document.querySelector(".cart-count"),
@@ -52,7 +53,9 @@ const elements = {
   lightbox: document.getElementById("lightbox"),
   lightboxImage: document.querySelector(".lightbox-img"),
   categoryBar: document.querySelector(".category-bar"),
-  loginCtaButton: document.getElementById("login-cta-button"),
+  loginCtaButton:
+    document.getElementById("login-cta-button") ||
+    document.getElementById("nav-login-link"),
   loginCallout: document.getElementById("login-callout"),
   navOrdersLink: document.getElementById("nav-orders-link"),
   navProfileLink: document.getElementById("nav-profile-link"),
@@ -412,6 +415,7 @@ function revealAdminLink() {
 
 function bindEvents() {
   elements.searchInput?.addEventListener("input", applyFilters);
+  elements.searchButton?.addEventListener("click", applyFilters);
   elements.loginCtaButton?.addEventListener("click", hideLoginPrompt);
 
   elements.categoryBar?.addEventListener("click", (event) => {
