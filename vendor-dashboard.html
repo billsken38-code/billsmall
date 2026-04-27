@@ -39,6 +39,7 @@
             class="btn-primary"
             style="width:100%;"
             type="button"
+            data-apk-path="./app-release-signed.apk"
           >
             Install Vendor App
           </button>
@@ -350,6 +351,7 @@
   <script>
     let deferredVendorPrompt;
     const vendorInstallButton = document.getElementById("install-vendor-app-btn");
+    const vendorApkPath = vendorInstallButton?.dataset.apkPath || "./app-release-signed.apk";
     const vendorAppInstalled =
       window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 
@@ -357,14 +359,31 @@
       vendorInstallButton.style.display = "none";
     }
 
+    function updateVendorInstallButtonLabel() {
+      if (!vendorInstallButton || vendorAppInstalled) return;
+      vendorInstallButton.textContent = deferredVendorPrompt
+        ? "Install Vendor App"
+        : "Download Vendor APK";
+    }
+
+    function downloadVendorApk() {
+      const link = document.createElement("a");
+      link.href = vendorApkPath;
+      link.download = "bills-mall-vendor.apk";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+
     window.addEventListener("beforeinstallprompt", (event) => {
       event.preventDefault();
       deferredVendorPrompt = event;
+      updateVendorInstallButtonLabel();
     });
 
     vendorInstallButton?.addEventListener("click", async () => {
       if (!deferredVendorPrompt) {
-        alert("If the install prompt does not appear automatically, open your browser menu and choose Install App or Add to Home Screen.");
+        downloadVendorApk();
         return;
       }
 
@@ -388,6 +407,8 @@
         vendorInstallButton.style.display = "none";
       }
     });
+
+    updateVendorInstallButtonLabel();
   </script>
 </body>
 </html>
