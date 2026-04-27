@@ -348,30 +348,6 @@ function updateVendorAccessUI() {
   renderApprovalNotice();
 }
 
-function insertVendorSupportLinks() {
-  const footer = document.querySelector(".vendor-sidebar-footer");
-  if (!footer) return;
-
-  if (document.getElementById("vendor-support-links")) return;
-
-  const box = document.createElement("div");
-  box.id = "vendor-support-links";
-  box.className = "vendor-support-links";
-  box.innerHTML = `
-    <div style="margin-top:16px;">
-      <p style="margin:0 0 8px 0; font-size:14px;">Need help or want to join the vendor group?</p>
-      <a href="${WHATSAPP_ADMIN_URL}" target="_blank" rel="noopener noreferrer" class="vendor-back-link" style="display:block; margin-bottom:8px;">
-        Chat with Admin on WhatsApp
-      </a>
-      <a href="${WHATSAPP_GROUP_URL}" target="_blank" rel="noopener noreferrer" class="vendor-back-link" style="display:block;">
-        Join Vendor WhatsApp Group
-      </a>
-    </div>
-  `;
-
-  footer.appendChild(box);
-}
-
 /* =========================
    FIREBASE PROFILE
 ========================= */
@@ -1109,7 +1085,6 @@ function renderAll() {
   renderReviews();
   populateSettings();
   updateVendorAccessUI();
-  insertVendorSupportLinks();
 }
 
 function setSection(section) {

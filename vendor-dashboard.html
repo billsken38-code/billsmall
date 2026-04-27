@@ -37,7 +37,7 @@
           <button
             id="install-vendor-app-btn"
             class="btn-primary"
-            style="display:none; width:100%;"
+            style="width:100%;"
             type="button"
           >
             Install Vendor App
@@ -350,18 +350,23 @@
   <script>
     let deferredVendorPrompt;
     const vendorInstallButton = document.getElementById("install-vendor-app-btn");
+    const vendorAppInstalled =
+      window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+    if (vendorInstallButton && vendorAppInstalled) {
+      vendorInstallButton.style.display = "none";
+    }
 
     window.addEventListener("beforeinstallprompt", (event) => {
       event.preventDefault();
       deferredVendorPrompt = event;
-
-      if (vendorInstallButton) {
-        vendorInstallButton.style.display = "inline-block";
-      }
     });
 
     vendorInstallButton?.addEventListener("click", async () => {
-      if (!deferredVendorPrompt) return;
+      if (!deferredVendorPrompt) {
+        alert("If the install prompt does not appear automatically, open your browser menu and choose Install App or Add to Home Screen.");
+        return;
+      }
 
       deferredVendorPrompt.prompt();
 
