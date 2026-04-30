@@ -260,18 +260,6 @@ function clearVendorState() {
 /* =========================
    PLATFORM SETTINGS
 ========================= */
-async function ensureVendorPlatformSettingsDoc() {
-  const settingsRef = doc(db, "platform_settings", "main");
-  const snap = await getDoc(settingsRef);
-
-  if (!snap.exists()) {
-    await setDoc(settingsRef, {
-      commissionRate: 5,
-      categories: CATEGORY_OPTIONS
-    }, { merge: true });
-  }
-}
-
 function subscribePlatformSettings() {
   if (state.unsubscribePlatformSettings) {
     state.unsubscribePlatformSettings();
@@ -1321,8 +1309,6 @@ function init() {
     }
 
     state.vendorId = user.uid;
-
-    await ensureVendorPlatformSettingsDoc();
     subscribePlatformSettings();
 
     await syncVendorProfileFromFirebaseLogin();

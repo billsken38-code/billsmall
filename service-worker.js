@@ -1,4 +1,4 @@
-const CACHE_NAME = "bills-mall-v2";
+const CACHE_NAME = "bills-mall-v3";
 
 const FILES_TO_CACHE = [
   "./",
@@ -11,6 +11,13 @@ const FILES_TO_CACHE = [
   "./vendor-dashboard.html",
   "./admin.html",
   "./style.css",
+  "./admin.css",
+  "./vendor-dashboard.css",
+  "./product-admin.css",
+  "./product.css",
+  "./profile.css",
+  "./cart.css",
+  "./orders-users.css",
   "./script.js",
   "./auth.js",
   "./cart.js",
@@ -21,8 +28,23 @@ const FILES_TO_CACHE = [
   "./admin-auth.js",
   "./firebase.js",
   "./ui.js",
-  "./manifest.json"
+  "./manifest.json",
+  "./vendor-manifest.json",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/vendor-192.png",
+  "./icons/vendor-512.png"
 ];
+
+function isCacheableAsset(requestUrl) {
+  const { pathname } = requestUrl;
+
+  return (
+    pathname.match(/\.(?:css|js|png|jpg|jpeg|webp|gif|svg|ico|json|apk)$/i) ||
+    pathname.includes("/images/") ||
+    pathname.includes("/icons/")
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -64,10 +86,13 @@ self.addEventListener("fetch", (event) => {
       requestUrl.pathname.endsWith("/cart.js") ||
       requestUrl.pathname.endsWith("/profile.js") ||
       requestUrl.pathname.endsWith("/checkout.js") ||
+      requestUrl.pathname.endsWith("/vendor-dashboard.js") ||
+      requestUrl.pathname.endsWith("/admin.js") ||
       requestUrl.pathname.endsWith("/index.html") ||
       requestUrl.pathname === "/" ||
       requestUrl.pathname.endsWith("/service-worker.js")
     );
+  const isSameOriginAsset = isSameOrigin && isCacheableAsset(requestUrl);
 
   if (isHtmlRequest || isCoreAsset) {
     event.respondWith(
@@ -89,12 +114,35 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (isSameOriginAsset) {
+    event.respondWith(
+      caches.match(event.request).then(async (cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        try {
+          const networkResponse = await fetch(event.request);
+
+          if (networkResponse && networkResponse.ok) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+
+          return networkResponse;
+        } catch {
+          return cachedResponse || Response.error();
+        }
+      })
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      return (
-        cachedResponse ||
-        fetch(event.request).catch(() => caches.match("./index.html"))
-      );
+      return cachedResponse || fetch(event.request);
     })
   );
 });
