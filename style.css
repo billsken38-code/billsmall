@@ -448,6 +448,60 @@ button:hover {
   color: #b13d2e;
 }
 
+/* =======================
+   WHATSAPP SUPPORT BUTTON
+======================= */
+#whatsapp-support-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #25d366, #128c7e);
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+  font-weight: 600;
+  font-size: 15px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+#whatsapp-support-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(37, 211, 102, 0.5);
+}
+
+#whatsapp-support-btn svg {
+  width: 26px;
+  height: 26px;
+}
+
+#whatsapp-support-btn span {
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  #whatsapp-support-btn {
+    bottom: 20px;
+    right: 16px;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+
+  #whatsapp-support-btn span {
+    display: none;
+  }
+
+  #whatsapp-support-btn::after {
+    content: "Chat";
+    font-size: 12px;
+  }
+}
+
 .product-card-actions {
   display: flex;
   gap: 8px;

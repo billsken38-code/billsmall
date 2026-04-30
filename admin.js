@@ -198,6 +198,10 @@ function loadSettings() {
     return {
       ...structuredClone(defaultSettings),
       ...parsed,
+      // Ensure categories is always an array
+      categories: Array.isArray(parsed?.categories) && parsed.categories.length > 0
+        ? parsed.categories
+        : defaultSettings.categories,
       delivery: normalizeDeliveryConfig(parsed.delivery || defaultSettings.delivery)
     };
   } catch (error) {
@@ -251,6 +255,8 @@ function subscribePlatformSettings() {
       };
 
       saveSettingsLocal();
+      // Update the category dropdown when settings are loaded from Firebase
+      populateProductCategoryDropdown();
       renderAll();
     },
     (error) => {
@@ -524,6 +530,28 @@ function renderTopLists() {
     : '<div class="empty-state">No products yet.</div>';
 }
 
+function populateProductCategoryDropdown() {
+  // Merge fallback and settings categories, remove duplicates and falsy values
+  let adminCategories = [];
+  if (Array.isArray(state.data.settings.categories)) {
+    adminCategories = [...PRODUCT_CATEGORY_FALLBACK, ...state.data.settings.categories];
+  } else {
+    adminCategories = PRODUCT_CATEGORY_FALLBACK;
+  }
+  adminCategories = Array.from(new Set(adminCategories.filter(Boolean)));
+
+  if (elements.productCategoryInput) {
+    const currentValue = elements.productCategoryInput.value;
+    elements.productCategoryInput.innerHTML = ['<option value="">Select category</option>']
+      .concat(adminCategories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`))
+      .join("");
+
+    if (currentValue && adminCategories.includes(currentValue)) {
+      elements.productCategoryInput.value = currentValue;
+    }
+  }
+}
+
 function renderVendorFilters() {
   const categories = [...new Set(state.data.products.map((item) => item.category).filter(Boolean))];
   const adminCategories = state.data.settings.categories?.length
@@ -539,7 +567,7 @@ function renderVendorFilters() {
     .join("");
 
   elements.productCategoryFilter.innerHTML = ['<option value="all">All categories</option>']
-    .concat(categories.map((category) => `<option value="${category}">${category}</option>`))
+    .concat(categories.map((category) => `<option value="${category}">${escapeHtml(category)}</option>`))
     .join("");
 
   if (elements.productCategoryInput) {
@@ -678,8 +706,36 @@ function updateProductImagePreview(images) {
     return;
   }
 
+  // Resolve relative image paths to absolute URLs
+  function resolveImagePath(src) {
+    src = src.trim();
+    // If it's already an absolute URL, return as-is
+    if (/^https?:\/\//i.test(src)) {
+      return src;
+    }
+    // Resolve relative paths (./images/..., images/..., ../...)
+    const base = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+    if (src.startsWith("./")) {
+      return base + src.substring(2);
+    }
+    if (src.startsWith("../")) {
+      // Handle ../ by going up directories
+      let result = src;
+      while (result.startsWith("../")) {
+        result = result.substring(3);
+        base = base.substring(0, base.slice(0, -1).lastIndexOf('/') + 1);
+      }
+      return base + result;
+    }
+    if (src.startsWith("images/")) {
+      return base + src;
+    }
+    // Default: treat as relative path
+    return base + src;
+  }
+
   elements.productImagePreview.innerHTML = images
-    .map((src, index) => `<img src="${src}" alt="Preview ${index + 1}">`)
+    .map((src, index) => `<img src="${resolveImagePath(src)}" alt="Preview ${index + 1}" onerror="this.style.display='none'">`)
     .join("");
   elements.productImagePreview.classList.add("has-images");
 }

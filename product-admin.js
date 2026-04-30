@@ -138,10 +138,34 @@ function updateImagePreview(images) {
     return;
   }
 
+  function resolveImagePath(src) {
+    src = src.trim();
+    if (/^https?:\/\//i.test(src)) {
+      return src;
+    }
+    // Handle relative paths
+    let base = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+    if (src.startsWith("./")) {
+      return base + src.substring(2);
+    }
+    if (src.startsWith("../")) {
+      let result = src;
+      while (result.startsWith("../")) {
+        result = result.substring(3);
+        base = base.substring(0, base.slice(0, -1).lastIndexOf('/') + 1);
+      }
+      return base + result;
+    }
+    if (src.startsWith("images/")) {
+      return base + src;
+    }
+    return base + src;
+  }
+
   elements.imagePreview.innerHTML = images
     .map(
       (src, index) =>
-        `<img src="${src}" alt="Preview ${index + 1}" class="vendor-image-thumb">`
+        `<img src="${resolveImagePath(src)}" alt="Preview ${index + 1}" class="vendor-image-thumb" onerror="this.style.display='none'">`
     )
     .join("");
 

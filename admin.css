@@ -34,9 +34,10 @@ textarea {
 }
 
 .layout {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -46,7 +47,17 @@ textarea {
   position: sticky;
   top: 0;
   height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  padding-right: 6px;
 }
 
 .brand {
@@ -103,8 +114,21 @@ textarea {
   transition: 0.2s ease;
 }
 
+.sidebar-link {
+  display: block;
+  width: 100%;
+  color: #f8ead7;
+  text-align: left;
+  text-decoration: none;
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  transition: 0.2s ease;
+}
+
 .nav-btn:hover,
-.nav-btn.active {
+.nav-btn.active,
+.sidebar-link:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #fffaf2;
 }
@@ -129,6 +153,9 @@ textarea {
 
 .main {
   padding: 24px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .topbar {
@@ -562,12 +589,20 @@ canvas {
 
 @media (max-width: 900px) {
   .layout {
+    height: auto;
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
   .sidebar {
     position: static;
     height: auto;
+    min-height: auto;
+  }
+
+  .sidebar-scroll,
+  .main {
+    overflow: visible;
   }
 
   .grid-stats {
