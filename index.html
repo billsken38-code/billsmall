@@ -11,7 +11,7 @@
 </head>
 <body>
   <header class="navbar">
-    <h1 class="logo">🛍️ BILLS MALL</h1>
+    <h1 class="logo">Bills Mall</h1>
 
     <div class="search-bar">
       <input type="text" placeholder="Search for products..." id="search-input" />
@@ -21,13 +21,13 @@
     <div class="nav-actions">
       <a href="cart.html" class="cart-link">
         <div class="cart-icon">
-          🛒
+          Cart
           <span class="cart-count">0</span>
         </div>
       </a>
     </div>
 
-    <div class="hamburger" onclick="toggleMenu()">☰</div>
+    <div class="hamburger" onclick="toggleMenu()">&#9776;</div>
 
     <div class="nav-links" id="navLinks">
       <a href="index.html" onclick="toggleMenu()">Home</a>
@@ -72,37 +72,39 @@
       </div>
     </div>
   </section>
+
   <section class="category-shell">
-  <div class="category-mobile-top">
-    <button type="button" id="category-toggle-btn" class="category-toggle-btn">
-      ☰ Categories
-    </button>
-  </div>
+    <div class="category-mobile-top">
+      <button type="button" id="category-toggle-btn" class="category-toggle-btn">
+        &#9776; Categories
+      </button>
+    </div>
 
-  <div class="category-bar" id="category-bar"></div>
-</section>
+    <div class="category-bar" id="category-bar"></div>
+  </section>
 
-<section class="seller-invite-section">
-  <div class="seller-invite-card">
-    <div class="seller-invite-text">
-      <p class="seller-invite-kicker">Sell on Bills Mall</p>
-      <h2>Want to sell on Bills Mall?</h2>
-      <p>
-        Join Bills Mall as a vendor and start selling your products to more customers.
-      </p>
+  <section class="seller-invite-section">
+    <div class="seller-invite-card">
+      <div class="seller-invite-text">
+        <p class="seller-invite-kicker">Sell on Bills Mall</p>
+        <h2>Want to sell on Bills Mall?</h2>
+        <p>
+          Join Bills Mall as a vendor and start selling your products to more customers.
+        </p>
 
-      <div class="seller-invite-actions">
-        <a href="vendor-dashboard.html" class="seller-invite-btn">
-          Become a Vendor
-        </a>
+        <div class="seller-invite-actions">
+          <a href="vendor-dashboard.html" class="seller-invite-btn">
+            Become a Vendor
+          </a>
+        </div>
+      </div>
+
+      <div class="seller-invite-badge">
+        <span>Trusted Vendor Access</span>
       </div>
     </div>
+  </section>
 
-    <div class="seller-invite-badge">
-      <span>Trusted Vendor Access</span>
-    </div>
-  </div>
-</section>
   <section class="featured-section">
     <div class="section-head">
       <div>
@@ -132,27 +134,27 @@
 
   <div class="bottom-nav">
     <a href="index.html" class="nav-item active">
-      <span>🏠</span>
+      <span>Home</span>
       <p>Home</p>
     </a>
 
     <a href="cart.html" class="nav-item">
-      <span>🛒</span>
+      <span>Cart</span>
       <p>Cart</p>
     </a>
 
     <a href="orders-user.html" class="nav-item">
-      <span>📦</span>
+      <span>Orders</span>
       <p>Orders</p>
     </a>
 
     <a href="profile.html" class="nav-item">
-      <span>👤</span>
+      <span>Profile</span>
       <p>Profile</p>
     </a>
   </div>
 
-  <div id="toast" class="toast">Added to cart ✅</div>
+  <div id="toast" class="toast">Added to cart</div>
   <div id="login-callout" class="login-callout" hidden>
     <div class="login-callout-arrow" aria-hidden="true"></div>
     <p class="login-callout-text">Log in first to add products to your cart.</p>
@@ -182,40 +184,40 @@
   </script>
 
   <script>
-  let deferredPrompt;
-  const installButton = document.getElementById("install-app-btn");
+    let deferredPrompt;
+    const installButton = document.getElementById("install-app-btn");
 
-  window.addEventListener("beforeinstallprompt", (event) => {
-    event.preventDefault();
-    deferredPrompt = event;
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredPrompt = event;
 
-    if (installButton) {
-      installButton.style.display = "inline-block";
-    }
-  });
+      if (installButton) {
+        installButton.style.display = "inline-block";
+      }
+    });
 
-  installButton?.addEventListener("click", async () => {
-    if (!deferredPrompt) return;
+    installButton?.addEventListener("click", async () => {
+      if (!deferredPrompt) return;
 
-    deferredPrompt.prompt();
+      deferredPrompt.prompt();
 
-    const choiceResult = await deferredPrompt.userChoice;
-    if (choiceResult.outcome === "accepted") {
-      console.log("User accepted the install prompt");
-    } else {
-      console.log("User dismissed the install prompt");
-    }
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === "accepted") {
+        console.log("User accepted the install prompt");
+      } else {
+        console.log("User dismissed the install prompt");
+      }
 
-    deferredPrompt = null;
-    installButton.style.display = "none";
-  });
-
-  window.addEventListener("appinstalled", () => {
-    console.log("App installed");
-    if (installButton) {
+      deferredPrompt = null;
       installButton.style.display = "none";
-    }
-  });
-</script>
+    });
+
+    window.addEventListener("appinstalled", () => {
+      console.log("App installed");
+      if (installButton) {
+        installButton.style.display = "none";
+      }
+    });
+  </script>
 </body>
 </html>

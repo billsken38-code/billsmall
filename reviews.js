@@ -4,7 +4,6 @@ import {
   collection,
   addDoc,
   query,
-  where,
   orderBy,
   getDocs,
   limit
@@ -14,14 +13,12 @@ import { showToast } from "./ui.js";
 let currentProductId = null;
 let currentUser = null;
 
-// Initialize reviews for a product
 export function initReviews(productId, user) {
   currentProductId = productId;
   currentUser = user;
   loadReviews();
 }
 
-// Load and display reviews for a product
 async function loadReviews() {
   if (!currentProductId) return;
 
@@ -30,19 +27,21 @@ async function loadReviews() {
 
   try {
     const reviewsRef = collection(db, "products", currentProductId, "reviews");
-    const q = query(reviewsRef, orderBy("createdAt", "desc"), limit(20));
-    const snapshot = await getDocs(q);
+    const reviewsQuery = query(reviewsRef, orderBy("createdAt", "desc"), limit(20));
+    const snapshot = await getDocs(reviewsQuery);
 
     const reviews = [];
     let totalRating = 0;
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       totalRating += data.rating || 0;
-      reviews.push({ id: doc.id, ...data });
+      reviews.push({ id: docSnap.id, ...data });
     });
 
-    const avgRating = reviews.length > 0 ? (totalRating / reviews.length).toFixed(1) : 0;
+    const avgRating = reviews.length > 0
+      ? (totalRating / reviews.length).toFixed(1)
+      : 0;
 
     renderReviews(reviews, avgRating);
   } catch (error) {
@@ -51,7 +50,6 @@ async function loadReviews() {
   }
 }
 
-// Render reviews on the page
 function renderReviews(reviews, avgRating) {
   const reviewsContainer = document.getElementById("reviews-container");
   if (!reviewsContainer) return;
@@ -61,7 +59,7 @@ function renderReviews(reviews, avgRating) {
   reviewsContainer.innerHTML = `
     <div class="reviews-section">
       <h3>Customer Reviews</h3>
-      
+
       <div class="reviews-summary">
         <div class="avg-rating">
           <span class="rating-number">${avgRating}</span>
@@ -76,7 +74,7 @@ function renderReviews(reviews, avgRating) {
           <div class="rating-input">
             <span>Your Rating:</span>
             <div class="star-rating-input">
-              ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="star-btn" data-rating="${n}">★</button>`).join("")}
+              ${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="star-btn" data-rating="${n}">&#9733;</button>`).join("")}
             </div>
           </div>
           <textarea id="review-text" placeholder="Share your experience with this product..." rows="4"></textarea>
@@ -87,37 +85,38 @@ function renderReviews(reviews, avgRating) {
       `}
 
       <div class="reviews-list">
-        ${reviews.length > 0 ? reviews.map(renderReviewCard).join("") : "<p class='no-reviews'>No reviews yet. Be the first to review!</p>"}
+        ${reviews.length > 0
+          ? reviews.map(renderReviewCard).join("")
+          : "<p class='no-reviews'>No reviews yet. Be the first to review!</p>"}
       </div>
     </div>
   `;
 
-  // Bind events
   bindReviewEvents();
 }
 
-// Render star display
 function renderStars(rating) {
   const fullStars = Math.floor(rating);
   const hasHalf = rating % 1 >= 0.5;
   let html = "";
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 5; i += 1) {
     if (i < fullStars) {
-      html += "<span class='star filled'>★</span>";
+      html += "<span class='star filled'>&#9733;</span>";
     } else if (i === fullStars && hasHalf) {
-      html += "<span class='star half'>★</span>";
+      html += "<span class='star half'>&#9733;</span>";
     } else {
-      html += "<span class='star'>★</span>";
+      html += "<span class='star'>&#9733;</span>";
     }
   }
 
   return html;
 }
 
-// Render individual review card
 function renderReviewCard(review) {
-  const date = review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : "Recently";
+  const date = review.createdAt?.toDate
+    ? review.createdAt.toDate().toLocaleDateString()
+    : "Recently";
   const stars = renderStars(review.rating || 0);
 
   return `
@@ -132,27 +131,26 @@ function renderReviewCard(review) {
   `;
 }
 
-// Bind review form events
 function bindReviewEvents() {
-  const starBtns = document.querySelectorAll(".star-rating-input .star-btn");
+  const starButtons = document.querySelectorAll(".star-rating-input .star-btn");
   let selectedRating = 0;
 
-  starBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      selectedRating = parseInt(btn.dataset.rating);
-      starBtns.forEach((b, i) => {
-        b.classList.toggle("active", i < selectedRating);
+  starButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedRating = parseInt(button.dataset.rating, 10);
+
+      starButtons.forEach((starButton, index) => {
+        starButton.classList.toggle("active", index < selectedRating);
       });
     });
   });
 
-  const submitBtn = document.getElementById("submit-review-btn");
-  if (submitBtn) {
-    submitBtn.addEventListener("click", () => submitReview(selectedRating));
+  const submitButton = document.getElementById("submit-review-btn");
+  if (submitButton) {
+    submitButton.addEventListener("click", () => submitReview(selectedRating));
   }
 }
 
-// Submit a new review
 async function submitReview(rating) {
   if (!currentProductId) {
     showToast("Product not found", { type: "error" });
@@ -173,10 +171,10 @@ async function submitReview(rating) {
   const userId = localStorage.getItem("userId");
   const userName = localStorage.getItem("userName") || "Customer";
 
-  const submitBtn = document.getElementById("submit-review-btn");
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Submitting...";
+  const submitButton = document.getElementById("submit-review-btn");
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "Submitting...";
   }
 
   try {

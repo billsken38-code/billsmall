@@ -1,7 +1,7 @@
 // WhatsApp Support Pool System
 // Automatically assigns customers to available support agents
 
-const WHATSAPP_POOL = {
+export const WHATSAPP_POOL = {
   // Add your WhatsApp numbers here (include country code, no + or dashes)
   // Format: { phone: "233501234567", name: "Agent Name" }
   agents: [
@@ -34,7 +34,7 @@ const WHATSAPP_POOL = {
   }
 };
 
-// Export for use in other files
+// CommonJS fallback for non-browser tooling
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { WHATSAPP_POOL };
 }
