@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vendor Dashboard - BILLS MALL</title>
-  <link rel="stylesheet" href="vendor-dashboard.css" />
-  <link rel="manifest" href="./vendor-manifest.json" />
+  <link rel="stylesheet" href="/vendor-dashboard.css" />
+  <link rel="manifest" href="/vendor-manifest.json" />
   <meta name="theme-color" content="#4B2E2B" />
-  <link rel="apple-touch-icon" href="./icons/vendor-192.png" />
+  <link rel="apple-touch-icon" href="/icons/vendor-192.png" />
 </head>
 <body>
   <div class="vendor-shell">
@@ -31,7 +31,7 @@
       </nav>
 
       <div class="vendor-sidebar-footer">
-        <a href="index.html" class="vendor-back-link">Back to storefront</a>
+        <a href="/index.html" class="vendor-back-link">Back to storefront</a>
 
         <div class="vendor-install-box" style="margin-top:16px;">
           <button
@@ -39,7 +39,7 @@
             class="btn-primary"
             style="width:100%;"
             type="button"
-            data-apk-path="./app-release-signed.apk"
+            data-apk-path="/app-release-signed.apk"
           >
             Install Vendor App
           </button>
@@ -331,13 +331,13 @@
     </main>
   </div>
 
-  <script type="module" src="vendor-dashboard.js"></script>
+  <script type="module" src="/vendor-dashboard.js"></script>
 
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker
-          .register("./service-worker.js")
+          .register("/service-worker.js")
           .then((registration) => {
             console.log("Service Worker registered:", registration);
           })
