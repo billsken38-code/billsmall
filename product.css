@@ -4,6 +4,10 @@
   padding: 20px;
 }
 
+.related-products-section {
+  margin-top: 28px;
+}
+
 .product-details-card {
   background: #fff;
   border-radius: 18px;
@@ -93,6 +97,33 @@
 .product-description {
   line-height: 1.6;
   color: #4a4038;
+}
+
+.product-trust-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.product-trust-item {
+  background: #f7efe5;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.product-trust-item strong,
+.product-trust-item span {
+  display: block;
+}
+
+.product-trust-item strong {
+  color: #4b2e2b;
+  margin-bottom: 6px;
+}
+
+.product-trust-item span {
+  color: #6f6259;
+  line-height: 1.5;
 }
 
 .variation-section {

@@ -3,9 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Dashboard - Bills Mall</title>
+  <title>Admin Dashboard - Bills Campus Mall</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
   <link rel="stylesheet" href="/admin.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#4B2E2B" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 </head>
 <body>
   <div class="layout">
@@ -13,7 +17,7 @@
       <div class="brand">
         <div class="brand-mark">BM</div>
         <div>
-          <h1>Bills Mall Admin</h1>
+          <h1>Bills Campus Mall Admin</h1>
           <p>Marketplace Control Center</p>
         </div>
       </div>
@@ -28,7 +32,6 @@
         <div class="nav-group">
           <p class="nav-group-title">Management</p>
           <button class="nav-btn" data-section="vendors">Vendor Management</button>
-          <a class="sidebar-link" href="/vendor-dashboard.html">Vendor Page</a>
           <button class="nav-btn" data-section="products">Product Management</button>
           <button class="nav-btn" data-section="orders">Order Management</button>
           <button class="nav-btn" data-section="customers">Customer Management</button>
@@ -302,31 +305,103 @@
                 <h3>Platform commission and rules</h3>
               </div>
             </div>
-            <div class="form-grid">
-              <label>
-                Commission Rate (%)
-                <input type="number" id="commissionRateInput" min="0" max="100" step="0.1" />
-                <small>Applied to completed and paid orders for vendor earnings calculation.</small>
-              </label>
-              <button class="btn" id="saveCommissionBtn">Save Commission</button>
-            </div>
-          </article>
+              <div class="form-grid">
+                <label>
+                  Global Commission Rate (%)
+                  <input type="number" id="commissionRateInput" min="0" max="100" step="0.1" />
+                  <small>Default marketplace commission when no custom category or vendor rule applies.</small>
+                </label>
+                <div>
+                  <strong>Category Commission Rules</strong>
+                  <p class="eyebrow">Override the global rate for selected categories.</p>
+                  <div id="categoryCommissionList" class="commission-tier-list"></div>
+                  <button class="btn-outline" id="addCategoryCommissionBtn" type="button">Add Category Rule</button>
+                </div>
+                <div>
+                  <strong>Vendor Commission Rules</strong>
+                  <p class="eyebrow">Override both the global and category rates for selected vendors.</p>
+                  <div id="vendorCommissionList" class="commission-tier-list"></div>
+                  <button class="btn-outline" id="addVendorCommissionBtn" type="button">Add Vendor Rule</button>
+                </div>
+                <label>
+                  Customer Referral Rate (%)
+                  <input type="number" id="customerReferralRateInput" min="0" max="100" step="0.1" />
+                  <small>Paid out from the admin commission pool when a referred customer buys.</small>
+                </label>
+                <label>
+                  Vendor Referral Rate (%)
+                  <input type="number" id="vendorReferralRateInput" min="0" max="100" step="0.1" />
+                  <small>Paid out from the admin commission pool when a referred vendor sells.</small>
+                </label>
+                <label>
+                  Minimum Withdrawal (GHS)
+                  <input type="number" id="minWithdrawalInput" min="0" step="0.01" />
+                  <small>Users must accumulate at least this much approved commission before payout.</small>
+                </label>
+                <div>
+                  <strong>Affiliate Program Window</strong>
+                  <p id="referralProgramWindowNote" class="eyebrow">Runs for 2 months from activation.</p>
+                </div>
+                <button class="btn" id="saveCommissionBtn">Save Commission</button>
+              </div>
+            </article>
 
-          <article class="card">
+            <article class="card">
             <div class="card-head">
               <div>
                 <p class="eyebrow">Payout overview</p>
                 <h3>Pending and paid vendor payouts</h3>
               </div>
-            </div>
-            <div class="stack" id="payoutList"></div>
-          </article>
-        </div>
-      </section>
+              </div>
+              <div class="stack" id="payoutList"></div>
+            </article>
+          </div>
 
-      <section class="section" id="section-analytics">
-        <div class="content-grid">
           <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Commission analytics</p>
+                <h3>Platform earnings and vendor revenue tracking</h3>
+              </div>
+            </div>
+            <div class="stack" id="commissionAnalyticsList"></div>
+            <div class="stack" id="vendorRevenueTrackingList"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Commission history</p>
+                <h3>Order-by-order platform earnings breakdown</h3>
+              </div>
+            </div>
+            <div class="stack" id="commissionHistoryList"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Referral commissions</p>
+                <h3>Approve, reject, and mark payouts</h3>
+              </div>
+            </div>
+            <div class="stack" id="commissionList"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Affiliate balances</p>
+                <h3>Accumulated earnings by affiliate</h3>
+              </div>
+            </div>
+            <div class="stack" id="affiliateBalanceList"></div>
+          </article>
+        </section>
+
+       <section class="section" id="section-analytics">
+          <div class="content-grid">
+            <article class="card">
             <div class="card-head">
               <div>
                 <p class="eyebrow">Reports</p>
@@ -342,11 +417,33 @@
                 <p class="eyebrow">Revenue insights</p>
                 <h3>Performance metrics</h3>
               </div>
-            </div>
-            <div class="stack" id="insightList"></div>
-          </article>
-        </div>
-      </section>
+              </div>
+              <div class="stack" id="insightList"></div>
+            </article>
+          </div>
+
+          <div class="content-grid">
+            <article class="card">
+              <div class="card-head">
+                <div>
+                  <p class="eyebrow">Top referrers</p>
+                  <h3>Who is driving the most sales</h3>
+                </div>
+              </div>
+              <div class="stack" id="topReferrersList"></div>
+            </article>
+
+            <article class="card">
+              <div class="card-head">
+                <div>
+                  <p class="eyebrow">Fraud monitor</p>
+                  <h3>Suspicious referral activity</h3>
+                </div>
+              </div>
+              <div class="stack" id="referralFraudList"></div>
+            </article>
+          </div>
+        </section>
 
       <section class="section" id="section-settings">
         <div class="settings-grid">

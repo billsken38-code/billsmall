@@ -1,6 +1,8 @@
 import {
+  collection,
   doc,
-  getDoc
+  getDoc,
+  getDocs
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
@@ -13,76 +15,12 @@ let product = null;
 let selectedVariation = null;
 let currentImage = "";
 let currentUser = null;
-let loginPromptTimeoutId = null;
-
-const elements = {
-  loginCtaButton: document.getElementById("login-cta-button"),
-  loginCallout: document.getElementById("login-callout")
-};
+let relatedProducts = [];
 
 function isLoggedIn() {
   return !!(currentUser || localStorage.getItem("userId"));
 }
 
-function updateGuestAccessUi() {
-  if (elements.loginCtaButton) {
-    elements.loginCtaButton.hidden = isLoggedIn();
-  }
-}
-
-function hideLoginPrompt() {
-  if (!elements.loginCallout) return;
-
-  elements.loginCallout.hidden = true;
-  elements.loginCallout.classList.remove("show");
-
-  if (loginPromptTimeoutId) {
-    window.clearTimeout(loginPromptTimeoutId);
-    loginPromptTimeoutId = null;
-  }
-}
-
-function showLoginPrompt() {
-  if (!elements.loginCallout || !elements.loginCtaButton) {
-    showToast("Please log in first to add products.", { type: "info" });
-    return;
-  }
-
-  const buttonRect = elements.loginCtaButton.getBoundingClientRect();
-  const calloutWidth = Math.min(320, Math.max(220, window.innerWidth - 24));
-  const left = Math.min(
-    window.innerWidth - calloutWidth - 12,
-    Math.max(12, buttonRect.right - calloutWidth)
-  );
-  const top = buttonRect.bottom + 14;
-  const arrowLeft = Math.min(
-    calloutWidth - 28,
-    Math.max(28, buttonRect.left + buttonRect.width / 2 - left)
-  );
-
-  elements.loginCallout.style.width = `${calloutWidth}px`;
-  elements.loginCallout.style.left = `${left}px`;
-  elements.loginCallout.style.top = `${top}px`;
-  elements.loginCallout.style.setProperty("--login-callout-arrow-left", `${arrowLeft}px`);
-  elements.loginCallout.hidden = false;
-
-  window.requestAnimationFrame(() => {
-    elements.loginCallout.classList.add("show");
-  });
-
-  elements.loginCtaButton.classList.add("login-cta-highlight");
-  window.setTimeout(() => {
-    elements.loginCtaButton?.classList.remove("login-cta-highlight");
-  }, 1800);
-
-  if (loginPromptTimeoutId) {
-    window.clearTimeout(loginPromptTimeoutId);
-  }
-
-  loginPromptTimeoutId = window.setTimeout(() => {
-    hideLoginPrompt();
-  }, 3800);
-}
 
 async function loadProduct() {
   const params = new URLSearchParams(window.location.search);
@@ -106,14 +44,13 @@ async function loadProduct() {
     }
 
     product = { id: docSnap.id, ...docSnap.data() };
-    const images = product.images?.length
-      ? product.images
-      : (product.image ? [product.image] : []);
+    const images = getProductImages(product);
 
     currentImage = images[0] || "";
     renderProduct();
     bindProductEvents();
-    
+    await loadRelatedProducts();
+
     // Initialize reviews for this product
     initReviews(product.id, currentUser);
   } catch (error) {
@@ -131,14 +68,38 @@ function formatCurrency(value) {
   }).format(Number(value || 0));
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function getProductImages(item) {
+  if (Array.isArray(item?.images) && item.images.length) {
+    return item.images;
+  }
+
+  if (item?.image) {
+    return [item.image];
+  }
+
+  return [];
+}
+
+function getPrimaryImage(item) {
+  return getProductImages(item)[0] || "";
+}
+
 function renderProduct() {
   const container = document.getElementById("product-details");
-  const images = product.images?.length
-    ? product.images
-    : (product.image ? [product.image] : []);
+  const images = getProductImages(product);
   const variations = Array.isArray(product.variations) ? product.variations : [];
   const stock = Number(product.stock || 0);
   const isOutOfStock = stock <= 0 || product.status === "Out of Stock";
+  const category = product.category || "General";
 
   container.innerHTML = `
     <div class="details-container">
@@ -160,20 +121,39 @@ function renderProduct() {
 
       <div class="details-right">
         ${product.featured ? `<div class="notice">Featured Product</div>` : ""}
+        <p class="product-page-kicker">${escapeHtml(category)}</p>
         <h2>${product.name}</h2>
-        <p><b>${formatCurrency(product.price)}</b></p>
-        <p>${product.description || ""}</p>
-        <p><b>Stock:</b> ${stock}</p>
+        <p class="product-page-price">${formatCurrency(product.price)}</p>
+        <div class="product-meta-grid">
+          <div>
+            <span>Availability</span>
+            <strong>${isOutOfStock ? "Out of stock" : `${stock} available`}</strong>
+          </div>
+          <div>
+            <span>Payment</span>
+            <strong>MoMo / Delivery</strong>
+          </div>
+          <div>
+            <span>Delivery</span>
+            <strong>Campus & local routes</strong>
+          </div>
+          <div>
+            <span>Support</span>
+            <strong>WhatsApp assistance</strong>
+          </div>
+        </div>
+        <p class="product-description">${product.description || "No product description yet."}</p>
 
         ${
           variations.length
             ? `
-              <div class="variation-box">
+              <div class="variation-box variation-section">
+                <h4>Choose an option</h4>
                 ${variations
                   .map(
                     (v) => `
-                      <button type="button" data-variation="${v}">
-                        ${v}
+                      <button type="button" data-variation="${escapeHtml(v)}" class="variation-option">
+                        ${escapeHtml(v)}
                       </button>
                     `
                   )
@@ -182,6 +162,17 @@ function renderProduct() {
             `
             : ""
         }
+
+        <div class="product-trust-panel">
+          <div class="product-trust-item">
+            <strong>Buyer confidence</strong>
+            <span>Tracked orders, managed vendor access, and admin support all in one marketplace.</span>
+          </div>
+          <div class="product-trust-item">
+            <strong>Before you buy</strong>
+            <span>Use chat support to confirm stock, sizing, delivery route, and payment details.</span>
+          </div>
+        </div>
 
         <div class="product-action-row">
           <button class="add-btn" id="add-to-cart-btn" ${isOutOfStock ? "disabled" : ""}>
@@ -206,8 +197,6 @@ function renderProduct() {
 }
 
 function bindProductEvents() {
-  elements.loginCtaButton?.addEventListener("click", hideLoginPrompt);
-
   document.querySelectorAll("[data-image]").forEach((button) => {
     button.addEventListener("click", () => {
       currentImage = button.dataset.image;
@@ -234,12 +223,66 @@ function bindProductEvents() {
   document.getElementById("buy-now-btn")?.addEventListener("click", buyNow);
 }
 
-function addToCart() {
-  if (!isLoggedIn()) {
-    showLoginPrompt();
+function renderRelatedProducts() {
+  const container = document.getElementById("related-products");
+  if (!container) return;
+
+  if (!relatedProducts.length) {
+    container.innerHTML = `<div class="product-page-empty">More products from this category will appear here.</div>`;
     return;
   }
 
+  container.innerHTML = relatedProducts.map((item) => {
+    const outOfStock = Number(item.stock || 0) <= 0 || item.status === "Out of Stock";
+
+    return `
+      <article class="product-card upgraded-product-card">
+        <div class="product-image" onclick="goToProductDetails('${item.id}')">
+          ${item.featured ? `<span class="featured-chip">Featured</span>` : ""}
+          <img src="${getPrimaryImage(item)}" alt="${escapeHtml(item.name || "Product")}" />
+        </div>
+        <div class="product-info">
+          <h3>${escapeHtml(item.name || "Unnamed Product")}</h3>
+          <p class="product-category-label">${escapeHtml(item.category || "General")}</p>
+          <p class="price">${formatCurrency(item.price)}</p>
+          <p class="product-stock-label ${outOfStock ? "out" : ""}">
+            ${outOfStock ? "Out of stock" : `${Number(item.stock || 0)} in stock`}
+          </p>
+          <div class="product-card-actions">
+            <button type="button" class="quick-view-btn" onclick="goToProductDetails('${item.id}')">View</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+async function loadRelatedProducts() {
+  if (!product?.category) {
+    relatedProducts = [];
+    renderRelatedProducts();
+    return;
+  }
+
+  try {
+    const snap = await getDocs(collection(db, "products"));
+    relatedProducts = snap.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }))
+      .filter((item) => item.id !== product.id)
+      .filter((item) => String(item.category || "").toLowerCase() === String(product.category || "").toLowerCase())
+      .slice(0, 4);
+  } catch (error) {
+    console.error("Failed to load related products:", error);
+    relatedProducts = [];
+  }
+
+  renderRelatedProducts();
+}
+
+function addToCart() {
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
   if (product.variations?.length && !selectedVariation) {
@@ -268,7 +311,8 @@ function addToCart() {
       images: product.images || [],
       variation: selectedVariation,
       quantity: 1,
-      vendorId: product.vendorId || null
+      vendorId: product.vendorId || null,
+      vendorLocation: product.vendorLocation || ""
     });
   }
 
@@ -277,11 +321,6 @@ function addToCart() {
 }
 
 function buyNow() {
-  if (!isLoggedIn()) {
-    showLoginPrompt();
-    return;
-  }
-
   if (product.variations?.length && !selectedVariation) {
     showToast("Select a variation.", { type: "error" });
     return;
@@ -299,12 +338,11 @@ function buyNow() {
 
 onAuthStateChanged(auth, (user) => {
   currentUser = user || null;
-  hideLoginPrompt();
-  updateGuestAccessUi();
 });
-
-window.addEventListener("resize", hideLoginPrompt);
-window.addEventListener("scroll", hideLoginPrompt, { passive: true });
-
-updateGuestAccessUi();
 loadProduct();
+
+window.goToProductDetails = function (productId) {
+  if (!productId) return;
+  localStorage.setItem("selectedProductId", productId);
+  window.location.href = `product.html?id=${productId}`;
+};

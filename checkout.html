@@ -3,13 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checkout - BILLS MALL</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Checkout - BILLS CAMPUS MALL</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4B2E2B">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
 </head>
 <body>
 
 <header class="navbar">
-  <h1 class="logo">BILLS MALL</h1>
+  <h1 class="logo">BILLS CAMPUS MALL</h1>
   <a href="index.html"><button>Back to Shop</button></a>
 </header>
 
@@ -18,6 +23,11 @@
   <!-- 🔥 CUSTOMER INFO -->
   <div class="checkout-form">
     <h2>Delivery Information</h2>
+    <div id="checkout-auth-notice" class="checkout-auth-notice" hidden>
+      <strong>Guest checkout preview</strong>
+      <p>You can review your order and fill delivery details, but you must log in before payment or confirming the order.</p>
+      <a href="login.html" class="orders-shop-link">Log in to complete order</a>
+    </div>
     <input type="email" id="email" placeholder="Email Address">
     <input type="text" id="name" placeholder="Full Name">
     <input type="text" id="phone" placeholder="Phone Number">
@@ -58,13 +68,13 @@
       </select>
 
       <input type="text" id="momo-number" placeholder="Mobile Money Number">
-      <button onclick="payWithPaystack()">Pay Now</button>
+      <button id="pay-now-btn" onclick="payWithPaystack()">Pay Now</button>
     </div>
 
     <!-- COD -->
     <div id="cod-section">
       <p>You will pay when your order is delivered.</p>
-      <button onclick="placeCODOrder()">Confirm Order</button>
+      <button id="confirm-order-btn" onclick="placeCODOrder()">Confirm Order</button>
     </div>
 
     <p id="payment-msg"></p>
@@ -72,7 +82,7 @@
 
 </div>
 <script src="https://js.paystack.co/v1/inline.js"></script>
-<script type="module" src="checkout.js"></script>
+<script type="module" src="/checkout.js"></script>
 
 </body>
 </html>

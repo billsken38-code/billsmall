@@ -1,23 +1,24 @@
 import {
-  collection,
-  addDoc,
-  serverTimestamp,
   doc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
 import { auth, db } from "./firebase.js";
-import { redirectWithToast, showToast } from "./ui.js";
+import { redirectWithToast } from "./ui.js";
 import {
   defaultDeliveryConfig,
   normalizeDeliveryConfig,
   calculateDeliveryFee as calculateConfiguredDeliveryFee
 } from "./delivery-config.js";
+import { ensureUserProfile } from "./referral-system.js";
+
+const BACKEND_BASE_URL = "https://backend-616b.onrender.com";
 
 let currentUser = null;
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 let deliveryConfig = normalizeDeliveryConfig(defaultDeliveryConfig);
+const vendorLocationCache = new Map();
 
 const orderItems = document.getElementById("order-items");
 const totalPrice = document.getElementById("total-price");
@@ -29,6 +30,9 @@ const paymentMethod = document.getElementById("payment-method");
 const momoSection = document.getElementById("momo-section");
 const codSection = document.getElementById("cod-section");
 const locationSelect = document.getElementById("location");
+const authNotice = document.getElementById("checkout-auth-notice");
+const payNowBtn = document.getElementById("pay-now-btn");
+const confirmOrderBtn = document.getElementById("confirm-order-btn");
 
 function formatCurrency(value) {
   return `GHS ${Number(value || 0).toFixed(2)}`;
@@ -52,7 +56,7 @@ function fillCustomerDetails(user) {
 
   if (emailInput) {
     emailInput.value = user?.email || "";
-    emailInput.readOnly = true;
+    emailInput.readOnly = !!user?.email;
   }
 
   if (nameInput && !nameInput.value) {
@@ -66,14 +70,44 @@ function fillCustomerDetails(user) {
   checkForm();
 }
 
-onAuthStateChanged(auth, (user) => {
-  if (!user || !user.emailVerified) {
-    redirectWithToast("login.html", "Please login first.", { type: "error" });
-    return;
+function updateCheckoutAccess() {
+  const isLoggedIn = !!currentUser?.emailVerified;
+
+  if (authNotice) {
+    authNotice.hidden = isLoggedIn;
   }
 
-  currentUser = user;
-  fillCustomerDetails(user);
+  if (paymentMethod) {
+    paymentMethod.disabled = !isLoggedIn;
+  }
+
+  if (payNowBtn) {
+    payNowBtn.disabled = !isLoggedIn;
+  }
+
+  if (confirmOrderBtn) {
+    confirmOrderBtn.disabled = !isLoggedIn;
+  }
+
+  if (!isLoggedIn) {
+    if (paymentMethod) {
+      paymentMethod.value = "";
+    }
+
+    if (momoSection) {
+      momoSection.style.display = "none";
+    }
+
+    if (codSection) {
+      codSection.style.display = "none";
+    }
+  }
+}
+
+onAuthStateChanged(auth, (user) => {
+  currentUser = user?.emailVerified ? user : null;
+  fillCustomerDetails(currentUser);
+  updateCheckoutAccess();
 });
 
 function getCustomerLocation() {
@@ -110,7 +144,56 @@ function groupCartByVendor() {
 
 function getVendorLocationFromItems(items = []) {
   const firstWithLocation = items.find((item) => item.vendorLocation);
-  return String(firstWithLocation?.vendorLocation || "").trim().toLowerCase();
+  const cachedLocation = firstWithLocation?.vendorId
+    ? vendorLocationCache.get(firstWithLocation.vendorId)
+    : "";
+
+  return String(firstWithLocation?.vendorLocation || cachedLocation || "").trim().toLowerCase();
+}
+
+async function hydrateVendorLocations() {
+  const vendorIds = Array.from(
+    new Set(
+      cart
+        .filter((item) => item.vendorId && !String(item.vendorLocation || "").trim())
+        .map((item) => item.vendorId)
+    )
+  );
+
+  if (!vendorIds.length) return;
+
+  let updated = false;
+
+  for (const vendorId of vendorIds) {
+    try {
+      const vendorSnap = await getDoc(doc(db, "vendors", vendorId));
+      if (!vendorSnap.exists()) continue;
+
+      const vendorLocation = String(vendorSnap.data()?.vendorLocation || "").trim().toLowerCase();
+      if (!vendorLocation) continue;
+
+      vendorLocationCache.set(vendorId, vendorLocation);
+
+      cart = cart.map((item) => {
+        if (item.vendorId !== vendorId || String(item.vendorLocation || "").trim()) {
+          return item;
+        }
+
+        updated = true;
+        return {
+          ...item,
+          vendorLocation
+        };
+      });
+    } catch (error) {
+      console.error(`Failed to load vendor location for ${vendorId}:`, error);
+    }
+  }
+
+  if (updated) {
+    localStorage.setItem("cart", JSON.stringify(cart));
+    updateTotalDisplay();
+  }
 }
 
 function renderLocationOptions() {
@@ -288,18 +371,34 @@ function goToPayment() {
   }
 
   setError("");
-  setPaymentMessage("");
+  setPaymentMessage(
+    currentUser
+      ? ""
+      : "Log in to unlock payment and place your order.",
+    currentUser ? "inherit" : "#b00020"
+  );
   paymentSection.style.display = "block";
+  updateCheckoutAccess();
   paymentSection.scrollIntoView({ behavior: "smooth" });
 }
 
 proceedBtn?.addEventListener("click", goToPayment);
 
 window.togglePaymentMethod = function () {
+  if (!currentUser) {
+    setPaymentMessage("Log in to choose a payment method.", "#b00020");
+    if (paymentMethod) {
+      paymentMethod.value = "";
+    }
+    if (momoSection) momoSection.style.display = "none";
+    if (codSection) codSection.style.display = "none";
+    return;
+  }
+
   const method = paymentMethod.value;
 
-  momoSection.style.display = method === "momo" ? "block" : "none";
-  codSection.style.display = method === "cod" ? "block" : "none";
+  if (momoSection) momoSection.style.display = method === "momo" ? "block" : "none";
+  if (codSection) codSection.style.display = method === "cod" ? "block" : "none";
 
   if (!method) {
     setPaymentMessage("Choose a payment method.", "#b00020");
@@ -311,7 +410,7 @@ window.togglePaymentMethod = function () {
 
 window.payWithPaystack = function () {
   if (!currentUser) {
-    showToast("Login required.", { type: "error" });
+    redirectWithToast("login.html", "Log in to complete your order.", { type: "info" });
     return;
   }
 
@@ -347,7 +446,7 @@ window.payWithPaystack = function () {
 };
 
 async function verifyPayment(reference) {
-  const res = await fetch("https://backend-616b.onrender.com/verify-payment", {
+  const res = await fetch(`${BACKEND_BASE_URL}/verify-payment`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reference })
@@ -368,6 +467,45 @@ async function verifyPayment(reference) {
   }
 }
 
+async function notifyOrderByEmail(orderId) {
+  if (!orderId) return;
+
+  const response = await fetch(`${BACKEND_BASE_URL}/notify-order`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Notification request failed with status ${response.status}`);
+  }
+}
+
+async function getCurrentUserIdToken() {
+  if (!currentUser) {
+    throw new Error("Log in to complete your order.");
+  }
+
+  return currentUser.getIdToken();
+}
+
+async function createOrdersOnServer(payload) {
+  const response = await fetch(`${BACKEND_BASE_URL}/create-orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Failed to create order.");
+  }
+
+  return data;
+}
+
 window.placeCODOrder = async function () {
   if (paymentMethod.value !== "cod") {
     setPaymentMessage("Select 'Pay on Delivery' first.", "#b00020");
@@ -379,7 +517,12 @@ window.placeCODOrder = async function () {
 
 async function placeOrder(paymentType) {
   if (!currentUser) {
-    setPaymentMessage("User not authenticated.", "#b00020");
+    redirectWithToast("login.html", "Log in to complete your order.", { type: "info" });
+    return;
+  }
+
+  if (!currentUser.emailVerified) {
+    setPaymentMessage("Please verify your email before placing an order.", "#b00020");
     return;
   }
 
@@ -402,41 +545,56 @@ async function placeOrder(paymentType) {
 
   const groupedByVendor = groupCartByVendor();
   const deliveryBreakdown = getDeliveryBreakdown();
+  const notificationTasks = [];
 
   try {
+    await ensureUserProfile(currentUser, {
+      name,
+      address,
+      role: "customer"
+    });
+
     const vendorIds = Object.keys(groupedByVendor);
-
-    for (const vendorId of vendorIds) {
+    const idToken = await getCurrentUserIdToken();
+    const requestCart = vendorIds.flatMap((vendorId) => {
       const vendorItems = groupedByVendor[vendorId];
-      const itemsTotal = vendorItems.reduce(
-        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
-        0
-      );
-
       const vendorDelivery = deliveryBreakdown.find((entry) => entry.vendorId === vendorId);
       const vendorDeliveryFee = Number(vendorDelivery?.fee || 0);
 
-      const order = {
-        userId: currentUser.uid,
+      return vendorItems.map((item, index) => ({
+        id: item.id,
+        productId: item.id,
         vendorId,
-        vendorLocation: vendorDelivery?.vendorLocation || "",
-        customerName: name,
-        customerEmail: currentUser.email || document.getElementById("email")?.value.trim(),
-        customerPhone: phone,
-        address,
-        location,
-        items: vendorItems,
-        quantity: vendorItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0),
-        total: itemsTotal,
-        deliveryFee: vendorDeliveryFee,
-        grandTotal: itemsTotal + vendorDeliveryFee,
-        paymentMethod: paymentType,
-        status: paymentType === "Paid" ? "Paid" : "Pending",
-        createdAt: serverTimestamp()
-      };
+        vendorLocation: vendorDelivery?.vendorLocation || item.vendorLocation || "",
+        variation: item.variation || "",
+        quantity: Number(item.quantity || 1),
+        image: item.image || item.images?.[0] || "",
+        deliveryFee: index === 0 ? vendorDeliveryFee : 0
+      }));
+    });
 
-      await addDoc(collection(db, "orders"), order);
+    const result = await createOrdersOnServer({
+      idToken,
+      customer: {
+        name,
+        email: currentUser.email || document.getElementById("email")?.value.trim(),
+        phone,
+        address,
+        location
+      },
+      cart: requestCart,
+      paymentMethod: paymentType
+    });
+
+    for (const orderId of result.orderIds || []) {
+      notificationTasks.push(
+        notifyOrderByEmail(orderId).catch((notifyError) => {
+          console.error(`Failed to notify for order ${orderId}:`, notifyError);
+        })
+      );
     }
+
+    await Promise.allSettled(notificationTasks);
 
     localStorage.removeItem("cart");
     setPaymentMessage("Order placed successfully. Redirecting to your orders...", "green");
@@ -451,9 +609,11 @@ async function placeOrder(paymentType) {
 }
 
 displayOrder();
-fillCustomerDetails(auth.currentUser);
+fillCustomerDetails(auth.currentUser?.emailVerified ? auth.currentUser : null);
 checkForm();
 loadDeliveryConfig();
+hydrateVendorLocations();
+updateCheckoutAccess();
 
 if (paymentSection) {
   paymentSection.style.display = "none";

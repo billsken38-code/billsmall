@@ -23,6 +23,16 @@ import {
   slugifyLocationValue,
   getUniqueZones
 } from "./delivery-config.js";
+import {
+  addMonthsToIsoDate,
+  DEFAULT_ADMIN_COMMISSION_TIERS,
+  DEFAULT_REFERRAL_SETTINGS,
+  getAdminCommissionSummaryForOrder,
+  getReferralSettingsFromDoc,
+  isReferralProgramActive,
+  normalizeCommissionTiers,
+  updateCommissionStatus
+} from "./referral-system.js";
 
 const SETTINGS_KEY = "bills_mall_admin_settings_v1";
 const PRODUCT_CATEGORY_FALLBACK = [
@@ -43,12 +53,25 @@ const PRODUCT_CATEGORY_FALLBACK = [
   "Other"
 ];
 
+const BACKEND_BASE_URL = "https://backend-616b.onrender.com";
+
 const defaultSettings = {
   commissionRate: 5,
+  commissionTiers: DEFAULT_ADMIN_COMMISSION_TIERS,
+  categoryCommissionRates: {},
+  vendorCommissionRates: {},
+  referrals: {
+    customerRate: DEFAULT_REFERRAL_SETTINGS.customerReferralRate,
+    vendorRate: DEFAULT_REFERRAL_SETTINGS.vendorReferralRate,
+    minWithdrawal: DEFAULT_REFERRAL_SETTINGS.minWithdrawal,
+    durationMonths: DEFAULT_REFERRAL_SETTINGS.durationMonths,
+    startsAt: "",
+    endsAt: ""
+  },
   categories: ["Fashion", "Electronics", "Beauty", "Home", "Groceries"],
   delivery: defaultDeliveryConfig,
   adminProfile: {
-    name: "Bills Mall Admin",
+    name: "Bills Campus Mall Admin",
     email: "admin@billsmall.com",
     role: "platform_admin"
   }
@@ -67,6 +90,9 @@ const state = {
     settings: loadSettings(),
     vendors: [],
     products: [],
+    users: [],
+    commissions: [],
+    payouts: [],
     customers: [],
     orders: []
   },
@@ -76,6 +102,9 @@ const state = {
   unsubscribeVendors: null,
   unsubscribeProducts: null,
   unsubscribeOrders: null,
+  unsubscribeUsers: null,
+  unsubscribeCommissions: null,
+  unsubscribePayouts: null,
   unsubscribePlatformSettings: null,
   productImages: [],
   isSavingProduct: false
@@ -107,8 +136,12 @@ const elements = {
   orderList: document.getElementById("orderList"),
   customerList: document.getElementById("customerList"),
   payoutList: document.getElementById("payoutList"),
+  commissionList: document.getElementById("commissionList"),
+  affiliateBalanceList: document.getElementById("affiliateBalanceList"),
   reportSummary: document.getElementById("reportSummary"),
   insightList: document.getElementById("insightList"),
+  topReferrersList: document.getElementById("topReferrersList"),
+  referralFraudList: document.getElementById("referralFraudList"),
   categoryList: document.getElementById("categoryList"),
   productVendorFilter: document.getElementById("productVendorFilter"),
   productCategoryFilter: document.getElementById("productCategoryFilter"),
@@ -121,7 +154,18 @@ const elements = {
   customerSearch: document.getElementById("customerSearch"),
   chartRangeSelect: document.getElementById("chartRangeSelect"),
   commissionRateInput: document.getElementById("commissionRateInput"),
+  categoryCommissionList: document.getElementById("categoryCommissionList"),
+  addCategoryCommissionBtn: document.getElementById("addCategoryCommissionBtn"),
+  vendorCommissionList: document.getElementById("vendorCommissionList"),
+  addVendorCommissionBtn: document.getElementById("addVendorCommissionBtn"),
+  customerReferralRateInput: document.getElementById("customerReferralRateInput"),
+  vendorReferralRateInput: document.getElementById("vendorReferralRateInput"),
+  minWithdrawalInput: document.getElementById("minWithdrawalInput"),
+  referralProgramWindowNote: document.getElementById("referralProgramWindowNote"),
   saveCommissionBtn: document.getElementById("saveCommissionBtn"),
+  commissionAnalyticsList: document.getElementById("commissionAnalyticsList"),
+  vendorRevenueTrackingList: document.getElementById("vendorRevenueTrackingList"),
+  commissionHistoryList: document.getElementById("commissionHistoryList"),
   newCategoryInput: document.getElementById("newCategoryInput"),
   addCategoryBtn: document.getElementById("addCategoryBtn"),
   sameLocationFeeInput: document.getElementById("sameLocationFeeInput"),
@@ -198,16 +242,34 @@ function loadSettings() {
     return {
       ...structuredClone(defaultSettings),
       ...parsed,
+      commissionTiers: normalizeCommissionTiers(
+        parsed?.commissionTiers,
+        parsed?.commissionRate ?? defaultSettings.commissionRate
+      ),
+      categoryCommissionRates: parsed?.categoryCommissionRates && typeof parsed.categoryCommissionRates === "object"
+        ? parsed.categoryCommissionRates
+        : {},
+      vendorCommissionRates: parsed?.vendorCommissionRates && typeof parsed.vendorCommissionRates === "object"
+        ? parsed.vendorCommissionRates
+        : {},
       // Ensure categories is always an array
       categories: Array.isArray(parsed?.categories) && parsed.categories.length > 0
         ? parsed.categories
         : defaultSettings.categories,
+      referrals: {
+        ...defaultSettings.referrals,
+        ...(parsed?.referrals || {})
+      },
       delivery: normalizeDeliveryConfig(parsed.delivery || defaultSettings.delivery)
     };
   } catch (error) {
     console.error("Failed to parse admin settings:", error);
     return {
       ...structuredClone(defaultSettings),
+      commissionTiers: normalizeCommissionTiers(
+        defaultSettings.commissionTiers,
+        defaultSettings.commissionRate
+      ),
       delivery: normalizeDeliveryConfig(defaultSettings.delivery)
     };
   }
@@ -215,6 +277,209 @@ function loadSettings() {
 
 function saveSettingsLocal() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.data.settings));
+}
+
+function getCommissionTiers() {
+  return normalizeCommissionTiers(
+    state.data.settings.commissionTiers,
+    state.data.settings.commissionRate
+  );
+}
+
+function getCommissionTierSummary() {
+  return getCommissionTiers()
+    .map((tier) => {
+      const upper = tier.max === null ? "and above" : `to ${formatCurrency(tier.max)}`;
+      return `${formatCurrency(tier.min)} ${upper}: ${tier.rate}%`;
+    })
+    .join(" | ");
+}
+
+function roundCurrency(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
+function normalizeCategoryKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeCommissionMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.entries(value).reduce((accumulator, [key, rate]) => {
+    const normalizedKey = String(key || "").trim();
+    const normalizedRate = Number(rate);
+
+    if (!normalizedKey || Number.isNaN(normalizedRate)) {
+      return accumulator;
+    }
+
+    accumulator[normalizedKey] = normalizedRate;
+    return accumulator;
+  }, {});
+}
+
+function getCategoryCommissionRates() {
+  return normalizeCommissionMap(state.data.settings.categoryCommissionRates);
+}
+
+function getVendorCommissionRates() {
+  return normalizeCommissionMap(state.data.settings.vendorCommissionRates);
+}
+
+function getStoredOrderEarnings(order = {}) {
+  return order.earnings && typeof order.earnings === "object"
+    ? order.earnings
+    : null;
+}
+
+function getOrderCommissionSummary(order = {}) {
+  const earnings = getStoredOrderEarnings(order);
+
+  if (earnings) {
+    const grossSales = roundCurrency(
+      earnings.grossSales ?? order.totalAmount ?? order.total ?? 0
+    );
+    const platformEarnings = roundCurrency(
+      earnings.platformGrossCommission
+      ?? earnings.platformEarnings
+      ?? order.adminCommissionAmount
+      ?? 0
+    );
+    const vendorEarnings = roundCurrency(
+      earnings.vendorEarnings
+      ?? earnings.netPayoutAmount
+      ?? grossSales - platformEarnings
+    );
+
+    return {
+      grossSales,
+      platformEarnings,
+      vendorEarnings,
+      commissionRate: grossSales > 0 ? roundCurrency((platformEarnings / grossSales) * 100) : 0,
+      payoutStatus: String(
+        earnings.payoutStatus
+        || order.payoutStatus
+        || (String(order.status || "").toLowerCase() === "delivered" ? "pending" : "not_ready")
+      ).toLowerCase()
+    };
+  }
+
+  const fallbackRate = Number(state.data.settings.commissionRate || 0);
+  const platformEarnings = roundCurrency(
+    getAdminCommissionSummaryForOrder(order, getCommissionTiers(), fallbackRate).amount
+  );
+  const grossSales = roundCurrency(order.totalAmount ?? order.total ?? 0);
+
+  return {
+    grossSales,
+    platformEarnings,
+    vendorEarnings: roundCurrency(grossSales - platformEarnings),
+    commissionRate: grossSales > 0 ? roundCurrency((platformEarnings / grossSales) * 100) : fallbackRate,
+    payoutStatus: String(order.payoutStatus || "not_ready").toLowerCase()
+  };
+}
+
+function getVendorPendingPayouts() {
+  const payoutTotals = state.data.payouts.reduce((accumulator, payout) => {
+    if (String(payout.status || "").toLowerCase() !== "completed") {
+      return accumulator;
+    }
+
+    accumulator[payout.vendorId] = roundCurrency(
+      Number(accumulator[payout.vendorId] || 0) + Number(payout.amount || 0)
+    );
+    return accumulator;
+  }, {});
+
+  return state.data.vendors.map((vendor) => {
+    const vendorOrders = state.data.orders.filter((order) => order.vendorId === vendor.id);
+    const deliveredOrders = vendorOrders.filter((order) =>
+      String(order.status || "").toLowerCase() === "delivered"
+      && String(order.payoutStatus || getOrderCommissionSummary(order).payoutStatus).toLowerCase() !== "completed"
+    );
+
+    const pendingAmount = roundCurrency(
+      deliveredOrders.reduce((sum, order) => sum + getOrderCommissionSummary(order).vendorEarnings, 0)
+    );
+    const completedAmount = roundCurrency(Number(payoutTotals[vendor.id] || 0));
+
+    return {
+      vendorId: vendor.id,
+      vendorName: vendor.storeName || vendor.name || "Vendor",
+      pendingAmount,
+      completedAmount,
+      orderIds: deliveredOrders.map((order) => order.id)
+    };
+  }).filter((entry) => entry.pendingAmount > 0 || entry.completedAmount > 0);
+}
+
+async function updateOrderStatusViaBackend(orderId, status) {
+  const idToken = await auth.currentUser?.getIdToken();
+
+  if (!idToken) {
+    throw new Error("Admin authentication expired. Please refresh and try again.");
+  }
+
+  const response = await fetch(`${BACKEND_BASE_URL}/orders/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      idToken,
+      orderId,
+      status
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Failed to update order status.");
+  }
+
+  return data;
+}
+
+async function markVendorPayoutCompleted(vendorId) {
+  const summary = getVendorPendingPayouts().find((entry) => entry.vendorId === vendorId);
+
+  if (!summary || summary.pendingAmount <= 0 || !summary.orderIds.length) {
+    throw new Error("There is no pending payout for this vendor.");
+  }
+
+  const payoutRef = await addDoc(collection(db, "vendor_payouts"), {
+    vendorId,
+    vendorName: summary.vendorName,
+    amount: summary.pendingAmount,
+    orderIds: summary.orderIds,
+    status: "Completed",
+    createdAt: new Date().toISOString(),
+    paidAt: new Date().toISOString()
+  });
+
+  await Promise.all(summary.orderIds.map((orderId) =>
+    updateDoc(doc(db, "orders", orderId), {
+      payoutId: payoutRef.id,
+      payoutStatus: "completed",
+      "earnings.payoutStatus": "completed",
+      updatedAt: new Date().toISOString()
+    })
+  ));
+}
+
+function formatProgramDate(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  }).format(date);
 }
 
 function getNormalizedDeliverySettings() {
@@ -228,13 +493,94 @@ async function savePlatformSettings(partialSettings) {
 async function ensurePlatformSettingsDoc() {
   const settingsRef = doc(db, "platform_settings", "main");
   const snap = await getDoc(settingsRef);
+  const defaultStartsAt = new Date().toISOString();
+  const defaultEndsAt = addMonthsToIsoDate(
+    defaultStartsAt,
+    DEFAULT_REFERRAL_SETTINGS.durationMonths
+  );
 
   if (!snap.exists()) {
     await setDoc(settingsRef, {
       commissionRate: defaultSettings.commissionRate,
+      commissionTiers: defaultSettings.commissionTiers,
+      categoryCommissionRates: defaultSettings.categoryCommissionRates,
+      vendorCommissionRates: defaultSettings.vendorCommissionRates,
+      referrals: {
+        ...defaultSettings.referrals,
+        startsAt: defaultStartsAt,
+        endsAt: defaultEndsAt
+      },
       categories: defaultSettings.categories,
-      delivery: defaultDeliveryConfig
+      delivery: defaultDeliveryConfig,
+      adminProfile: defaultSettings.adminProfile
     });
+    return;
+  }
+
+  const existingData = snap.data() || {};
+  const existingReferralSettings = getReferralSettingsFromDoc(existingData);
+  const shouldUpdateCustomerRate =
+    existingReferralSettings.customerReferralRate === 2
+    || typeof existingData.referrals?.customerRate === "undefined";
+  const shouldUpdateVendorRate =
+    typeof existingData.referrals?.vendorRate === "undefined";
+  const referralPatch = {};
+  const platformPatch = {};
+
+  if (!existingReferralSettings.startsAt || !existingReferralSettings.endsAt) {
+    const startsAt = existingReferralSettings.startsAt || defaultStartsAt;
+    referralPatch.durationMonths =
+      existingReferralSettings.durationMonths || DEFAULT_REFERRAL_SETTINGS.durationMonths;
+    referralPatch.startsAt = startsAt;
+    referralPatch.endsAt =
+      existingReferralSettings.endsAt
+      || addMonthsToIsoDate(
+        startsAt,
+        existingReferralSettings.durationMonths || DEFAULT_REFERRAL_SETTINGS.durationMonths
+      );
+  }
+
+  if (shouldUpdateCustomerRate) {
+    referralPatch.customerRate = DEFAULT_REFERRAL_SETTINGS.customerReferralRate;
+  }
+
+  if (shouldUpdateVendorRate) {
+    referralPatch.vendorRate = DEFAULT_REFERRAL_SETTINGS.vendorReferralRate;
+  }
+
+  if (!Array.isArray(existingData.commissionTiers) || !existingData.commissionTiers.length) {
+    platformPatch.commissionTiers = normalizeCommissionTiers(
+      defaultSettings.commissionTiers,
+      existingData.commissionRate ?? defaultSettings.commissionRate
+    );
+  }
+
+  if (!existingData.categoryCommissionRates || typeof existingData.categoryCommissionRates !== "object") {
+    platformPatch.categoryCommissionRates = {};
+  }
+
+  if (!existingData.vendorCommissionRates || typeof existingData.vendorCommissionRates !== "object") {
+    platformPatch.vendorCommissionRates = {};
+  }
+
+  if (!existingData.adminProfile?.email) {
+    platformPatch.adminProfile = {
+      ...(existingData.adminProfile || {}),
+      ...defaultSettings.adminProfile
+    };
+  }
+
+  if (Object.keys(referralPatch).length) {
+    platformPatch.referrals = {
+      ...(existingData.referrals || {}),
+      ...referralPatch
+    };
+  }
+
+  if (Object.keys(platformPatch).length) {
+    await setDoc(settingsRef, {
+      ...platformPatch
+    }, { merge: true });
   }
 }
 
@@ -247,11 +593,33 @@ function subscribePlatformSettings() {
       if (!snapshot.exists()) return;
 
       const data = snapshot.data();
+      const referralSettings = getReferralSettingsFromDoc(data);
       state.data.settings = {
         ...state.data.settings,
-        commissionRate: Number(data.commissionRate ?? 5),
+        commissionRate: referralSettings.adminCommissionRate,
+        commissionTiers: referralSettings.adminCommissionTiers,
+        categoryCommissionRates:
+          data.categoryCommissionRates && typeof data.categoryCommissionRates === "object"
+            ? data.categoryCommissionRates
+            : {},
+        vendorCommissionRates:
+          data.vendorCommissionRates && typeof data.vendorCommissionRates === "object"
+            ? data.vendorCommissionRates
+            : {},
+        referrals: {
+          customerRate: referralSettings.customerReferralRate,
+          vendorRate: referralSettings.vendorReferralRate,
+          minWithdrawal: referralSettings.minWithdrawal,
+          durationMonths: referralSettings.durationMonths,
+          startsAt: referralSettings.startsAt,
+          endsAt: referralSettings.endsAt
+        },
         categories: Array.isArray(data.categories) ? data.categories : state.data.settings.categories,
-        delivery: normalizeDeliveryConfig(data.delivery || state.data.settings.delivery)
+        delivery: normalizeDeliveryConfig(data.delivery || state.data.settings.delivery),
+        adminProfile: {
+          ...state.data.settings.adminProfile,
+          ...(data.adminProfile || {})
+        }
       };
 
       saveSettingsLocal();
@@ -290,6 +658,125 @@ function getVendorEmail(vendor) {
 
 function getVendorPhone(vendor) {
   return vendor?.contactPhone || vendor?.phone || "No phone";
+}
+
+function getUserName(userId) {
+  if (!userId) return "Unknown User";
+
+  const user = state.data.users.find((item) => item.id === userId);
+  return user?.name || user?.email || userId;
+}
+
+function getUserProfile(userId) {
+  if (!userId) return null;
+  return state.data.users.find((item) => item.id === userId) || null;
+}
+
+function getReferralStats() {
+  const totals = new Map();
+
+  state.data.commissions.forEach((commission) => {
+    const key = commission.referrerId || "unknown";
+    const entry = totals.get(key) || {
+      referrerId: key,
+      name: getUserName(key),
+      total: 0,
+      pending: 0,
+      approved: 0,
+      paid: 0,
+      customerCount: 0,
+      vendorCount: 0
+    };
+
+    entry.total += Number(commission.amount || 0);
+
+    if (commission.type === "customer") {
+      entry.customerCount += 1;
+    }
+
+    if (commission.type === "vendor") {
+      entry.vendorCount += 1;
+    }
+
+    const status = String(commission.status || "pending").toLowerCase();
+    if (status === "paid") entry.paid += Number(commission.amount || 0);
+    else if (status === "approved") entry.approved += Number(commission.amount || 0);
+    else if (status !== "rejected") entry.pending += Number(commission.amount || 0);
+
+    totals.set(key, entry);
+  });
+
+  return [...totals.values()]
+    .map((entry) => ({
+      ...entry,
+      total: Number(entry.total || 0),
+      pending: Number(entry.pending || 0),
+      approved: Number(entry.approved || 0),
+      paid: Number(entry.paid || 0)
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function renderAffiliateBalances() {
+  if (!elements.affiliateBalanceList) return;
+
+  const minWithdrawal = Number(state.data.settings.referrals?.minWithdrawal || 0);
+  const referralStats = getReferralStats();
+
+  elements.affiliateBalanceList.innerHTML = referralStats.length
+    ? referralStats.map((entry) => {
+      const readyForPayout = Number(entry.approved || 0) >= minWithdrawal;
+      const profile = getUserProfile(entry.referrerId);
+      const role = String(profile?.role || "customer").toLowerCase();
+      const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+      const email = profile?.email || "No email";
+
+      return `
+        <article class="table-card">
+          <div class="table-top">
+            <div>
+              <strong>${entry.name}</strong>
+              <div class="eyebrow">${email}</div>
+            </div>
+            <span class="badge ${readyForPayout ? "status-approved" : "status-pending"}">
+              ${readyForPayout ? "Ready for payout" : "Below withdrawal minimum"}
+            </span>
+          </div>
+          <div class="table-details">
+            <div class="detail-box"><span>Affiliate Type</span><strong>${roleLabel}</strong></div>
+            <div class="detail-box"><span>Total Accumulated</span><strong>${formatCurrency(entry.total)}</strong></div>
+            <div class="detail-box"><span>Pending</span><strong>${formatCurrency(entry.pending)}</strong></div>
+            <div class="detail-box"><span>Approved</span><strong>${formatCurrency(entry.approved)}</strong></div>
+            <div class="detail-box"><span>Withdrawn</span><strong>${formatCurrency(entry.paid)}</strong></div>
+            <div class="detail-box"><span>Customers Referred</span><strong>${entry.customerCount}</strong></div>
+            <div class="detail-box"><span>Vendors Referred</span><strong>${entry.vendorCount}</strong></div>
+          </div>
+        </article>
+      `;
+    }).join("")
+    : '<div class="empty-state">No affiliate balances yet.</div>';
+}
+
+function getSuspiciousReferralEntries() {
+  const flaggedUsers = state.data.users
+    .filter((user) => Array.isArray(user.flags) && user.flags.length)
+    .map((user) => ({
+      kind: "user",
+      id: user.id,
+      label: user.name || user.email || user.id,
+      flags: user.flags
+    }));
+
+  const flaggedVendors = state.data.vendors
+    .filter((vendor) => Array.isArray(vendor.flags) && vendor.flags.length)
+    .map((vendor) => ({
+      kind: "vendor",
+      id: vendor.id,
+      label: vendor.storeName || vendor.contactEmail || vendor.id,
+      flags: vendor.flags
+    }));
+
+  return [...flaggedUsers, ...flaggedVendors];
 }
 
 function deriveCustomersFromOrders() {
@@ -451,11 +938,11 @@ function renderChart() {
   const labels = Object.keys(bucketMap);
   const values = Object.values(bucketMap);
 
-  if (state.chart) state.chart.destroy();
-
   const parent = canvas.parentElement;
   const oldEmpty = parent.querySelector(".chart-empty-state");
+  const oldChart = parent.querySelector(".admin-sales-chart");
   if (oldEmpty) oldEmpty.remove();
+  if (oldChart) oldChart.remove();
 
   if (!labels.length) {
     canvas.style.display = "none";
@@ -466,26 +953,64 @@ function renderChart() {
     return;
   }
 
-  canvas.style.display = "block";
-  state.chart = new Chart(canvas, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        label: `Revenue (${state.chartRange})`,
-        data: values,
-        borderColor: "#b5651d",
-        backgroundColor: "rgba(181,101,29,0.16)",
-        fill: true,
-        tension: 0.32
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: true } }
-    }
+  canvas.style.display = "none";
+
+  const chartWrap = document.createElement("div");
+  chartWrap.className = "admin-sales-chart";
+
+  const maxValue = Math.max(...values, 1);
+  const width = 720;
+  const height = 320;
+  const paddingX = 48;
+  const paddingTop = 24;
+  const paddingBottom = 56;
+  const chartHeight = height - paddingTop - paddingBottom;
+  const chartWidth = width - paddingX * 2;
+
+  const points = values.map((value, index) => {
+    const x = labels.length === 1
+      ? width / 2
+      : paddingX + (index * chartWidth) / (labels.length - 1);
+    const y = paddingTop + chartHeight - (Number(value || 0) / maxValue) * chartHeight;
+    return { x, y, value, label: labels[index] };
   });
+
+  const linePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const areaPoints = `${paddingX},${height - paddingBottom} ${linePoints} ${width - paddingX},${height - paddingBottom}`;
+  const yAxisTicks = 4;
+
+  chartWrap.innerHTML = `
+    <div class="admin-sales-chart-head">
+      <strong>Revenue (${state.chartRange})</strong>
+      <span>Max ${formatCurrency(maxValue)}</span>
+    </div>
+    <svg viewBox="0 0 ${width} ${height}" class="admin-sales-chart-svg" role="img" aria-label="Sales revenue chart">
+      ${Array.from({ length: yAxisTicks + 1 }, (_, index) => {
+        const value = maxValue - (maxValue / yAxisTicks) * index;
+        const y = paddingTop + (chartHeight / yAxisTicks) * index;
+        return `
+          <line x1="${paddingX}" y1="${y}" x2="${width - paddingX}" y2="${y}" class="admin-sales-grid-line"></line>
+          <text x="${paddingX - 12}" y="${y + 4}" text-anchor="end" class="admin-sales-axis-label">${formatCurrency(value)}</text>
+        `;
+      }).join("")}
+      <path d="M ${areaPoints}" class="admin-sales-area"></path>
+      <polyline points="${linePoints}" class="admin-sales-line"></polyline>
+      ${points.map((point) => `
+        <circle cx="${point.x}" cy="${point.y}" r="4.5" class="admin-sales-point"></circle>
+        <text x="${point.x}" y="${height - 24}" text-anchor="middle" class="admin-sales-axis-label">${point.label}</text>
+      `).join("")}
+    </svg>
+    <div class="admin-sales-chart-legend">
+      ${points.map((point) => `
+        <div class="admin-sales-chart-legend-item">
+          <span>${point.label}</span>
+          <strong>${formatCurrency(point.value)}</strong>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  parent.appendChild(chartWrap);
 }
 
 function renderAlerts() {
@@ -594,7 +1119,7 @@ async function updateVendorStatus(vendorId, status) {
 
 async function updateOrderStatus(orderId, status) {
   try {
-    await updateDoc(doc(db, "orders", orderId), { status });
+    await updateOrderStatusViaBackend(orderId, status);
     showToast(`Order updated to ${status}.`, { type: "success" });
   } catch (error) {
     console.error("Failed to update order status:", error);
@@ -965,66 +1490,304 @@ function renderCustomers() {
     : '<div class="empty-state">No customers yet.</div>';
 }
 
-function calculatePayouts() {
-  const commissionRate = Number(state.data.settings.commissionRate || 0) / 100;
+function renderCategoryCommissionInputs() {
+  if (!elements.categoryCommissionList) return;
 
-  return state.data.vendors.map((vendor) => {
-    const vendorOrders = state.data.orders.filter((order) => {
-      const status = String(order.status || "").toLowerCase();
-      return order.vendorId === vendor.id && ["paid", "delivered"].includes(status);
-    });
+  const entries = Object.entries(getCategoryCommissionRates());
 
-    const gross = vendorOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-    const commission = gross * commissionRate;
-    const net = gross - commission;
+  elements.categoryCommissionList.innerHTML = entries.length
+    ? entries.map(([categoryKey, rate], index) => `
+        <div class="commission-tier-row">
+          <label>
+            Category
+            <select data-category-commission-key="${index}">
+              ${state.data.settings.categories.map((category) => {
+                const selected = normalizeCategoryKey(category) === categoryKey ? "selected" : "";
+                return `<option value="${escapeHtml(normalizeCategoryKey(category))}" ${selected}>${escapeHtml(category)}</option>`;
+              }).join("")}
+            </select>
+          </label>
+          <label>
+            Rate (%)
+            <input type="number" min="0" max="100" step="0.1" data-category-commission-rate="${index}" value="${rate}" />
+          </label>
+          <button type="button" class="btn-danger" data-category-commission-remove="${index}">Remove</button>
+        </div>
+      `).join("")
+    : '<div class="empty-state">No category commission overrides yet.</div>';
+}
 
-    return {
-      vendorId: vendor.id,
-      vendorName: vendor.storeName || vendor.name || "Vendor",
-      gross,
-      commission,
-      net,
-      payoutStatus: net > 0 ? "pending" : "paid"
-    };
-  });
+function renderVendorCommissionInputs() {
+  if (!elements.vendorCommissionList) return;
+
+  const entries = Object.entries(getVendorCommissionRates());
+
+  elements.vendorCommissionList.innerHTML = entries.length
+    ? entries.map(([vendorId, rate], index) => `
+        <div class="commission-tier-row">
+          <label>
+            Vendor
+            <select data-vendor-commission-key="${index}">
+              ${state.data.vendors.map((vendor) => {
+                const selected = vendor.id === vendorId ? "selected" : "";
+                return `<option value="${vendor.id}" ${selected}>${escapeHtml(vendor.storeName || vendor.name || vendor.id)}</option>`;
+              }).join("")}
+            </select>
+          </label>
+          <label>
+            Rate (%)
+            <input type="number" min="0" max="100" step="0.1" data-vendor-commission-rate="${index}" value="${rate}" />
+          </label>
+          <button type="button" class="btn-danger" data-vendor-commission-remove="${index}">Remove</button>
+        </div>
+      `).join("")
+    : '<div class="empty-state">No vendor commission overrides yet.</div>';
+}
+
+function readCategoryCommissionRatesFromInputs() {
+  if (!elements.categoryCommissionList) {
+    return getCategoryCommissionRates();
+  }
+
+  const rows = [...elements.categoryCommissionList.querySelectorAll(".commission-tier-row")];
+  return rows.reduce((accumulator, row) => {
+    const key = row.querySelector("[data-category-commission-key]")?.value || "";
+    const rate = Number(row.querySelector("[data-category-commission-rate]")?.value || 0);
+
+    if (!key || Number.isNaN(rate)) {
+      return accumulator;
+    }
+
+    accumulator[key] = rate;
+    return accumulator;
+  }, {});
+}
+
+function readVendorCommissionRatesFromInputs() {
+  if (!elements.vendorCommissionList) {
+    return getVendorCommissionRates();
+  }
+
+  const rows = [...elements.vendorCommissionList.querySelectorAll(".commission-tier-row")];
+  return rows.reduce((accumulator, row) => {
+    const key = row.querySelector("[data-vendor-commission-key]")?.value || "";
+    const rate = Number(row.querySelector("[data-vendor-commission-rate]")?.value || 0);
+
+    if (!key || Number.isNaN(rate)) {
+      return accumulator;
+    }
+
+    accumulator[key] = rate;
+    return accumulator;
+  }, {});
+}
+
+function renderCommissionList() {
+  const minWithdrawal = Number(state.data.settings.referrals?.minWithdrawal || 0);
+  const aggregates = new Map(
+    getReferralStats().map((entry) => [entry.referrerId, entry])
+  );
+
+  elements.commissionList.innerHTML = state.data.commissions.length
+    ? state.data.commissions
+      .slice()
+      .sort((a, b) => {
+        const aDate = a.createdAt?.seconds
+          ? new Date(a.createdAt.seconds * 1000)
+          : a.createdAt
+            ? new Date(a.createdAt)
+            : null;
+        const bDate = b.createdAt?.seconds
+          ? new Date(b.createdAt.seconds * 1000)
+          : b.createdAt
+            ? new Date(b.createdAt)
+            : null;
+        const aTime = aDate && !Number.isNaN(aDate.getTime()) ? aDate.getTime() : 0;
+        const bTime = bDate && !Number.isNaN(bDate.getTime()) ? bDate.getTime() : 0;
+        return bTime - aTime;
+      })
+      .map((commission) => {
+        const aggregate = aggregates.get(commission.referrerId);
+        const eligible = Number(aggregate?.approved || 0) >= minWithdrawal;
+        const status = String(commission.status || "pending").toLowerCase();
+
+        return `
+          <article class="table-card">
+            <div class="table-top">
+              <div>
+                <strong>${getUserName(commission.referrerId)}</strong>
+                <div class="eyebrow">${commission.type} referral • Order ${commission.orderId}</div>
+              </div>
+              <span class="badge ${statusClass(status)}">${status}</span>
+            </div>
+            <div class="table-details">
+              <div class="detail-box"><span>Amount</span><strong>${formatCurrency(commission.amount)}</strong></div>
+              <div class="detail-box"><span>Rate</span><strong>${commission.percentage}%</strong></div>
+              <div class="detail-box"><span>Eligible</span><strong>${eligible ? "Yes" : "No"}</strong></div>
+              <div class="detail-box"><span>Approved Pool</span><strong>${formatCurrency(aggregate?.approved || 0)}</strong></div>
+            </div>
+            <div class="table-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" data-commission-update="${commission.id}" data-status="approved">Approve</button>
+              <button class="btn-outline" data-commission-update="${commission.id}" data-status="pending">Hold</button>
+              <button class="btn-outline" data-commission-update="${commission.id}" data-status="paid" ${!eligible ? "disabled" : ""}>Mark Paid</button>
+              <button class="btn-danger" data-commission-update="${commission.id}" data-status="rejected">Reject</button>
+            </div>
+          </article>
+        `;
+      }).join("")
+    : '<div class="empty-state">No referral commissions yet.</div>';
 }
 
 function renderPayments() {
-  const payouts = calculatePayouts();
   elements.commissionRateInput.value = state.data.settings.commissionRate;
+  renderCategoryCommissionInputs();
+  renderVendorCommissionInputs();
+  elements.customerReferralRateInput.value = state.data.settings.referrals?.customerRate ?? DEFAULT_REFERRAL_SETTINGS.customerReferralRate;
+  elements.vendorReferralRateInput.value = state.data.settings.referrals?.vendorRate ?? DEFAULT_REFERRAL_SETTINGS.vendorReferralRate;
+  elements.minWithdrawalInput.value = state.data.settings.referrals?.minWithdrawal ?? DEFAULT_REFERRAL_SETTINGS.minWithdrawal;
+  const payoutSummaries = getVendorPendingPayouts();
+  const orderSummaries = state.data.orders.map((order) => ({
+    order,
+    summary: getOrderCommissionSummary(order)
+  }));
+  const totalGrossSales = roundCurrency(orderSummaries.reduce((sum, entry) => sum + entry.summary.grossSales, 0));
+  const totalCommissionEarned = roundCurrency(orderSummaries.reduce((sum, entry) => sum + entry.summary.platformEarnings, 0));
+  const totalVendorRevenue = roundCurrency(orderSummaries.reduce((sum, entry) => sum + entry.summary.vendorEarnings, 0));
 
-  elements.payoutList.innerHTML = payouts.length
-    ? payouts.map((payout) => `
+  if (elements.referralProgramWindowNote) {
+    const startsAt = state.data.settings.referrals?.startsAt || "";
+    const endsAt = state.data.settings.referrals?.endsAt || "";
+    const active = isReferralProgramActive(state.data.settings.referrals || {});
+
+    if (startsAt && endsAt) {
+      elements.referralProgramWindowNote.textContent =
+        `Program window: ${formatProgramDate(startsAt)} to ${formatProgramDate(endsAt)} (${active ? "active" : "ended"}).`;
+    } else {
+      elements.referralProgramWindowNote.textContent = "Runs for 2 months from activation.";
+    }
+  }
+
+  elements.payoutList.innerHTML = payoutSummaries.length
+    ? payoutSummaries.map((payout) => `
         <article class="table-card">
           <div class="table-top">
             <div>
               <strong>${payout.vendorName}</strong>
-              <div class="eyebrow">Vendor payout calculation</div>
+              <div class="eyebrow">Vendor payout readiness</div>
             </div>
-            <span class="badge ${statusClass(payout.payoutStatus)}">${payout.payoutStatus}</span>
+            <span class="badge ${statusClass(payout.pendingAmount > 0 ? "pending" : "completed")}">${payout.pendingAmount > 0 ? "pending" : "completed"}</span>
           </div>
           <div class="table-details">
-            <div class="detail-box"><span>Gross Sales</span><strong>${formatCurrency(payout.gross)}</strong></div>
-            <div class="detail-box"><span>Commission</span><strong>${formatCurrency(payout.commission)}</strong></div>
-            <div class="detail-box"><span>Vendor Earnings</span><strong>${formatCurrency(payout.net)}</strong></div>
-            <div class="detail-box"><span>Rate</span><strong>${state.data.settings.commissionRate}%</strong></div>
+            <div class="detail-box"><span>Pending Payout</span><strong>${formatCurrency(payout.pendingAmount)}</strong></div>
+            <div class="detail-box"><span>Completed Payouts</span><strong>${formatCurrency(payout.completedAmount)}</strong></div>
+            <div class="detail-box"><span>Orders Ready</span><strong>${payout.orderIds.length}</strong></div>
+            <div class="detail-box"><span>Vendor ID</span><strong>${payout.vendorId}</strong></div>
+          </div>
+          <div class="table-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" data-payout-complete="${payout.vendorId}" ${payout.pendingAmount <= 0 ? "disabled" : ""}>Mark Payout Completed</button>
           </div>
         </article>
       `).join("")
     : '<div class="empty-state">No payouts yet.</div>';
+
+  if (elements.commissionAnalyticsList) {
+    elements.commissionAnalyticsList.innerHTML = `
+      <article class="table-card">
+        <div class="table-top">
+          <div>
+            <strong>Total commission earned</strong>
+            <div class="eyebrow">Trusted from backend-created order earnings records</div>
+          </div>
+        </div>
+        <div class="table-details">
+          <div class="detail-box"><span>Gross Sales</span><strong>${formatCurrency(totalGrossSales)}</strong></div>
+          <div class="detail-box"><span>Platform Earnings</span><strong>${formatCurrency(totalCommissionEarned)}</strong></div>
+          <div class="detail-box"><span>Vendor Revenue</span><strong>${formatCurrency(totalVendorRevenue)}</strong></div>
+          <div class="detail-box"><span>Orders</span><strong>${state.data.orders.length}</strong></div>
+        </div>
+      </article>
+    `;
+  }
+
+  if (elements.vendorRevenueTrackingList) {
+    const vendorRows = state.data.vendors
+      .map((vendor) => {
+        const vendorOrders = state.data.orders.filter((order) => order.vendorId === vendor.id);
+
+        return {
+          vendor,
+          grossSales: roundCurrency(vendorOrders.reduce((sum, order) => sum + getOrderCommissionSummary(order).grossSales, 0)),
+          commission: roundCurrency(vendorOrders.reduce((sum, order) => sum + getOrderCommissionSummary(order).platformEarnings, 0)),
+          earnings: roundCurrency(vendorOrders.reduce((sum, order) => sum + getOrderCommissionSummary(order).vendorEarnings, 0))
+        };
+      })
+      .filter((entry) => entry.grossSales > 0);
+
+    elements.vendorRevenueTrackingList.innerHTML = vendorRows.length
+      ? vendorRows.map((entry) => `
+          <article class="table-card">
+            <div class="table-top">
+              <div>
+                <strong>${escapeHtml(entry.vendor.storeName || entry.vendor.name || entry.vendor.id)}</strong>
+                <div class="eyebrow">${entry.vendor.id}</div>
+              </div>
+            </div>
+            <div class="table-details">
+              <div class="detail-box"><span>Total Sales</span><strong>${formatCurrency(entry.grossSales)}</strong></div>
+              <div class="detail-box"><span>Commission Earned</span><strong>${formatCurrency(entry.commission)}</strong></div>
+              <div class="detail-box"><span>Vendor Revenue</span><strong>${formatCurrency(entry.earnings)}</strong></div>
+            </div>
+          </article>
+        `).join("")
+      : '<div class="empty-state">Vendor revenue tracking will appear after orders are placed.</div>';
+  }
+
+  if (elements.commissionHistoryList) {
+    elements.commissionHistoryList.innerHTML = orderSummaries.length
+      ? orderSummaries
+        .slice()
+        .sort((a, b) => {
+          const aTime = parseOrderDate(a.order)?.getTime?.() || 0;
+          const bTime = parseOrderDate(b.order)?.getTime?.() || 0;
+          return bTime - aTime;
+        })
+        .map(({ order, summary }) => `
+          <article class="table-card">
+            <div class="table-top">
+              <div>
+                <strong>${order.id}</strong>
+                <div class="eyebrow">${escapeHtml(order.customerName || "Customer")} • ${escapeHtml(getVendorName(order.vendorId))}</div>
+              </div>
+              <span class="badge ${statusClass(order.status || "pending")}">${order.status || "pending"}</span>
+            </div>
+            <div class="table-details">
+              <div class="detail-box"><span>Gross Sale</span><strong>${formatCurrency(summary.grossSales)}</strong></div>
+              <div class="detail-box"><span>Commission Rate</span><strong>${summary.commissionRate.toFixed(1)}%</strong></div>
+              <div class="detail-box"><span>Platform Earnings</span><strong>${formatCurrency(summary.platformEarnings)}</strong></div>
+              <div class="detail-box"><span>Vendor Earnings</span><strong>${formatCurrency(summary.vendorEarnings)}</strong></div>
+            </div>
+          </article>
+        `).join("")
+      : '<div class="empty-state">Commission history will appear after orders are created.</div>';
+  }
+
+  renderCommissionList();
+  renderAffiliateBalances();
 }
 
 function renderAnalytics() {
   const overview = getOverview();
-  const payouts = calculatePayouts();
+  const payouts = getVendorPendingPayouts();
   const topVendor = getTopVendors()[0];
   const topProduct = getTopProducts()[0];
   const avgOrderValue = overview.totalOrders ? overview.revenue / overview.totalOrders : 0;
+  const referralStats = getReferralStats();
+  const suspiciousEntries = getSuspiciousReferralEntries();
 
   elements.reportSummary.innerHTML = [
     ["Revenue", formatCurrency(overview.revenue)],
     ["Average order value", formatCurrency(avgOrderValue)],
-    ["Pending payouts", payouts.filter((item) => item.payoutStatus === "pending").length],
+    ["Pending payouts", payouts.filter((item) => item.pendingAmount > 0).length],
     ["Vendor approvals waiting", state.data.vendors.filter((vendor) => vendor.status === "pending").length]
   ].map(([label, value]) => `
     <div class="mini-item">
@@ -1039,6 +1802,30 @@ function renderAnalytics() {
     <div class="mini-item"><span>Dispute cases</span><strong>${state.data.orders.filter((order) => order.dispute || String(order.status || "").toLowerCase() === "dispute").length}</strong></div>
     <div class="mini-item"><span>Refund requests</span><strong>${state.data.orders.filter((order) => order.refundRequested).length}</strong></div>
   `;
+
+  elements.topReferrersList.innerHTML = referralStats.length
+    ? referralStats.slice(0, 8).map((entry) => `
+        <div class="mini-item">
+          <div>
+            <strong>${entry.name}</strong>
+            <div class="eyebrow">${entry.customerCount} customer • ${entry.vendorCount} vendor referrals</div>
+          </div>
+          <strong>${formatCurrency(entry.total)}</strong>
+        </div>
+      `).join("")
+    : '<div class="empty-state">No referrers yet.</div>';
+
+  elements.referralFraudList.innerHTML = suspiciousEntries.length
+    ? suspiciousEntries.map((entry) => `
+        <div class="mini-item">
+          <div>
+            <strong>${entry.label}</strong>
+            <div class="eyebrow">${entry.kind}</div>
+          </div>
+          <strong>${entry.flags.join(", ")}</strong>
+        </div>
+      `).join("")
+    : '<div class="empty-state">No suspicious referral activity flagged.</div>';
 }
 
 function renderSettings() {
@@ -1287,6 +2074,63 @@ function subscribeOrders() {
   );
 }
 
+function subscribeUsers() {
+  if (state.unsubscribeUsers) state.unsubscribeUsers();
+
+  state.unsubscribeUsers = onSnapshot(
+    collection(db, "users"),
+    (snapshot) => {
+      state.data.users = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      renderAll();
+    },
+    (error) => {
+      console.error("Failed to load users:", error);
+      showToast(`Failed to load users: ${error.message}`, { type: "error" });
+    }
+  );
+}
+
+function subscribeCommissions() {
+  if (state.unsubscribeCommissions) state.unsubscribeCommissions();
+
+  state.unsubscribeCommissions = onSnapshot(
+    collection(db, "commissions"),
+    (snapshot) => {
+      state.data.commissions = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      renderAll();
+    },
+    (error) => {
+      console.error("Failed to load commissions:", error);
+      showToast(`Failed to load commissions: ${error.message}`, { type: "error" });
+    }
+  );
+}
+
+function subscribePayouts() {
+  if (state.unsubscribePayouts) state.unsubscribePayouts();
+
+  state.unsubscribePayouts = onSnapshot(
+    collection(db, "vendor_payouts"),
+    (snapshot) => {
+      state.data.payouts = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      renderAll();
+    },
+    (error) => {
+      console.error("Failed to load payouts:", error);
+      showToast(`Failed to load payouts: ${error.message}`, { type: "error" });
+    }
+  );
+}
+
 function bindEvents() {
   elements.navButtons.forEach((button) => {
     button.addEventListener("click", () => setSection(button.dataset.section));
@@ -1321,18 +2165,109 @@ function bindEvents() {
 
   elements.saveCommissionBtn.addEventListener("click", async () => {
     const nextRate = Number(elements.commissionRateInput.value || 0);
+    const categoryCommissionRates = readCategoryCommissionRatesFromInputs();
+    const vendorCommissionRates = readVendorCommissionRatesFromInputs();
+    const customerRate = Number(elements.customerReferralRateInput.value || 0);
+    const vendorRate = Number(elements.vendorReferralRateInput.value || 0);
+    const minWithdrawal = Number(elements.minWithdrawalInput.value || 0);
+    const existingStart = state.data.settings.referrals?.startsAt || "";
+    const existingEnd = state.data.settings.referrals?.endsAt || "";
+    const startsAt = existingStart || new Date().toISOString();
+    const endsAt = existingEnd || addMonthsToIsoDate(startsAt, DEFAULT_REFERRAL_SETTINGS.durationMonths);
+
+    state.data.settings = {
+      ...state.data.settings,
+      commissionRate: nextRate,
+      categoryCommissionRates,
+      vendorCommissionRates,
+      referrals: {
+        ...state.data.settings.referrals,
+        customerRate,
+        vendorRate,
+        minWithdrawal,
+        durationMonths: DEFAULT_REFERRAL_SETTINGS.durationMonths,
+        startsAt,
+        endsAt
+      }
+    };
+    saveSettingsLocal();
 
     try {
       await savePlatformSettings({
         commissionRate: nextRate,
-        categories: state.data.settings.categories
+        categoryCommissionRates,
+        vendorCommissionRates,
+        categories: state.data.settings.categories,
+        referrals: {
+          customerRate,
+          vendorRate,
+          minWithdrawal,
+          durationMonths: DEFAULT_REFERRAL_SETTINGS.durationMonths,
+          startsAt,
+          endsAt
+        }
       });
 
-      showToast("Commission updated platform-wide.", { type: "success" });
+      showToast("Commission and 2-month affiliate window updated.", { type: "success" });
     } catch (error) {
       console.error("Failed to save commission:", error);
       showToast(`Failed to save commission: ${error.message}`, { type: "error" });
     }
+  });
+
+  elements.addCategoryCommissionBtn?.addEventListener("click", () => {
+    const categories = state.data.settings.categories || [];
+    const existing = readCategoryCommissionRatesFromInputs();
+    const nextCategory = categories.find((category) => !(normalizeCategoryKey(category) in existing));
+
+    if (!nextCategory) {
+      showToast("All categories already have commission overrides.", { type: "info" });
+      return;
+    }
+
+    state.data.settings.categoryCommissionRates = {
+      ...existing,
+      [normalizeCategoryKey(nextCategory)]: Number(state.data.settings.commissionRate || 0)
+    };
+    renderPayments();
+  });
+
+  elements.addVendorCommissionBtn?.addEventListener("click", () => {
+    const existing = readVendorCommissionRatesFromInputs();
+    const nextVendor = state.data.vendors.find((vendor) => !(vendor.id in existing));
+
+    if (!nextVendor) {
+      showToast("All vendors already have commission overrides.", { type: "info" });
+      return;
+    }
+
+    state.data.settings.vendorCommissionRates = {
+      ...existing,
+      [nextVendor.id]: Number(state.data.settings.commissionRate || 0)
+    };
+    renderPayments();
+  });
+
+  elements.categoryCommissionList?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-category-commission-remove]");
+    if (!removeButton) return;
+
+    const index = Number(removeButton.getAttribute("data-category-commission-remove"));
+    const nextEntries = Object.entries(readCategoryCommissionRatesFromInputs())
+      .filter((_, entryIndex) => entryIndex !== index);
+    state.data.settings.categoryCommissionRates = Object.fromEntries(nextEntries);
+    renderPayments();
+  });
+
+  elements.vendorCommissionList?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-vendor-commission-remove]");
+    if (!removeButton) return;
+
+    const index = Number(removeButton.getAttribute("data-vendor-commission-remove"));
+    const nextEntries = Object.entries(readVendorCommissionRatesFromInputs())
+      .filter((_, entryIndex) => entryIndex !== index);
+    state.data.settings.vendorCommissionRates = Object.fromEntries(nextEntries);
+    renderPayments();
   });
 
   elements.addCategoryBtn.addEventListener("click", addCategory);
@@ -1448,10 +2383,10 @@ function bindEvents() {
     }
   });
 
-  elements.saveAdminSettingsBtn.addEventListener("click", () => {
+  elements.saveAdminSettingsBtn.addEventListener("click", async () => {
     state.data.auth.currentUser = {
       ...state.data.auth.currentUser,
-      name: elements.adminNameInput.value.trim() || "Bills Mall Admin",
+      name: elements.adminNameInput.value.trim() || "Bills Campus Mall Admin",
       email: elements.adminEmailInput.value.trim() || "",
       role: elements.adminRoleInput.value
     };
@@ -1461,15 +2396,26 @@ function bindEvents() {
     };
 
     saveSettingsLocal();
-    renderAll();
-    showToast("Admin settings saved.", { type: "success" });
+
+    try {
+      await savePlatformSettings({
+        adminProfile: state.data.settings.adminProfile
+      });
+      renderAll();
+      showToast("Admin settings saved.", { type: "success" });
+    } catch (error) {
+      console.error("Failed to save admin settings:", error);
+      showToast(`Failed to save admin settings: ${error.message}`, { type: "error" });
+    }
   });
 
   elements.exportBtn.addEventListener("click", () => {
     const exportData = {
+      users: state.data.users,
       vendors: state.data.vendors,
       products: state.data.products,
       orders: state.data.orders,
+      commissions: state.data.commissions,
       customers: state.data.customers,
       settings: state.data.settings
     };
@@ -1565,6 +2511,34 @@ function bindEvents() {
 
     await updateOrderStatus(orderId, status);
   });
+
+  elements.commissionList?.addEventListener("click", async (event) => {
+    const commissionId = event.target.getAttribute("data-commission-update");
+    const status = event.target.getAttribute("data-status");
+
+    if (!commissionId || !status) return;
+
+    try {
+      await updateCommissionStatus(commissionId, status);
+      showToast(`Commission marked ${status}.`, { type: "success" });
+    } catch (error) {
+      console.error("Failed to update commission:", error);
+      showToast(`Failed to update commission: ${error.message}`, { type: "error" });
+    }
+  });
+
+  elements.payoutList?.addEventListener("click", async (event) => {
+    const vendorId = event.target.getAttribute("data-payout-complete");
+    if (!vendorId) return;
+
+    try {
+      await markVendorPayoutCompleted(vendorId);
+      showToast("Vendor payout marked as completed.", { type: "success" });
+    } catch (error) {
+      console.error("Failed to complete payout:", error);
+      showToast(`Failed to complete payout: ${error.message}`, { type: "error" });
+    }
+  });
 }
 
 async function init() {
@@ -1576,7 +2550,7 @@ async function init() {
 
     state.data.auth.currentUser = {
       uid: user.uid,
-      name: user.displayName || state.data.settings.adminProfile.name || "Bills Mall Admin",
+      name: user.displayName || state.data.settings.adminProfile.name || "Bills Campus Mall Admin",
       email: user.email || state.data.settings.adminProfile.email || "",
       role: state.data.settings.adminProfile.role || "platform_admin"
     };
@@ -1589,6 +2563,9 @@ async function init() {
     subscribeVendors();
     subscribeProducts();
     subscribeOrders();
+    subscribeUsers();
+    subscribeCommissions();
+    subscribePayouts();
   } catch (error) {
     console.error("Admin init failed:", error);
   }

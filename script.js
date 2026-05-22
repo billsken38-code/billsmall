@@ -35,6 +35,7 @@ const state = {
   products: [],
   filteredProducts: [],
   currentCategory: "All",
+  currentSort: "featured",
   unsubscribeProducts: null,
   currentProduct: null,
   currentImageIndex: 0,
@@ -48,6 +49,11 @@ const elements = {
   searchButton: document.getElementById("search-button"),
   productsContainer: document.getElementById("products-container"),
   featuredProductsContainer: document.getElementById("featured-products-container"),
+  sortSelect: document.getElementById("sort-select"),
+  minPriceInput: document.getElementById("min-price-input"),
+  maxPriceInput: document.getElementById("max-price-input"),
+  clearFiltersButton: document.getElementById("clear-filters-btn"),
+  resultsCount: document.getElementById("results-count"),
   cartCount: document.querySelector(".cart-count"),
   adminLink: document.getElementById("admin-link"),
   lightbox: document.getElementById("lightbox"),
@@ -216,6 +222,8 @@ function getProductCard(product) {
   const stock = Number(product.stock || 0);
   const outOfStock = isOutOfStock(product);
   const isFeatured = !!product.featured;
+  const stockLabel = outOfStock ? "Out of stock" : `${stock} in stock`;
+  const confidenceLabel = outOfStock ? "Restock needed" : "Ready to order";
 
   return `
     <article class="product-card upgraded-product-card">
@@ -228,9 +236,11 @@ function getProductCard(product) {
         <h3>${escapeHtml(product.name || "Unnamed Product")}</h3>
         <p class="product-category-label">${escapeHtml(product.category || "General")}</p>
         <p class="price">${formatCurrency(product.price)}</p>
-        <p class="product-stock-label ${outOfStock ? "out" : ""}">
-          ${outOfStock ? "Out of stock" : `${stock} in stock`}
-        </p>
+        <div class="product-card-meta">
+          <span class="product-stock-label ${outOfStock ? "out" : ""}">${stockLabel}</span>
+          <span class="product-confidence-pill ${outOfStock ? "out" : ""}">${confidenceLabel}</span>
+        </div>
+        <p class="product-card-note">Marketplace checkout, tracked orders, and direct support available.</p>
 
         <div class="product-card-actions">
           <button class="add-btn" onclick="addToCart('${product.id}')" ${outOfStock ? "disabled" : ""}>
@@ -286,9 +296,13 @@ function updateCartCount() {
 
 function applyFilters() {
   const searchValue = String(elements.searchInput?.value || "").trim().toLowerCase();
+  const minPrice = Number(elements.minPriceInput?.value || 0);
+  const maxPriceRaw = String(elements.maxPriceInput?.value || "").trim();
+  const maxPrice = maxPriceRaw ? Number(maxPriceRaw) : Number.POSITIVE_INFINITY;
 
   state.filteredProducts = state.products.filter((product) => {
     const productCategory = product.category || "";
+    const price = Number(product.price || 0);
     const matchesCategory =
       state.currentCategory === "All" ||
       normalizeCategory(productCategory) === normalizeCategory(state.currentCategory);
@@ -299,10 +313,42 @@ function applyFilters() {
       String(productCategory).toLowerCase().includes(searchValue) ||
       String(product.description || "").toLowerCase().includes(searchValue);
 
-    return matchesCategory && matchesSearch;
+    const matchesPrice = price >= minPrice && price <= maxPrice;
+
+    return matchesCategory && matchesSearch && matchesPrice;
+  });
+
+  state.filteredProducts.sort((a, b) => {
+    const sortMode = state.currentSort;
+
+    if (sortMode === "price-low") {
+      return Number(a.price || 0) - Number(b.price || 0);
+    }
+
+    if (sortMode === "price-high") {
+      return Number(b.price || 0) - Number(a.price || 0);
+    }
+
+    if (sortMode === "name-az") {
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    }
+
+    if (sortMode === "stock-high") {
+      return Number(b.stock || 0) - Number(a.stock || 0);
+    }
+
+    if (!!b.featured !== !!a.featured) {
+      return Number(!!b.featured) - Number(!!a.featured);
+    }
+
+    return String(a.name || "").localeCompare(String(b.name || ""));
   });
 
   displayProducts(state.filteredProducts);
+  if (elements.resultsCount) {
+    const total = state.filteredProducts.length;
+    elements.resultsCount.textContent = `${total} product${total === 1 ? "" : "s"} found`;
+  }
   renderCategoryBar();
 }
 
@@ -314,11 +360,6 @@ function filterCategory(category) {
 function addToCart(productId) {
   const product = state.products.find((item) => item.id === productId);
   if (!product) return;
-
-  if (!isLoggedIn()) {
-    showLoginPrompt();
-    return;
-  }
 
   if (isOutOfStock(product)) {
     showToast("This product is out of stock.", { type: "error" });
@@ -341,6 +382,7 @@ function addToCart(productId) {
       variation: null,
       quantity: 1,
       vendorId: product.vendorId || null,
+      vendorLocation: product.vendorLocation || "",
       stock: Number(product.stock || 0),
       category: product.category || ""
     });
@@ -416,6 +458,23 @@ function revealAdminLink() {
 function bindEvents() {
   elements.searchInput?.addEventListener("input", applyFilters);
   elements.searchButton?.addEventListener("click", applyFilters);
+  elements.sortSelect?.addEventListener("change", (event) => {
+    state.currentSort = event.target.value || "featured";
+    applyFilters();
+  });
+  elements.minPriceInput?.addEventListener("input", applyFilters);
+  elements.maxPriceInput?.addEventListener("input", applyFilters);
+  elements.clearFiltersButton?.addEventListener("click", () => {
+    state.currentCategory = "All";
+    state.currentSort = "featured";
+
+    if (elements.searchInput) elements.searchInput.value = "";
+    if (elements.minPriceInput) elements.minPriceInput.value = "";
+    if (elements.maxPriceInput) elements.maxPriceInput.value = "";
+    if (elements.sortSelect) elements.sortSelect.value = "featured";
+
+    applyFilters();
+  });
   elements.loginCtaButton?.addEventListener("click", hideLoginPrompt);
 
   elements.categoryBar?.addEventListener("click", (event) => {

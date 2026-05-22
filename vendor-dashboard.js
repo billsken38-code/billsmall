@@ -23,11 +23,17 @@ import {
 
 import { auth, db, storage } from "./firebase.js";
 import { showToast } from "./ui.js";
+import {
+  applyVendorReferralIfEligible,
+  ensureUserProfile,
+  getAdminCommissionSummaryForOrder
+} from "./referral-system.js";
 
 /* =========================
    CONFIG
 ========================= */
 let COMMISSION_RATE = 0.05;
+let COMMISSION_TIERS = [];
 
 const WHATSAPP_ADMIN_URL =
   "https://wa.me/233599480662?text=Hello%20I%20want%20help%20with%20my%20Bills%20Mall%20vendor%20account";
@@ -53,6 +59,8 @@ const CATEGORY_OPTIONS = [
   "Other"
 ];
 
+const BACKEND_BASE_URL = "https://backend-616b.onrender.com";
+
 /* =========================
    STATE
 ========================= */
@@ -60,12 +68,14 @@ const state = {
   vendorId: null,
   currentSection: "dashboard",
   vendorProfile: null,
+  deliveryLocations: [],
   vendorProducts: [],
   vendorOrders: [],
   vendorReviews: [],
   vendorPayouts: [],
   unsubscribeProducts: null,
   unsubscribeOrders: null,
+  unsubscribePayouts: null,
   unsubscribePlatformSettings: null,
   authReady: false,
   eventsBound: false
@@ -87,6 +97,7 @@ const elements = {
   analyticsList: document.getElementById("analytics-list"),
   reviewList: document.getElementById("review-list"),
   paymentHistory: document.getElementById("payment-history"),
+  earningsHistoryList: document.getElementById("earnings-history-list"),
 
   productForm: document.getElementById("product-form"),
   resetProductFormBtn: document.getElementById("reset-product-form"),
@@ -109,6 +120,7 @@ const elements = {
   settingsDescriptionPreview: document.getElementById("settings-description-preview"),
   settingsEmailPreview: document.getElementById("settings-email-preview"),
   settingsPhonePreview: document.getElementById("settings-phone-preview"),
+  settingsLocationPreview: document.getElementById("settings-location-preview"),
   settingsVendorIdPreview: document.getElementById("settings-vendor-id-preview"),
   settingsLogoPreview: document.getElementById("settings-logo-preview")
 };
@@ -125,6 +137,95 @@ function formatCurrency(value) {
     currency: "GHS",
     maximumFractionDigits: 2
   }).format(Number(value || 0));
+}
+
+function roundCurrency(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
+function getOrderCommissionSummary(order = {}) {
+  const earnings = order.earnings && typeof order.earnings === "object"
+    ? order.earnings
+    : null;
+
+  if (earnings) {
+    const grossSales = roundCurrency(earnings.grossSales ?? order.totalAmount ?? order.total ?? 0);
+    const commissionDeducted = roundCurrency(
+      earnings.platformGrossCommission
+      ?? earnings.platformEarnings
+      ?? order.adminCommissionAmount
+      ?? 0
+    );
+    const vendorEarnings = roundCurrency(
+      earnings.vendorEarnings
+      ?? earnings.netPayoutAmount
+      ?? grossSales - commissionDeducted
+    );
+
+    return {
+      grossSales,
+      commissionDeducted,
+      vendorEarnings,
+      payoutStatus: String(
+        earnings.payoutStatus
+        || order.payoutStatus
+        || (String(order.status || "").toLowerCase() === "delivered" ? "pending" : "not_ready")
+      ).toLowerCase()
+    };
+  }
+
+  const commissionDeducted = roundCurrency(
+    getAdminCommissionSummaryForOrder(order, COMMISSION_TIERS, COMMISSION_RATE * 100).amount
+  );
+  const grossSales = roundCurrency(order.totalAmount ?? order.total ?? 0);
+
+  return {
+    grossSales,
+    commissionDeducted,
+    vendorEarnings: roundCurrency(grossSales - commissionDeducted),
+    payoutStatus: String(order.payoutStatus || "not_ready").toLowerCase()
+  };
+}
+
+function getOrderTimestampValue(order = {}) {
+  if (order.createdAt?.seconds) {
+    return order.createdAt.seconds * 1000;
+  }
+
+  if (order.createdAt) {
+    const parsed = new Date(order.createdAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.getTime();
+    }
+  }
+
+  return 0;
+}
+
+async function updateOrderStatusViaBackend(orderId, nextStatus) {
+  const idToken = await auth.currentUser?.getIdToken();
+
+  if (!idToken) {
+    throw new Error("Your session expired. Please log in again.");
+  }
+
+  const response = await fetch(`${BACKEND_BASE_URL}/orders/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      idToken,
+      orderId,
+      status: nextStatus
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Failed to update order.");
+  }
+
+  return data;
 }
 
 function getStatusClass(status) {
@@ -199,6 +300,7 @@ function getVendorProfileDefaults() {
     logoUrl: user?.photoURL || "",
     contactEmail: user?.email || "",
     contactPhone: user?.phoneNumber || "",
+    vendorLocation: "",
     description: "Professional marketplace dashboard for your store.",
     status: "pending"
   };
@@ -251,6 +353,11 @@ function clearVendorState() {
     state.unsubscribeOrders = null;
   }
 
+  if (state.unsubscribePayouts) {
+    state.unsubscribePayouts();
+    state.unsubscribePayouts = null;
+  }
+
   if (state.unsubscribePlatformSettings) {
     state.unsubscribePlatformSettings();
     state.unsubscribePlatformSettings = null;
@@ -272,6 +379,8 @@ function subscribePlatformSettings() {
 
       const data = snapshot.data();
       COMMISSION_RATE = Number(data.commissionRate ?? 5) / 100;
+      COMMISSION_TIERS = Array.isArray(data.commissionTiers) ? data.commissionTiers : [];
+      state.deliveryLocations = Array.isArray(data.delivery?.locations) ? data.delivery.locations : [];
       renderAll();
     },
     (error) => {
@@ -344,6 +453,9 @@ async function syncVendorProfileFromFirebaseLogin() {
   if (!user) return;
 
   state.vendorId = user.uid;
+  await ensureUserProfile(user, {
+    role: "vendor"
+  });
 
   const loginProfile = {
     id: user.uid,
@@ -374,7 +486,18 @@ async function syncVendorProfileFromFirebaseLogin() {
         status: vendorData.status || "pending"
       };
     } else {
-      await setDoc(vendorRef, loginProfile, { merge: true });
+      const referralData = await applyVendorReferralIfEligible({
+        vendorId: user.uid
+      });
+
+      mergedProfile = {
+        ...loginProfile,
+        referredBy: referralData.referredBy || "",
+        referralCodeUsed: referralData.referralCodeUsed || "",
+        flags: referralData.flags || []
+      };
+
+      await setDoc(vendorRef, mergedProfile, { merge: true });
     }
 
     state.vendorProfile = mergedProfile;
@@ -445,6 +568,35 @@ function subscribeOrdersFromFirebase() {
   );
 }
 
+function subscribePayoutsFromFirebase() {
+  if (!state.vendorId) return;
+
+  if (state.unsubscribePayouts) {
+    state.unsubscribePayouts();
+  }
+
+  const payoutsQuery = query(
+    collection(db, "vendor_payouts"),
+    where("vendorId", "==", state.vendorId)
+  );
+
+  state.unsubscribePayouts = onSnapshot(
+    payoutsQuery,
+    (snapshot) => {
+      state.vendorPayouts = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+
+      renderAll();
+    },
+    (err) => {
+      console.error("Failed to subscribe to vendor payouts:", err);
+      showToast(`Failed to load payouts: ${err.message}`, { type: "error" });
+    }
+  );
+}
+
 /* =========================
    CALCULATIONS
 ========================= */
@@ -453,18 +605,20 @@ function calculateOverview() {
   const orders = getVendorOrders();
   const reviews = getVendorReviews();
   const payouts = getVendorPayouts();
+  const orderSummaries = orders.map((order) => getOrderCommissionSummary(order));
+  const totalCommission = orderSummaries.reduce((sum, entry) => sum + entry.commissionDeducted, 0);
 
-  const grossSales = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const grossSales = orderSummaries.reduce((sum, entry) => sum + entry.grossSales, 0);
   const totalSalesCount = orders.reduce((sum, order) => sum + Number(order.quantity || 0), 0);
-  const earnings = grossSales * (1 - COMMISSION_RATE);
+  const earnings = orderSummaries.reduce((sum, entry) => sum + entry.vendorEarnings, 0);
 
   const deliveredRevenue = orders
     .filter((order) => String(order.status || "").toLowerCase() === "delivered")
-    .reduce((sum, order) => sum + Number(order.total || 0) * (1 - COMMISSION_RATE), 0);
+    .reduce((sum, order) => sum + getOrderCommissionSummary(order).vendorEarnings, 0);
 
   const processingRevenue = orders
     .filter((order) => String(order.status || "").toLowerCase() !== "delivered")
-    .reduce((sum, order) => sum + Number(order.total || 0) * (1 - COMMISSION_RATE), 0);
+    .reduce((sum, order) => sum + getOrderCommissionSummary(order).vendorEarnings, 0);
 
   const paidOut = payouts
     .filter((payout) => payout.status === "Completed")
@@ -476,11 +630,13 @@ function calculateOverview() {
 
   return {
     grossSales,
+    totalCommission,
     orderCount: orders.length,
     totalSalesCount,
     earnings,
-    withdrawable: Math.max(deliveredRevenue - paidOut, 0),
+    withdrawable: Math.max(roundCurrency(deliveredRevenue - paidOut), 0),
     pendingBalance: processingRevenue,
+    completedPayouts: paidOut,
     averageRating,
     activeProducts: products.filter((product) => product.status === "Active").length,
     openOrders: orders.filter((order) => String(order.status || "").toLowerCase() !== "delivered").length
@@ -498,7 +654,7 @@ function renderStats() {
       { label: "Total Sales", value: formatCurrency(overview.grossSales), note: "Gross marketplace value" },
       { label: "Orders", value: overview.orderCount, note: "Vendor orders received" },
       { label: "Products Sold", value: overview.totalSalesCount, note: "Units sold" },
-      { label: "Earnings", value: formatCurrency(overview.earnings), note: "After commission" }
+      { label: "Total Earnings", value: formatCurrency(overview.earnings), note: "After commission" }
     ];
 
     elements.statsGrid.innerHTML = cards
@@ -510,11 +666,15 @@ function renderStats() {
   }
 
   if (elements.earningsStatsGrid) {
+    const effectiveRate = overview.grossSales > 0
+      ? (overview.totalCommission / overview.grossSales) * 100
+      : COMMISSION_RATE * 100;
     const earningsCards = [
       { label: "Total Earnings", value: formatCurrency(overview.earnings), note: "Net sales after commission" },
-      { label: "Pending Balance", value: formatCurrency(overview.pendingBalance), note: "Orders not yet delivered" },
-      { label: "Withdrawable", value: formatCurrency(overview.withdrawable), note: "Ready for payout" },
-      { label: "Commission Rate", value: `${Math.round(COMMISSION_RATE * 100)}%`, note: "Marketplace fee" }
+      { label: "Commission Deducted", value: formatCurrency(overview.totalCommission), note: "Platform share across your orders" },
+      { label: "Pending Payouts", value: formatCurrency(overview.withdrawable), note: "Delivered orders waiting for payout" },
+      { label: "Completed Payouts", value: formatCurrency(overview.completedPayouts), note: "Amounts already settled" },
+      { label: "Avg Commission", value: `${effectiveRate.toFixed(1)}%`, note: "Average rate on recorded orders" }
     ];
 
     elements.earningsStatsGrid.innerHTML = earningsCards
@@ -656,6 +816,7 @@ function renderOrders() {
 
   elements.orderList.innerHTML = orders
     .map((order) => {
+      const orderSummary = getOrderCommissionSummary(order);
       const itemNames = Array.isArray(order.items)
         ? order.items.map((item) => item.name).filter(Boolean).join(", ")
         : (order.productName || "Order");
@@ -678,7 +839,8 @@ function renderOrders() {
             <div><span>Phone</span><strong>${order.customerPhone || "N/A"}</strong></div>
             <div><span>Location</span><strong>${order.location || "N/A"}</strong></div>
             <div><span>Quantity</span><strong>${order.quantity || 0}</strong></div>
-            <div><span>Total</span><strong>${formatCurrency(order.total)}</strong></div>
+            <div><span>Total Sale</span><strong>${formatCurrency(orderSummary.grossSales)}</strong></div>
+            <div><span>Your Earnings</span><strong>${formatCurrency(orderSummary.vendorEarnings)}</strong></div>
           </div>
 
           <div class="vendor-table-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
@@ -710,9 +872,7 @@ async function updateVendorOrderStatus(orderId, nextStatus) {
   }
 
   try {
-    await updateDoc(doc(db, "orders", orderId), {
-      status: nextStatus
-    });
+    await updateOrderStatusViaBackend(orderId, nextStatus);
 
     showToast(`Order marked as ${nextStatus}.`, { type: "success" });
   } catch (err) {
@@ -722,7 +882,32 @@ async function updateVendorOrderStatus(orderId, nextStatus) {
 }
 
 function renderEarningsHistory() {
-  if (!elements.paymentHistory) return;
+  if (!elements.paymentHistory || !elements.earningsHistoryList) return;
+
+  const orders = getVendorOrders();
+  elements.earningsHistoryList.innerHTML = orders.length
+    ? orders
+      .slice()
+      .sort((a, b) => getOrderTimestampValue(b) - getOrderTimestampValue(a))
+      .map((order) => {
+        const summary = getOrderCommissionSummary(order);
+
+        return `
+          <article class="vendor-table-card">
+            <div class="vendor-table-top">
+              <div><h4>${order.id}</h4><p class="vendor-table-meta">${order.customerName || "Customer"}</p></div>
+              <span class="status-pill ${getStatusClass(order.status || "Pending")}">${order.status || "Pending"}</span>
+            </div>
+            <div class="vendor-table-details">
+              <div><span>Total Sales</span><strong>${formatCurrency(summary.grossSales)}</strong></div>
+              <div><span>Commission Deducted</span><strong>${formatCurrency(summary.commissionDeducted)}</strong></div>
+              <div><span>Net Payout</span><strong>${formatCurrency(summary.vendorEarnings)}</strong></div>
+              <div><span>Payout Status</span><strong>${summary.payoutStatus}</strong></div>
+            </div>
+          </article>
+        `;
+      }).join("")
+    : `<div class="empty-state">No earnings history yet.</div>`;
 
   const payouts = getVendorPayouts();
 
@@ -733,18 +918,22 @@ function renderEarningsHistory() {
 
   elements.paymentHistory.innerHTML = payouts
     .map(
-      (payout) => `
+      (payout) => {
+        const payoutDate = payout.paidAt || payout.createdAt || payout.date || "N/A";
+
+        return `
         <article class="vendor-table-card">
           <div class="vendor-table-top">
             <div><h4>${payout.id}</h4><p class="vendor-table-meta">${payout.method || "Payout"}</p></div>
             <span class="status-pill ${getStatusClass(payout.status || "Pending")}">${payout.status || "Pending"}</span>
           </div>
           <div class="vendor-table-details">
-            <div><span>Date</span><strong>${payout.date || "N/A"}</strong></div>
+            <div><span>Date</span><strong>${payoutDate}</strong></div>
             <div><span>Amount</span><strong>${formatCurrency(payout.amount)}</strong></div>
           </div>
         </article>
-      `
+      `;
+      }
     )
     .join("");
 }
@@ -818,12 +1007,24 @@ function populateSettings() {
   const logoUrlInput = document.getElementById("settings-logo-url");
   const contactEmailInput = document.getElementById("settings-contact-email");
   const contactPhoneInput = document.getElementById("settings-contact-phone");
+  const locationInput = document.getElementById("settings-location");
   const descriptionInput = document.getElementById("settings-description");
 
   if (storeNameInput) storeNameInput.value = vendor.storeName || "";
   if (logoUrlInput) logoUrlInput.value = vendor.logoUrl || "";
   if (contactEmailInput) contactEmailInput.value = vendor.contactEmail || "";
   if (contactPhoneInput) contactPhoneInput.value = vendor.contactPhone || "";
+  if (locationInput) {
+    const optionsHtml = ['<option value="">Select your store location</option>']
+      .concat(
+        state.deliveryLocations.map((location) => `
+          <option value="${location.value}">${location.label}</option>
+        `)
+      )
+      .join("");
+    locationInput.innerHTML = optionsHtml;
+    locationInput.value = vendor.vendorLocation || "";
+  }
   if (descriptionInput) descriptionInput.value = vendor.description || "";
 
   if (storeNameInput) storeNameInput.readOnly = !!user?.displayName;
@@ -843,6 +1044,10 @@ function populateSettings() {
   }
   if (elements.settingsPhonePreview) {
     elements.settingsPhonePreview.textContent = vendor.contactPhone || "No phone found";
+  }
+  if (elements.settingsLocationPreview) {
+    const label = state.deliveryLocations.find((location) => location.value === vendor.vendorLocation)?.label;
+    elements.settingsLocationPreview.textContent = label || vendor.vendorLocation || "Not set";
   }
   if (elements.settingsVendorIdPreview) {
     elements.settingsVendorIdPreview.textContent = state.vendorId || "";
@@ -966,6 +1171,7 @@ async function upsertProduct(formData) {
 
   const payload = {
     vendorId: state.vendorId,
+    vendorLocation: getVendorProfile().vendorLocation || "",
     name: formData.name,
     category: formData.category,
     price: Number(formData.price || 0),
@@ -1042,6 +1248,7 @@ async function saveSettings(payload) {
     logoUrl: authDefaults.logoUrl || payload.logoUrl || "",
     contactEmail: authDefaults.contactEmail || payload.contactEmail || "",
     contactPhone: authDefaults.contactPhone || payload.contactPhone || "",
+    vendorLocation: payload.vendorLocation || getVendorProfile().vendorLocation || "",
     description: payload.description || "Professional marketplace dashboard for your store.",
     status: state.vendorProfile?.status || "pending"
   };
@@ -1277,6 +1484,7 @@ function bindEvents() {
       logoUrl: user?.photoURL || document.getElementById("settings-logo-url").value.trim(),
       contactEmail: user?.email || document.getElementById("settings-contact-email").value.trim(),
       contactPhone: user?.phoneNumber || document.getElementById("settings-contact-phone").value.trim(),
+      vendorLocation: document.getElementById("settings-location")?.value.trim() || "",
       description:
         document.getElementById("settings-description").value.trim() ||
         "Professional marketplace dashboard for your store."
@@ -1314,6 +1522,7 @@ function init() {
     await syncVendorProfileFromFirebaseLogin();
     subscribeProductsFromFirebase();
     subscribeOrdersFromFirebase();
+    subscribePayoutsFromFirebase();
 
     renderAll();
     resetProductForm();

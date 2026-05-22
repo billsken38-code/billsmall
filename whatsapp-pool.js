@@ -7,7 +7,7 @@ export const WHATSAPP_POOL = {
   agents: [
     { phone: "233599480662", name: "Customer Support" },
     { phone: "233200650019", name: "Sales Support" },
-    { phone: "233501234569", name: "Order Support" }
+  
   ],
 
   // Get a random agent from the pool

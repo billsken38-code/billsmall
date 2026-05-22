@@ -3,33 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Profile - BILLS MALL</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="profile-page.css" />
+  <title>Profile - BILLS CAMPUS MALL</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/profile.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#4B2E2B" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 </head>
 <body>
 
 <header class="navbar">
-  <h1 class="logo">👤 My Profile</h1>
-  <a href="index.html"><button type="button">⬅ Back to Shop</button></a>
+  <h1 class="logo">My Profile</h1>
+  <a href="index.html"><button type="button">Back to Shop</button></a>
 </header>
 
 <section class="hero profile-hero">
   <div class="profile-hero-content">
     <p class="profile-kicker">Account Center</p>
     <h2>Your Profile</h2>
-    <p>Manage your personal information and saved address.</p>
+    <p>Manage your personal information, delivery address, and referral earnings.</p>
   </div>
 </section>
 
 <main class="profile-page-shell">
   <div class="profile-container">
     <div class="profile-header upgraded-profile-header">
-      <div class="avatar" id="profile-avatar">👤</div>
+      <div class="avatar" id="profile-avatar">U</div>
       <div class="profile-header-text">
         <h2 id="user-name">Guest User</h2>
         <p id="user-email">No email saved</p>
-        <span class="profile-badge">Customer</span>
+        <span class="profile-badge" id="profile-role-badge">Customer</span>
       </div>
     </div>
 
@@ -55,19 +60,122 @@
         </div>
 
         <div class="profile-actions">
-          <a href="orders-user.html" class="action-card">📦 <p>Orders</p></a>
-          <a href="cart.html" class="action-card">🛒 <p>Cart</p></a>
+          <a href="orders-user.html" class="action-card"><span>Orders</span></a>
+          <a href="cart.html" class="action-card"><span>Cart</span></a>
+          <a href="#updates-info" class="action-card"><span>Updates</span></a>
         </div>
       </section>
     </div>
 
-    <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+    <div class="profile-summary-grid" id="referral-summary-grid">
+      <article class="profile-summary-card">
+        <span>Total Earnings</span>
+        <strong id="referral-total-earnings">GHS 0.00</strong>
+      </article>
+      <article class="profile-summary-card">
+        <span>Approved Balance</span>
+        <strong id="referral-approved-balance">GHS 0.00</strong>
+      </article>
+      <article class="profile-summary-card">
+        <span>Pending Balance</span>
+        <strong id="referral-pending-balance">GHS 0.00</strong>
+      </article>
+      <article class="profile-summary-card">
+        <span>Withdrawn</span>
+        <strong id="referral-withdrawn-balance">GHS 0.00</strong>
+      </article>
+    </div>
+
+    <div class="profile-grid">
+      <section class="section profile-panel">
+        <div class="section-top">
+          <div>
+            <p class="panel-kicker">Referral Link</p>
+            <h3>Invite Others</h3>
+          </div>
+        </div>
+        <p id="referral-code-display">Referral code: --</p>
+        <div class="referral-link-wrap">
+          <input type="text" id="referral-link-input" readonly />
+          <button type="button" id="copy-referral-link-btn">Copy Link</button>
+        </div>
+      </section>
+
+      <section class="section profile-panel">
+        <div class="section-top">
+          <div>
+            <p class="panel-kicker">Referral Network</p>
+            <h3>Your Community</h3>
+          </div>
+        </div>
+        <div class="referral-count-grid">
+          <div class="profile-summary-card compact">
+            <span>Customers Referred</span>
+            <strong id="customer-referral-count">0</strong>
+          </div>
+          <div class="profile-summary-card compact">
+            <span>Vendors Referred</span>
+            <strong id="vendor-referral-count">0</strong>
+          </div>
+        </div>
+        <p id="withdrawal-note" class="withdrawal-note">Minimum withdrawal applies to approved commissions.</p>
+      </section>
+    </div>
+
+    <div class="profile-grid">
+      <section class="section profile-panel" id="updates-info">
+        <div class="section-top">
+          <div>
+            <p class="panel-kicker">Updates & Info</p>
+            <h3>Marketplace Shortcuts</h3>
+          </div>
+        </div>
+        <div class="updates-info-grid">
+          <article class="referral-history-card">
+            <strong>Android App</strong>
+            <span>Install the official Bills Campus Mall app for faster mobile shopping.</span>
+            <a href="app-release-signed.apk" class="profile-inline-link" download>Download APK</a>
+          </article>
+          <article class="referral-history-card">
+            <strong>Shopping Help</strong>
+            <span>Need support with delivery, payments, or refunds before placing an order?</span>
+            <div class="updates-link-row">
+              <a href="help.html" class="profile-inline-link">Help Center</a>
+              <a href="contact.html" class="profile-inline-link">Contact Us</a>
+              <a href="policies.html" class="profile-inline-link">Policies</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section profile-panel">
+        <div class="section-top">
+          <div>
+            <p class="panel-kicker">Referral History</p>
+            <h3>Commission Activity</h3>
+          </div>
+        </div>
+        <div id="commission-history-list" class="referral-history-list"></div>
+      </section>
+
+      <section class="section profile-panel">
+        <div class="section-top">
+          <div>
+            <p class="panel-kicker">Referred Accounts</p>
+            <h3>People You Brought In</h3>
+          </div>
+        </div>
+        <div id="referred-account-list" class="referral-history-list"></div>
+      </section>
+    </div>
+
+    <button class="logout-btn" onclick="logout()">Logout</button>
   </div>
 </main>
 
 <div id="addressModal" class="modal">
   <div class="modal-box">
-    <h3>📍 Edit Address</h3>
+    <h3>Edit Address</h3>
     <input type="text" id="addressInput" placeholder="Enter your address" />
 
     <div class="modal-actions">
@@ -77,28 +185,28 @@
   </div>
 </div>
 
-<div id="toast" class="toast">Saved ✔</div>
+<div id="toast" class="toast">Saved</div>
 
 <div class="bottom-nav">
   <a href="index.html" class="nav-item">
-    <span>🏠</span>
+    <span>Home</span>
     <p>Home</p>
   </a>
   <a href="cart.html" class="nav-item">
-    <span>🛒</span>
+    <span>Cart</span>
     <p>Cart</p>
   </a>
   <a href="orders-user.html" class="nav-item">
-    <span>📦</span>
+    <span>Orders</span>
     <p>Orders</p>
   </a>
   <a href="profile.html" class="nav-item active">
-    <span>👤</span>
+    <span>Profile</span>
     <p>Profile</p>
   </a>
 </div>
 
-<script type="module" src="profile.js"></script>
+<script type="module" src="/profile.js"></script>
 
 </body>
 </html>

@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vendor Dashboard - BILLS MALL</title>
+  <title>Vendor Dashboard - BILLS CAMPUS MALL</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/vendor-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/vendor-512.png" />
   <link rel="stylesheet" href="/vendor-dashboard.css" />
   <link rel="manifest" href="/vendor-manifest.json" />
   <meta name="theme-color" content="#4B2E2B" />
@@ -15,7 +17,7 @@
       <div class="vendor-brand">
         <div class="vendor-brand-mark">BM</div>
         <div>
-          <h1>Bills Mall</h1>
+          <h1>Bills Campus Mall</h1>
           <p>Seller Center</p>
         </div>
       </div>
@@ -236,6 +238,15 @@
         <article class="vendor-card">
           <div class="vendor-card-head">
             <div>
+              <p class="vendor-card-eyebrow">Commission Breakdown</p>
+              <h3>Order-level earnings history</h3>
+            </div>
+          </div>
+          <div id="earnings-history-list" class="vendor-table-stack"></div>
+        </article>
+        <article class="vendor-card">
+          <div class="vendor-card-head">
+            <div>
               <p class="vendor-card-eyebrow">Payment History</p>
               <h3>Payout timeline</h3>
             </div>
@@ -295,6 +306,10 @@
                 <input type="text" id="settings-contact-phone" placeholder="+233 000 000 000" />
               </label>
               <label>
+                Store Location
+                <select id="settings-location"></select>
+              </label>
+              <label>
                 Store Description
                 <textarea id="settings-description" rows="4" placeholder="Tell buyers about your shop"></textarea>
               </label>
@@ -319,6 +334,10 @@
               <div>
                 <span>Phone</span>
                 <strong id="settings-phone-preview">+233 000 000 000</strong>
+              </div>
+              <div>
+                <span>Location</span>
+                <strong id="settings-location-preview">Not set</strong>
               </div>
               <div>
                 <span>Vendor ID</span>

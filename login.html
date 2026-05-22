@@ -3,77 +3,190 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login - BILLS MALL</title>
+<title>Login - BILLS CAMPUS MALL</title>
 
-<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<link rel="stylesheet" href="/style.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#4B2E2B">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 
 <style>
 body{
+  min-height:100vh;
+  margin:0;
   display:flex;
-  justify-content:center;
   align-items:center;
-  height:100vh;
-  background:linear-gradient(135deg,#eae9db,#d2b48c);
-  font-family:Arial;
+  justify-content:center;
+  padding:24px;
+  background:
+    radial-gradient(circle at top left, rgba(255,255,255,0.7), transparent 30%),
+    linear-gradient(135deg,#eae9db,#d2b48c 58%,#efe0c7);
+  font-family:Arial,sans-serif;
 }
 
-.container{
-  background:white;
-  padding:30px;
-  width:320px;
-  border-radius:15px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.15);
-  text-align:center;
+.auth-layout{
+  width:min(1080px,100%);
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(340px,420px);
+  gap:24px;
+  align-items:stretch;
 }
 
-input{
+.auth-showcase,
+.auth-card{
+  border-radius:28px;
+  box-shadow:0 24px 40px rgba(75,46,43,0.12);
+}
+
+.auth-showcase{
+  padding:36px;
+  background:linear-gradient(155deg,rgba(75,46,43,0.96),rgba(122,76,56,0.94));
+  color:#f7eadf;
+}
+
+.auth-kicker{
+  margin:0 0 10px;
+  color:#f5d8b6;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+
+.auth-showcase h1{
+  margin:0 0 14px;
+  font-size:clamp(2rem,4vw,3rem);
+  line-height:1;
+}
+
+.auth-showcase p{
+  margin:0;
+  max-width:560px;
+  color:#ead8c5;
+  line-height:1.65;
+}
+
+.auth-feature-list{
+  margin:24px 0 0;
+  padding-left:18px;
+  line-height:1.8;
+  color:#f3e5d5;
+}
+
+.auth-card{
+  background:rgba(255,255,255,0.94);
+  padding:32px 28px;
+}
+
+.auth-card h2{
+  margin:0 0 8px;
+  color:#2f1b16;
+  font-size:2rem;
+}
+
+.auth-subtitle{
+  margin:0 0 22px;
+  color:#6f6259;
+  line-height:1.55;
+}
+
+.auth-form{
+  display:grid;
+  gap:14px;
+}
+
+.auth-form input{
   width:100%;
-  padding:10px;
-  margin:10px 0;
-  border-radius:8px;
-  border:1px solid #ccc;
+  padding:14px 15px;
+  border-radius:14px;
+  border:1px solid #d9c9b7;
+  background:#fffdfb;
 }
 
-button{
+.auth-submit{
   width:100%;
-  padding:10px;
-  margin-top:10px;
-  background:#4B2E2B;
+  padding:14px 16px;
+  margin-top:4px;
+  background:linear-gradient(135deg,#4B2E2B,#7a4c38);
   color:white;
   border:none;
-  border-radius:8px;
+  border-radius:14px;
   cursor:pointer;
+  font-weight:700;
+  box-shadow:0 14px 26px rgba(75,46,43,0.18);
 }
 
-button:hover{
-  background:#8B5E3C;
+.auth-submit:hover{
+  background:linear-gradient(135deg,#5b3833,#8B5E3C);
 }
 
-a{
+.auth-links{
+  margin:18px 0 0;
+  color:#6f6259;
+  line-height:1.6;
+}
+
+.auth-links a{
   color:#8B5E3C;
+  font-weight:700;
+}
+
+#msg{
+  margin:14px 0 0;
+  min-height:22px;
+  font-weight:700;
+}
+
+@media (max-width:900px){
+  .auth-layout{
+    grid-template-columns:1fr;
+  }
+
+  .auth-showcase,
+  .auth-card{
+    padding:26px 22px;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<div class="container">
-  <h2>Login</h2>
+<div class="auth-layout">
+  <section class="auth-showcase">
+    <p class="auth-kicker">Welcome Back</p>
+    <h1>Log in and continue shopping with confidence</h1>
+    <p>Access your orders, saved delivery details, affiliate progress, and marketplace account in one place.</p>
+    <ul class="auth-feature-list">
+      <li>Track your orders from pending to delivered</li>
+      <li>Manage your profile and delivery address</li>
+      <li>View affiliate earnings and withdrawal status</li>
+    </ul>
+  </section>
 
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
+  <section class="auth-card">
+    <h2>Login</h2>
+    <p class="auth-subtitle">Enter your account details to continue to Bills Campus Mall.</p>
 
-  <button onclick="login()">Login</button>
+    <div class="auth-form">
+      <input type="email" id="email" placeholder="Email">
+      <input type="password" id="password" placeholder="Password">
+      <button class="auth-submit" onclick="login()">Login</button>
+    </div>
 
-  <p>
-    Don't have an account?
-    <a href="signup.html">Create Account</a>
-  </p>
+    <p class="auth-links">
+      Don't have an account?
+      <a href="signup.html">Create Account</a><br>
+      <a href="index.html">Back to Shop</a>
+    </p>
 
-  <p id="msg"></p>
+    <p id="msg"></p>
+  </section>
 </div>
 
-<script type="module" src="auth.js"></script>
+<script type="module" src="./auth.js"></script>
 
 </body>
 </html>

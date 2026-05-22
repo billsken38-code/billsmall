@@ -1,4 +1,5 @@
 const PENDING_TOAST_KEY = "pending_app_toast";
+const WHATSAPP_POSITION_KEY = "whatsapp_support_position";
 import { WHATSAPP_POOL } from "./whatsapp-pool.js";
 
 function ensureToastRoot() {
@@ -88,6 +89,140 @@ export function initWhatsAppButton() {
   `;
 
   document.body.appendChild(waBtn);
+  makeWhatsAppButtonDraggable(waBtn);
+}
+
+function makeWhatsAppButtonDraggable(button) {
+  if (!button) return;
+
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let originLeft = 0;
+  let originTop = 0;
+  let dragged = false;
+  let suppressClick = false;
+
+  const clampPosition = (left, top) => {
+    const rect = button.getBoundingClientRect();
+    const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+    const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+
+    return {
+      left: Math.min(Math.max(12, left), maxLeft),
+      top: Math.min(Math.max(12, top), maxTop)
+    };
+  };
+
+  const applyPosition = (left, top, persist = true) => {
+    const next = clampPosition(left, top);
+    button.style.left = `${next.left}px`;
+    button.style.top = `${next.top}px`;
+    button.style.right = "auto";
+    button.style.bottom = "auto";
+
+    if (persist) {
+      localStorage.setItem(WHATSAPP_POSITION_KEY, JSON.stringify(next));
+    }
+  };
+
+  const restorePosition = () => {
+    try {
+      const raw = localStorage.getItem(WHATSAPP_POSITION_KEY);
+      if (!raw) return;
+
+      const saved = JSON.parse(raw);
+      if (typeof saved.left !== "number" || typeof saved.top !== "number") return;
+
+      applyPosition(saved.left, saved.top, false);
+    } catch (error) {
+      console.error("Failed to restore WhatsApp button position:", error);
+    }
+  };
+
+  const resetDefaultPosition = () => {
+    button.style.left = "";
+    button.style.top = "";
+    button.style.right = "";
+    button.style.bottom = "";
+    localStorage.removeItem(WHATSAPP_POSITION_KEY);
+  };
+
+  requestAnimationFrame(restorePosition);
+
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+
+    const rect = button.getBoundingClientRect();
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    originLeft = rect.left;
+    originTop = rect.top;
+    dragged = false;
+    suppressClick = false;
+
+    button.classList.add("is-dragging");
+    button.setPointerCapture(pointerId);
+  });
+
+  button.addEventListener("pointermove", (event) => {
+    if (pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - startX;
+    const deltaY = event.clientY - startY;
+
+    if (!dragged && Math.hypot(deltaX, deltaY) > 6) {
+      dragged = true;
+      suppressClick = true;
+    }
+
+    if (!dragged) return;
+
+    applyPosition(originLeft + deltaX, originTop + deltaY);
+  });
+
+  const releaseDrag = (event) => {
+    if (pointerId !== event.pointerId) return;
+
+    if (button.hasPointerCapture(pointerId)) {
+      button.releasePointerCapture(pointerId);
+    }
+
+    pointerId = null;
+    button.classList.remove("is-dragging");
+
+    window.setTimeout(() => {
+      suppressClick = false;
+    }, 0);
+  };
+
+  button.addEventListener("pointerup", releaseDrag);
+  button.addEventListener("pointercancel", releaseDrag);
+
+  button.addEventListener("click", (event) => {
+    if (!suppressClick) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
+  button.addEventListener("dblclick", () => {
+    resetDefaultPosition();
+  });
+
+  window.addEventListener("resize", () => {
+    const raw = localStorage.getItem(WHATSAPP_POSITION_KEY);
+    if (!raw) return;
+
+    try {
+      const saved = JSON.parse(raw);
+      if (typeof saved.left !== "number" || typeof saved.top !== "number") return;
+      applyPosition(saved.left, saved.top);
+    } catch (error) {
+      console.error("Failed to resize WhatsApp button position:", error);
+    }
+  });
 }
 
 // Initialize on DOM ready

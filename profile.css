@@ -26,7 +26,7 @@
 
 .profile-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -99,6 +99,9 @@
 
 .profile-actions {
   margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .action-card {
@@ -106,6 +109,87 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 92px;
+  text-decoration: none;
+  color: #4b2e2b;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.compact {
+  padding: 14px;
+}
+
+.referral-link-wrap {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.referral-link-wrap input {
+  flex: 1;
+  min-width: 220px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #d8c7b2;
+}
+
+.referral-count-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.referral-history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.referral-history-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.referral-history-card strong,
+.referral-history-card span {
+  display: block;
+}
+
+.referral-history-card span {
+  color: #6f6259;
+  margin-top: 6px;
+  font-size: 0.92rem;
+}
+
+.withdrawal-note {
+  margin: 14px 0 0;
+  color: #6f6259;
+  font-size: 0.92rem;
+}
+
+.updates-info-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.profile-inline-link {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 10px;
+  color: #8b5e3c;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.updates-link-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 .logout-btn {
@@ -115,6 +199,11 @@
 @media (max-width: 900px) {
   .profile-summary-grid,
   .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-actions,
+  .referral-count-grid {
     grid-template-columns: 1fr;
   }
 }

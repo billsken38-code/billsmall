@@ -1,4 +1,4 @@
-const CACHE_NAME = "bills-mall-v3";
+const CACHE_NAME = "bills-mall-v5";
 
 const FILES_TO_CACHE = [
   "./",
@@ -78,23 +78,16 @@ self.addEventListener("fetch", (event) => {
   const isHtmlRequest =
     event.request.mode === "navigate" ||
     event.request.destination === "document";
-  const isCoreAsset =
+  const isFreshAsset =
     isSameOrigin &&
     (
-      requestUrl.pathname.endsWith("/script.js") ||
-      requestUrl.pathname.endsWith("/product.js") ||
-      requestUrl.pathname.endsWith("/cart.js") ||
-      requestUrl.pathname.endsWith("/profile.js") ||
-      requestUrl.pathname.endsWith("/checkout.js") ||
-      requestUrl.pathname.endsWith("/vendor-dashboard.js") ||
-      requestUrl.pathname.endsWith("/admin.js") ||
-      requestUrl.pathname.endsWith("/index.html") ||
       requestUrl.pathname === "/" ||
-      requestUrl.pathname.endsWith("/service-worker.js")
+      requestUrl.pathname.endsWith("/service-worker.js") ||
+      requestUrl.pathname.match(/\.(?:html|css|js)$/i)
     );
   const isSameOriginAsset = isSameOrigin && isCacheableAsset(requestUrl);
 
-  if (isHtmlRequest || isCoreAsset) {
+  if (isHtmlRequest || isFreshAsset) {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {

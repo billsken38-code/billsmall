@@ -1,4 +1,10 @@
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+
+import { auth } from "./firebase.js";
+import { redirectWithToast } from "./ui.js";
+
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
+let currentUser = null;
 
 const cartContainer = document.getElementById("cart-items");
 const totalDisplay = document.getElementById("cart-total");
@@ -8,10 +14,6 @@ const checkoutLink = document.getElementById("checkout-link");
 const summaryItems = document.getElementById("cart-summary-items");
 const summaryProducts = document.getElementById("cart-summary-products");
 const summaryTotal = document.getElementById("cart-summary-total");
-
-function isLoggedIn() {
-  return !!localStorage.getItem("userId");
-}
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-GH", {
@@ -89,8 +91,9 @@ function displayCart() {
   summaryProducts.innerText = cart.length;
   summaryTotal.innerText = formatCurrency(total);
 
+  const canCheckout = !!currentUser?.emailVerified;
   checkoutBtn.disabled = false;
-  checkoutLink.setAttribute("href", "checkout.html");
+  checkoutLink.setAttribute("href", canCheckout ? "checkout.html" : "login.html");
 }
 
 function increase(index) {
@@ -138,19 +141,16 @@ cartContainer?.addEventListener("click", (event) => {
   if (action === "remove") removeItem(index);
 });
 
-checkoutLink?.addEventListener("click", (event) => {
-  if (checkoutBtn?.disabled || isLoggedIn()) return;
+checkoutBtn?.addEventListener("click", (event) => {
+  if (currentUser?.emailVerified) return;
 
   event.preventDefault();
-  sessionStorage.setItem(
-    "pending_app_toast",
-    JSON.stringify({
-      message: "Please log in to continue to checkout.",
-      type: "info",
-      duration: 2600
-    })
-  );
-  window.location.href = "login.html";
+  redirectWithToast("login.html", "Log in before proceeding to checkout.", { type: "info" });
+});
+
+onAuthStateChanged(auth, (user) => {
+  currentUser = user?.emailVerified ? user : null;
+  displayCart();
 });
 
 displayCart();

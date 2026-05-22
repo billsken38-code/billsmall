@@ -3,31 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Product Details - Bills Mall</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="product.css" />
+  <title>Product Details - Bills Campus Mall</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/product.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#4B2E2B" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 </head>
 <body>
   <header class="navbar">
     <a href="index.html"><button type="button">&larr; Back</button></a>
     <h1 class="logo">Product Details</h1>
-    <div class="nav-actions product-nav-actions">
-      <a href="login.html" class="login-cta-btn" id="login-cta-button">Login</a>
-    </div>
   </header>
 
   <main class="product-page-shell">
     <div id="product-details">
       <div class="product-page-empty">Loading product...</div>
     </div>
+    <section class="related-products-section">
+      <div class="section-top">
+        <div>
+          <p class="panel-kicker">Recommended</p>
+          <h3>Related Products</h3>
+        </div>
+      </div>
+      <div id="related-products" class="products"></div>
+    </section>
     <div id="reviews-container"></div>
   </main>
 
-  <div id="login-callout" class="login-callout" hidden>
-    <div class="login-callout-arrow" aria-hidden="true"></div>
-    <p class="login-callout-text">Log in first to add products to your cart.</p>
-  </div>
-
-  <script type="module" src="product.js"></script>
+  <script type="module" src="/product.js"></script>
 </body>
 </html>
